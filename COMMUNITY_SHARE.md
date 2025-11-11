@@ -9,6 +9,8 @@
 
 ## 🌾 YIELD HACKER
 
+Website: https://opensea.io/collection/yield-hacker-pass-yhp
+
 ### Mensagem para Telegram
 
 ```
@@ -50,6 +52,8 @@ Construído com a comunidade Yield Hacker! 🌾
 ---
 
 ## 💰 RENDA CRIPTO
+
+Website: https://rendacripto.com.br/
 
 ### Mensagem para Telegram
 
@@ -93,6 +97,8 @@ Desenvolvido com a Renda Cripto community! 💰
 ---
 
 ## 🏗️ CULTURA BUILDER
+
+Website: https://culturabuilder.com/
 
 ### Mensagem para Telegram
 

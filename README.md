@@ -16,9 +16,9 @@ Enable Claude to autonomously trade, analyze, and manage positions on Polymarket
 **[Caio Vicentino](https://github.com/caiovicentino)**
 
 Developed in collaboration with:
-- 🌾 **[Yield Hacker](https://t.me/yieldhacker)** - DeFi Innovation Community
-- 💰 **[Renda Cripto](https://t.me/rendacripto)** - Crypto Trading Community
-- 🏗️ **[Cultura Builder](https://t.me/culturabuilder)** - Builder Culture Community
+- 🌾 **[Yield Hacker](https://opensea.io/collection/yield-hacker-pass-yhp)** - DeFi Innovation Community
+- 💰 **[Renda Cripto](https://rendacripto.com.br/)** - Crypto Trading Community
+- 🏗️ **[Cultura Builder](https://culturabuilder.com/)** - Builder Culture Community
 
 Powered by **[Claude Code](https://claude.ai/code)** from Anthropic
 
@@ -333,9 +333,9 @@ Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on:
 
 ### Join Our Communities
 
-- 🌾 **[Yield Hacker](https://t.me/yieldhacker)** - DeFi Innovation & Yield Farming
-- 💰 **[Renda Cripto](https://t.me/rendacripto)** - Crypto Trading & Investments
-- 🏗️ **[Cultura Builder](https://t.me/culturabuilder)** - Builder Culture & Development
+- 🌾 **[Yield Hacker](https://opensea.io/collection/yield-hacker-pass-yhp)** - DeFi Innovation & Yield Farming
+- 💰 **[Renda Cripto](https://rendacripto.com.br/)** - Crypto Trading & Investments
+- 🏗️ **[Cultura Builder](https://culturabuilder.com/)** - Builder Culture & Development
 
 ### Get Support
 
