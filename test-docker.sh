@@ -11,22 +11,35 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-print_success() { echo -e "${GREEN}✓${NC} $1"; }
-print_error() { echo -e "${RED}✗${NC} $1"; }
-print_info() { echo -e "${BLUE}ℹ${NC} $1"; }
-print_test() { echo -e "${YELLOW}➜${NC} $1"; }
+# ASCII-only symbols: this script must stay pure-ASCII (the Windows CI decodes
+# it with the legacy charmap; a non-ASCII byte here is a guaranteed
+# UnicodeDecodeError on every reader that does not pass encoding= explicitly).
+print_success() { echo -e "${GREEN}+${NC} $1"; }
+print_error() { echo -e "${RED}x${NC} $1"; }
+print_info() { echo -e "${BLUE}i${NC} $1"; }
+print_test() { echo -e "${YELLOW}>${NC} $1"; }
 
 echo -e "${BLUE}"
 cat << "EOF"
-╔════════════════════════════════════════════╗
-║   Docker Infrastructure Test Suite        ║
-╚════════════════════════════════════════════╝
++--------------------------------------------+
+|   Docker Infrastructure Test Suite        |
++--------------------------------------------+
 EOF
 echo -e "${NC}"
 
 # Test counter
 TESTS_PASSED=0
 TESTS_FAILED=0
+
+# Cleanup (idempotent): removes the temporary .env.test and the test image.
+# Installed as a trap on EXIT/INT/TERM so it runs on EVERY exit path --
+# including an early death under set -e -- and is also called explicitly at
+# the end of the script (before the summary).
+cleanup() {
+    rm -f .env.test
+    docker rmi polymarket-mcp:test > /dev/null 2>&1 || true
+}
+trap 'rc=$?; cleanup; exit $rc' EXIT INT TERM
 
 # Test function
 run_test() {
@@ -37,12 +50,12 @@ run_test() {
 
     if eval "$test_command" > /dev/null 2>&1; then
         print_success "$test_name"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED+1))
         return 0
     else
         print_error "$test_name"
-        ((TESTS_FAILED++))
-        return 1
+        TESTS_FAILED=$((TESTS_FAILED+1))
+        return 0
     fi
 }
 
@@ -82,7 +95,7 @@ EOF
 print_test "Building Docker image (this may take a minute)..."
 if docker build -t polymarket-mcp:test . > /tmp/docker-build.log 2>&1; then
     print_success "Docker build succeeded"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 
     # Test image properties
     echo ""
@@ -100,17 +113,17 @@ if docker build -t polymarket-mcp:test . > /tmp/docker-build.log 2>&1; then
     print_test "Testing image can start..."
     if timeout 10s docker run --rm --env-file .env.test polymarket-mcp:test python -c "from polymarket_mcp.config import load_config; print('OK')" > /tmp/docker-run.log 2>&1; then
         print_success "Image runs successfully"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED+1))
     else
         print_error "Image failed to run"
         echo "Check /tmp/docker-run.log for details"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED+1))
     fi
 
 else
     print_error "Docker build failed"
     echo "Check /tmp/docker-build.log for details"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
 
 # Kubernetes files test
@@ -148,25 +161,24 @@ echo ""
 print_info "Validating docker-compose.yml..."
 if docker compose config > /dev/null 2>&1; then
     print_success "docker-compose.yml is valid"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     print_error "docker-compose.yml has errors"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
 
 # Clean up
 echo ""
 print_info "Cleaning up test artifacts..."
-rm -f .env.test
-docker rmi polymarket-mcp:test > /dev/null 2>&1 || true
+cleanup
 print_success "Cleanup complete"
 
 # Summary
 echo ""
-echo -e "${BLUE}═════════════════════════════════════════════${NC}"
+echo -e "${BLUE}---------------------------------------------${NC}"
 echo -e "${GREEN}Tests passed: $TESTS_PASSED${NC}"
 echo -e "${RED}Tests failed: $TESTS_FAILED${NC}"
-echo -e "${BLUE}═════════════════════════════════════════════${NC}"
+echo -e "${BLUE}---------------------------------------------${NC}"
 
 if [ $TESTS_FAILED -eq 0 ]; then
     echo ""
