@@ -55,7 +55,7 @@ FORK_POINT = "e39701341ad49ba8ddbe691dc38a186577db8e0c"
 
 STALE_PT_CLAIM = "mesmo tratamento"
 STALE_UNIT_CLAIM = "does not exclude"
-STALE_AUTHOR_PATH = "/Users/caiovicentino"
+STALE_AUTHOR_PATH = "/Users/"
 
 # Positive sisters: the corrected claims that must survive by construction.
 CORRECTED_INTEGRATION_CLAIM = "job-level continue-on-error"
@@ -132,21 +132,49 @@ def test_suite_file_is_pure_ascii():
     assert data.isascii(), "non-ASCII byte in the suite file itself"
 
 
+_VALID_ASCII_BYTES = frozenset(range(0x20, 0x7F)) | frozenset({0x09, 0x0A, 0x0B, 0x0C, 0x0D})
+
+
+def _has_offender(line: bytes) -> bool:
+    """True when the diff line carries at least one byte outside the POSIX
+    ``[[:print:][:space:]]`` class in LC_ALL=C (printable 0x20-0x7E plus
+    tab/LF/VT/FF/CR). Pure-byte check: no locale, no subprocess shell."""
+    return any(b not in _VALID_ASCII_BYTES for b in line)
+
+
 def test_edited_docs_delta_is_ascii():
     """Repo item 147 delta-scoped guard: the two edited docs carry pre-existing
     non-ASCII bytes, so the guard checks ONLY the added (+) diff lines since the
-    static fork-point. The grep -c with zero matches prints '0' and exits 1."""
-    cmd = (
-        f"git diff {FORK_POINT}..HEAD -- CONTRIBUTING.md WEB_DASHBOARD.md"
-        " | grep '^+' | env LC_ALL=C grep -c '[^[:print:][:space:]]'"
-    )
-    proc = subprocess.run(
-        ["bash", "-c", cmd],
+    static fork-point. Portability fix (farm/T-0441; CI run 35504386795):
+    the previous pipeline spawned ``bash -c`` -- on windows-latest that
+    resolves to the System32 WSL launcher (no distro), whose stdout is
+    UTF-16LE ("Windows Subsystem for Linux has no installed distributions")
+    and the assert REDed deterministically on both Windows jobs. The check is
+    now pure Python over ``git diff`` bytes (git is on every runner); the
+    grep '^+' semantics (lines starting with a plus sign) and the
+    ``[[:print:][:space:]]`` byte class are replicated exactly."""
+    diff = subprocess.run(
+        ["git", "diff", f"{FORK_POINT}..HEAD", "--", "CONTRIBUTING.md", "WEB_DASHBOARD.md"],
         cwd=ROOT,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
-    assert proc.stdout.strip() == b"0", (
+    plus_lines = [line for line in diff.stdout.split(b"\n") if line.startswith(b"+")]
+    offenders = [line for line in plus_lines if _has_offender(line)]
+    assert not offenders, (
         f"non-ASCII bytes added to the edited docs since {FORK_POINT}: "
-        f"stdout={proc.stdout!r} stderr={proc.stderr!r}"
+        f"offending lines={offenders!r}"
     )
+
+
+def test_ascii_detector_flags_nonascii_bytes():
+    """The pure-byte detector knows when to fail (repo L-0065): UTF-8
+    multi-byte, NUL (the UTF-16LE WSL-launcher signature), control and DEL
+    bytes are offenders; CRLF, tab and printable ASCII are not."""
+    assert _has_offender(b"+\xe2\x9c\x85 Route registered")
+    assert _has_offender(b"+Windows\x00Subsystem")
+    assert _has_offender(b"+\x01 control")
+    assert _has_offender(b"+DEL\x7f")
+    assert not _has_offender(b"+plain ASCII line\r\n")
+    assert not _has_offender(b"+tab\tand space ok")
+    assert not _has_offender(b"+A1-06 printable")
