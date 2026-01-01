@@ -682,6 +682,7 @@ def get_tools() -> List[types.Tool]:
                     },
                     "depth": {
                         "type": "integer",
+                        "minimum": 1,
                         "description": "Number of price levels per side (default 20)",
                         "default": 20
                     }
@@ -776,6 +777,7 @@ def get_tools() -> List[types.Tool]:
                     },
                     "limit": {
                         "type": "integer",
+                        "minimum": 1,
                         "description": "Number of top holders (default 10)",
                         "default": 10
                     }
