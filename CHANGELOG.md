@@ -273,7 +273,10 @@ The first public release of Polymarket MCP Server - a complete AI-powered tradin
   unreachable in Docker deployments (PR #99).
 - **Windows CI suite**: target files are read with an explicit UTF-8
   encoding and the Kubernetes suite hardens its reads, unblocking the
-  Comprehensive Tests workflow on windows runners (PR #100).
+  Comprehensive Tests workflow on windows runners (PR #100); the
+  architecture/CHANGELOG and Kubernetes manifest targets are ASCII-safe
+  so reads without an explicit encoding cannot crash the CI either
+  (PR #110).
 - **Setup/testing docs claims**: TEST_SUMMARY and TESTING no longer carry
   volatile test, line, or hook counts or unstated live-API assumptions;
   commands follow the canonical offline selection (PR #101).
@@ -289,6 +292,36 @@ The first public release of Polymarket MCP Server - a complete AI-powered tradin
   from `/dev/tty` when available and falls back to safe defaults without
   a TTY; the reinstall path never runs `rm -rf` unattended (PR #105).
 
+- **Dashboard market fields**: dashboard cards now read the wire keys the
+  Gamma API actually provides, so volume, outcome prices and spread render
+  real values instead of $0, N/A and 0% for every market (PR #111).
+- **Connection test honesty**: a tool error envelope (200 with ``error``) no
+  longer reports "Connection successful"; the dashboard test-connection
+  route surfaces the real error (PR #134).
+- **Dashboard wiring**: the closing-soon button fetches a real
+  ``/api/markets/closing-soon`` route, the category filter sets the query
+  before searching, and error envelopes plus HTTP failures are surfaced in
+  every panel instead of rendering as empty lists (PR #131).
+- **Rate limit backoff (trading)**: 429 responses received by order
+  submission, order status and cancellation paths now arm the rate limiter's
+  exponential backoff for the right endpoint category (PR #132).
+- **Rate limit backoff (portfolio)**: 429 responses received by the CLOB
+  read surfaces (positions, P&L, orderbook fallbacks) arm the exponential
+  backoff (PR #135).
+- **Gamma pagination**: listing markets no longer truncates silently after
+  the wire's 100-row cap; follow-up pages are fetched with offset (PR #120).
+- **WebSocket dashboard crash**: the dashboard /ws endpoint no longer
+  crashes on the first send with a non-JSON-serializable uptime datetime
+  (PR #119).
+- **Windows install compatibility**: install output uses printf so CRLF
+  paths from Windows checkouts no longer corrupt messages (PR #115).
+- **Windows docker-test guard**: the executable-bit check of test-docker.sh
+  is skipped on MSYS/MINGW/CYGWIN checkouts where the bit is absent by
+  design (PR #116).
+- **FAQ code samples**: the import example no longer raises NameError under
+  ``import *`` and the stale backtesting claim reflects the shipped release
+  (PR #133).
+
 ### Added
 
 - **`py.typed` marker (PEP 561)**: the wheel now ships typing metadata so type
@@ -299,6 +332,14 @@ The first public release of Polymarket MCP Server - a complete AI-powered tradin
 - **`server/discover` MCP method**: connection-agnostic capability discovery
   via a pre-handshake stream interceptor (lote PR #49).
 
+- **Data-API pagination**: ``fetch_all_pages`` follows offset pagination for
+  positions/trades/activity so large wallets are no longer silently
+  truncated at one page (PR #113).
+- **Community directory**: the README links the project in the Awesome Agent
+  Trading directory (PR #114).
+- **Confirmation flow reference**: TOOLS_REFERENCE documents which tools
+  require explicit confirmation (PR #117).
+
 ### Changed
 
 - **Pre-commit hook hygiene**: the broken `poetry-check` hook (which required
@@ -308,6 +349,14 @@ The first public release of Polymarket MCP Server - a complete AI-powered tradin
   dot-prefixed virtual environments and caches (`.venv/`, `.worktrees/`,
   `.mypy_cache/`), shrinking the Docker build context by roughly 2GB
   (PR #106).
+- **Pre-commit pytest-fast hook**: the fast hook excludes the performance
+  tier so benchmarks no longer hit live APIs on every commit (PR #112).
+- **Dependency pins**: ``mcp`` and ``eth-account`` requirements are pinned to
+  ranges verified for the trading path (PR #121).
+- **Makefile hygiene**: the Makefile derives the package version from the
+  source of truth and completes its ``.PHONY`` target list (PR #130).
+- **Frozen requirements**: a pinned snapshot of the dev environment is
+  committed and the venv pip is upgraded past vulnerable releases (PR #136).
 
 ### Planned Features
 - Enhanced AI analysis tools
