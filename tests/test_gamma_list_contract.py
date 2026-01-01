@@ -27,13 +27,13 @@ stateless public endpoints):
 4. GET /markets?featured=true&active=true&closed=false -> 200 (the
    ``featured`` query param is accepted by the API).
 
-This suite pins the REAL contract as xfail(strict=True) for the two bugs
-(the flip contract for the human fix -- precedent R3/T-0212) plus live
-integration greens pinning the wire fields. Known flip targets when the
-fixes land: tests/test_market_discovery_offline.py :473 (fixture feeds the
-NON-EXISTENT ``volume7d`` key -- a rename of the volume_key_map makes the
-sort tie) and :733 (pins the Z-divergence as OBSERVED -- the fix makes
-closing_soon include Z dates).
+The trending half of the REAL contract is now a PLAIN regression pin: the
+volume_key_map fix landed (farm/T-0455 -- the map reads the real
+volume1wk/volume1mo fields, and the sibling fixture in
+tests/test_market_discovery_offline.py was renamed to the same wire keys).
+The closing_soon Z-suffix bug remains an xfail(strict) pin for its fix
+(REQUER-HUMANO item 152 -- naive-vs-aware comparison; precedent R3/T-0212).
+Live integration greens still pin the wire fields themselves.
 """
 
 import pytest
@@ -68,10 +68,9 @@ def install_fetch_stub(monkeypatch, payload=None, error=None):
 
 # --- Offline xfail-strict pins (the flip contract) -------------------------
 
-@pytest.mark.xfail(reason="get_trending_markets sorts by volume7d/"
-                          "volume30d which DO NOT EXIST in the gamma /markets "
-                          "list (real: volume1wk/1mo) -- sort is a no-op "
-                          "(REQUER-HUMANO item 141)", strict=True)
+# FIXED (farm/T-0455): the key map reads the real volume1wk/volume1mo
+# fields, so the sort below is live and this pin is now a plain regression
+# test (was xfail(strict) -- the flip contract consumed).
 @pytest.mark.asyncio
 async def test_trending_7d_sorts_by_real_volume_field(monkeypatch):
     """timeframe=7d must sort by the REAL wire field volume1wk (desc)."""
@@ -89,10 +88,8 @@ async def test_trending_7d_sorts_by_real_volume_field(monkeypatch):
     assert [m["id"] for m in result] == ["b", "c", "a"]
 
 
-@pytest.mark.xfail(reason="get_trending_markets sorts by volume7d/"
-                          "volume30d which DO NOT EXIST in the gamma /markets "
-                          "list (real: volume1wk/1mo) -- sort is a no-op "
-                          "(REQUER-HUMANO item 141)", strict=True)
+# FIXED (farm/T-0455): same key-map fix; the 30d timeframe now sorts by
+# the real volume1mo field (was xfail(strict) -- flip contract consumed).
 @pytest.mark.asyncio
 async def test_trending_30d_sorts_by_real_volume_field(monkeypatch):
     """timeframe=30d must sort by the REAL wire field volume1mo (desc)."""

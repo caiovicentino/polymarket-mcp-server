@@ -471,15 +471,15 @@ async def test_trending_keeps_enddate_only_and_int_timestamp_dates(monkeypatch):
 
 
 async def test_trending_sorts_by_timeframe_volume_desc(monkeypatch):
-    low = {"id": "low", "volume24hr": 10, "volume7d": 10, "volume30d": 10}
-    high = {"id": "high", "volume24hr": 1, "volume7d": 30, "volume30d": 10}
-    mid = {"id": "mid", "volume24hr": 5, "volume7d": 20, "volume30d": 10}
+    low = {"id": "low", "volume24hr": 10, "volume1wk": 10, "volume1mo": 10}
+    high = {"id": "high", "volume24hr": 1, "volume1wk": 30, "volume1mo": 10}
+    mid = {"id": "mid", "volume24hr": 5, "volume1wk": 20, "volume1mo": 10}
     install_fetch_stub(monkeypatch, payload=[low, high, mid])
 
     result = await market_discovery.get_trending_markets(timeframe="7d", limit=3)
 
     # volume24hr order would be low > mid > high; the assert proves the sort
-    # keyed on volume7d (L-0115: discriminating inputs).
+    # keyed on volume1wk (the real wire field; L-0115 discriminating inputs).
     assert [m["id"] for m in result] == ["high", "mid", "low"]
 
 
