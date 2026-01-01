@@ -142,13 +142,11 @@ python src/polymarket_mcp/web/app.py
 Edit `src/polymarket_mcp/web/app.py` and modify the `start()` function call:
 
 ```python
-def start(host: str = "0.0.0.0", port: int = 8080):
-    """Start the web dashboard server"""
-    logger.info(f"Starting Polymarket MCP Dashboard on http://{host}:{port}")
-    uvicorn.run(app, host=host, port=port)
+def start(host: str | None = None, port: int | None = None):
+    """Start the web dashboard server (loopback by default)."""
 ```
 
-Or pass parameters directly:
+Or set the `WEB_HOST`/`WEB_PORT` environment variables instead of editing the source — `start()` reads `WEB_HOST` (default `127.0.0.1`) and logs a warning if it is bound off loopback:
 
 ```python
 if __name__ == "__main__":
@@ -302,6 +300,11 @@ uvicorn.run(
 )
 ```
 
+> **Warning:** the dashboard has **no authentication** — exposing it beyond
+> loopback (even with TLS) hands control of the trading limits to anyone who
+> reaches the port. Prefer a loopback tunnel (e.g. SSH port-forward) until
+> authentication is actually added (the snippet below is illustrative).
+
 2. **Add Authentication**:
 ```python
 from fastapi import Depends, HTTPException, status
@@ -350,8 +353,12 @@ async def get_trending(request: Request):
 
 ```bash
 # With auto-reload
-uvicorn polymarket_mcp.web.app:app --reload --host 0.0.0.0 --port 8080
+uvicorn polymarket_mcp.web.app:app --reload --host 127.0.0.1 --port 8080
 ```
+
+> **Note:** the dashboard has no authentication and `POST /api/config` can
+> rewrite the trading safety limits — keep it bound to `127.0.0.1` unless you
+> are on a trusted, isolated network.
 
 ### Debugging
 
@@ -366,7 +373,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 ```bash
 # Install test dependencies
-pip install pytest pytest-asyncio httpx
+pip install -e ".[dev]"
 
 # Run tests
 pytest tests/test_web.py -v
@@ -421,7 +428,7 @@ async def my_endpoint():
 
 **Solution**:
 ```bash
-pip install fastapi uvicorn jinja2
+pip install -e .
 ```
 
 ### MCP Not Connected
