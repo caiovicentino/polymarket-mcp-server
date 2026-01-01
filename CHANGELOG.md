@@ -362,6 +362,29 @@ The first public release of Polymarket MCP Server - a complete AI-powered tradin
 - `install.sh` fails loudly with a clear message when the input stream
   ends before the wallet prompts are answered, instead of dying silently
   mid-setup (PR #164).
+- The server-provided `Retry-After` hint on a 429 is now clamped to the
+  same 60-second ceiling the exponential backoff uses, so an untrusted
+  or errant header value can no longer arm an unbounded backoff
+  (PR #166).
+- `parse_tick_size` now treats non-finite tick sizes ('nan', 'inf') as
+  unusable and returns None (the documented no-alignment behavior)
+  instead of raising a cryptic `decimal.InvalidOperation` from the
+  comparison or accepting an infinite tick that passes the positivity
+  check (PR #167).
+- The install-script test harness now feeds stdin as bytes and invokes
+  bash by absolute path, so the fail-loud EOF guard works again on
+  `windows-latest` where text-mode translation turned newlines into
+  CR-prefixed input that looped the wallet prompt (PR #168).
+- SIGTERM/SIGINT now wake the event loop (`loop.add_signal_handler` plus
+  a scheduled shutdown-and-exit task) instead of only setting an event an
+  idle kqueue never delivered, so the stdio server runs the graceful
+  shutdown and exits promptly on a signal instead of hanging until
+  SIGKILL (PR #170).
+- The 429-backoff wiring now reaches follow-up pages: all 8
+  `fetch_all_pages` call sites (7 in the portfolio tools, 1 in the auth
+  client) pass the opt-in `rate_limiter`/`category` kwargs, so a 429 on
+  page 2 or later arms the backoff instead of only the first page
+  (PR #176).
 
 ### Added
 
@@ -398,6 +421,15 @@ The first public release of Polymarket MCP Server - a complete AI-powered tradin
   source of truth and completes its ``.PHONY`` target list (PR #130).
 - **Frozen requirements**: a pinned snapshot of the dev environment is
   committed and the venv pip is upgraded past vulnerable releases (PR #136).
+- **Internal 429-note consolidation**: the seven duplicated `_note_*`
+  helpers of the 429 backoff wiring now live in
+  `utils/rate_limit_note.py` with thin per-module delegates; call sites
+  and test behavior are unchanged (PR #173).
+- **Root-script lint hygiene**: the five zero-semantic findings in the
+  root example scripts (unused imports, dead assignments) are fixed,
+  while the remaining 26 findings stay with documented justification
+  (F401 probe imports, E722 Ctrl+C handlers, F841 scaffolding)
+  (PR #177).
 
 ### Planned Features
 - Enhanced AI analysis tools
