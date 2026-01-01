@@ -248,13 +248,14 @@ async def get_all_positions(
         )]
 
 
-def _position_matches_market(row: Dict[str, Any], market_id: str) -> bool:
+def _market_row_matches(row: Dict[str, Any], market_id: str) -> bool:
     """True when the row belongs to the requested market.
 
     The Data API /positions + /trades payloads carry the market as
     ``conditionId`` (camelCase, probed 2026-09-20). The wire DROPS the
     ``market`` filter for padded condition ids (sports/GAMES form), so the
-    client-side check is the honest defense. ``market`` is read as fallback
+    client-side check is the honest defense (T-0452 positions, T-0456
+    trades -- consolidated here per L-0073). ``market`` is read as fallback
     for test fixtures shaped after the tool's legacy parsing.
     """
     wanted = market_id.lower()
@@ -263,6 +264,10 @@ def _position_matches_market(row: Dict[str, Any], market_id: str) -> bool:
         if value is not None and str(value).lower() == wanted:
             return True
     return False
+
+
+# Delegate names preserved for call sites and pinned suites (L-0073).
+_position_matches_market = _market_row_matches
 
 
 async def get_position_details(
@@ -812,22 +817,9 @@ async def get_pnl_summary(
         )]
 
 
-def _trade_matches_market(row: Dict[str, Any], market_id: str) -> bool:
-    """True when the trade row belongs to the requested market.
-
-    The Data API /trades payload carries the market as ``conditionId``
-    (camelCase, probed 2026-09-20); ``market`` is read as fallback for test
-    fixtures shaped after the tool's legacy parsing. The wire DROPS the
-    ``market`` filter for padded condition ids (sports/GAMES form), so the
-    client-side check is the honest defense (farm/T-0456; sibling of
-    T-0452's position helper -- consolidation is a declared follow-up).
-    """
-    wanted = market_id.lower()
-    for key in ("conditionId", "market"):
-        value = row.get(key)
-        if value is not None and str(value).lower() == wanted:
-            return True
-    return False
+# Delegate name preserved for call sites and pinned suites (L-0073;
+# canonical body lives in _market_row_matches).
+_trade_matches_market = _market_row_matches
 
 
 async def get_trade_history(
