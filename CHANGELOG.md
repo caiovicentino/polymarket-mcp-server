@@ -413,6 +413,15 @@ The first public release of Polymarket MCP Server - a complete AI-powered tradin
   Gamma pagination tools cap each call at `maximum: 1000` rows (derived from
   the module constants), `compare_markets` requires 2-10 markets, and the
   `hours`, `min_value` and `max_actions` parameters gain minimums (PR #203).
+- **Batch order schema honesty**: the `create_batch_orders` item schema now
+  declares the same `order_type` enum (`GTC`/`GTD`/`FOK`/`FAK`) as
+  `create_limit_order`, mirroring the runtime validator that each entry
+  already enforces, via a module-level constant shared by both schemas
+  (PR #204).
+- **Batch item bounds**: the `create_batch_orders` item gains the same
+  declarative price/size bounds as the single order (`price` 0.01-0.99,
+  `size` minimum 1), derived from the same module-level constants
+  (single-source anti-drift) (PR #206).
 
 ### Added
 
