@@ -106,8 +106,11 @@ def test_other_schemas_unchanged():
     - the create_batch_orders top-level stays {type: object, properties:
       {orders: ...}, required: [orders]};
     - the batch item keeps exactly its seven property keys and its required
-      list, with every non-order_type/non-expiration prop byte-identical
-      (by value) to the fork state (3ad9954);
+      list, with every non-order_type/non-expiration prop matching the
+      fork state (3ad9954) - price/size were STIFFENED by T-0451 (they now
+      declare the single tool's bounds via the module-level constants) and
+      market_id/side/outcome stay byte-identical (by value) to the fork
+      state;
     - the single schema keeps its other props (market_id/side/price/size/
       confirm/outcome) and the full order_type prop (type/default/
       description) identical by value - the enum itself is covered by
@@ -135,12 +138,30 @@ def test_other_schemas_unchanged():
     # they are exactly the fields the E4/E5 edits change (covered by tests
     # 1 and 4) - pinning the post-state here would break the GREEN pre
     # property of this anti-over-fix test.
+    # T-0451 STIFFENING (supersedes the bare {"type": "number"} expectations
+    # pinned by the T-0447 slice): the batch item price/size now declare the
+    # single tool's bounds (price 0.01-0.99, size minimum=1) - the same
+    # values the create_limit_order schema declares, sourced from the same
+    # module-level constants (LIMIT_PRICE_MIN/LIMIT_PRICE_MAX/ORDER_SIZE_MIN)
+    # so single and item cannot drift from each other. This closes the
+    # declarative-honesty gap registered by the T-0447 census. The loop of
+    # keys is unchanged; market_id/side/outcome stay byte-identical to the
+    # fork state (3ad9954).
     for key in ("market_id", "side", "price", "size", "outcome"):
         assert item_props[key] == {
             "market_id": {"type": "string"},
             "side": {"type": "string", "enum": ["BUY", "SELL"]},
-            "price": {"type": "number"},
-            "size": {"type": "number"},
+            "price": {
+                "type": "number",
+                "minimum": 0.01,
+                "maximum": 0.99,
+                "description": "Limit price (0.01-0.99)",
+            },
+            "size": {
+                "type": "number",
+                "minimum": 1,
+                "description": "Order size in USD",
+            },
             "outcome": {"type": "string"},
         }[key], item_props[key]
 
