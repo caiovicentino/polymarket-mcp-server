@@ -22,7 +22,7 @@ Abra o arquivo:
 code ~/Library/Application\ Support/Claude/claude_desktop_config.json
 ```
 
-E substitua estas linhas na seção `polymarket-trading`:
+E substitua estas linhas na seção `polymarket`:
 ```json
 "POLYGON_PRIVATE_KEY": "SUA_PRIVATE_KEY_AQUI_SEM_0x",
 "POLYGON_ADDRESS": "0xSeuEnderecoPolygon"
@@ -32,7 +32,7 @@ E substitua estas linhas na seção `polymarket-trading`:
 
 1. Copie o template:
 ```bash
-cd /Users/caiovicentino/Desktop/poly/polymarket-mcp
+cd polymarket-mcp-server
 cp .env.example .env
 ```
 
@@ -63,7 +63,7 @@ Se você não tem uma wallet Polygon ainda:
 
 **Opção 2: Criar nova wallet**
 ```bash
-cd /Users/caiovicentino/Desktop/poly/polymarket-mcp
+cd polymarket-mcp-server
 python3 -c "
 from eth_account import Account
 import secrets
@@ -112,7 +112,7 @@ Após configurar as credenciais:
 
 3. **Verifique se o MCP está ativo**:
    - Procure por um ícone de 🔌 ou indicação de MCPs conectados
-   - O Polymarket MCP deve aparecer como "polymarket-trading"
+   - O Polymarket MCP deve aparecer como "polymarket"
 
 ---
 
@@ -146,8 +146,8 @@ Se funcionar, você verá dados REAIS da Polymarket! 🎉
 
 **Solução:**
 ```bash
-cd /Users/caiovicentino/Desktop/poly/polymarket-mcp
-/opt/anaconda3/bin/python3 -m pip install -e .
+cd polymarket-mcp-server
+python3 -m pip install -e .
 ```
 
 ### Erro: "No API credentials"
@@ -285,13 +285,13 @@ Se tiver problemas:
 
 1. Verifique os logs:
 ```bash
-tail -f ~/Library/Logs/Claude/mcp-server-polymarket-trading.log
+tail -f ~/Library/Logs/Claude/mcp-server-polymarket.log
 ```
 
 2. Teste o MCP diretamente:
 ```bash
-cd /Users/caiovicentino/Desktop/poly/polymarket-mcp
-/opt/anaconda3/bin/python3 -m polymarket_mcp.server
+cd polymarket-mcp-server
+python3 -m polymarket_mcp.server
 ```
 
 3. Execute os testes (seleção offline — não requer credenciais):
