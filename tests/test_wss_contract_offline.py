@@ -48,6 +48,8 @@ from polymarket_mcp.utils.websocket_manager import (
     WebSocketManager,
 )
 
+websockets = pytest.importorskip("websockets")
+
 TOKEN_ID = (
     "111061902544814266207267295505639408607400625795891618462682726460921782993748"
 )
@@ -60,7 +62,7 @@ EXPECTED_DT = datetime.fromtimestamp(1789688342096 / 1000.0, tz=timezone.utc).re
 
 # Real-shaped book message (captured live 2026-09-17; levels abbreviated).
 # The REAL wire order is worst-first: bids ASCENDING (best bid last), asks
-# DESCENDING (best ask last) — same ordering as the REST /book (proven live).
+# DESCENDING (best ask last) -- same ordering as the REST /book (proven live).
 REAL_BOOK = {
     "market": CONDITION_ID,
     "asset_id": TOKEN_ID,
@@ -355,6 +357,20 @@ async def test_realtime_channel_list_envelope_fans_out(config):
 # ---------------------------------------------------------------------------
 # Live contract (integration; deselected by the offline suite run)
 # ---------------------------------------------------------------------------
+def _skip_on_wss_outage(exc, label):
+    """Network guard for the WSS surface: websockets.WebSocketException
+    (InvalidHandshake/InvalidStatus/ConnectionClosed...), OS-level socket
+    errors and timeouts are infra/outage: SKIP with reason. A live-contract
+    violation (no book message in the window) keeps FAILING via pytest.fail
+    - the guard must NOT swallow it."""
+    if isinstance(
+        exc,
+        (websockets.exceptions.WebSocketException, OSError, asyncio.TimeoutError),
+    ):
+        pytest.skip(f"{label}: WSS transport outage ({type(exc).__name__}: {exc})")
+    raise
+
+
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_live_book_message_shape():
@@ -364,20 +380,92 @@ async def test_live_book_message_shape():
     book immediately, so this is stable; the price_change shape is pinned
     offline above via the live-captured fixture (REAL_PRICE_CHANGE).
     """
-    websockets = pytest.importorskip("websockets")
-
     url = "wss://ws-subscriptions-clob.polymarket.com/ws/market"
-    async with websockets.connect(url) as ws:
-        await ws.send(json.dumps({"assets_ids": [TOKEN_ID], "type": "market"}))
-        for _ in range(5):
-            raw = await asyncio.wait_for(ws.recv(), timeout=15)
-            data = json.loads(raw)
-            items = data if isinstance(data, list) else [data]
-            book = next((d for d in items if d.get("event_type") == "book"), None)
-            if book is not None:
-                assert isinstance(book["bids"][0], dict)
-                assert "price" in book["bids"][0] and "size" in book["bids"][0]
-                assert isinstance(book["timestamp"], str)
-                assert book["timestamp"].isdigit()
-                return
-        pytest.fail("no book message observed in the live window")
+    try:
+        async with websockets.connect(url) as ws:
+            await ws.send(json.dumps({"assets_ids": [TOKEN_ID], "type": "market"}))
+            for _ in range(5):
+                raw = await asyncio.wait_for(ws.recv(), timeout=15)
+                data = json.loads(raw)
+                items = data if isinstance(data, list) else [data]
+                book = next((d for d in items if d.get("event_type") == "book"), None)
+                if book is not None:
+                    assert isinstance(book["bids"][0], dict)
+                    assert "price" in book["bids"][0] and "size" in book["bids"][0]
+                    assert isinstance(book["timestamp"], str)
+                    assert book["timestamp"].isdigit()
+                    return
+    except (
+        websockets.exceptions.WebSocketException,
+        OSError,
+        asyncio.TimeoutError,
+    ) as exc:
+        _skip_on_wss_outage(exc, "live WSS book probe")
+    pytest.fail("no book message observed in the live window")
+
+
+# --- Transport-guard meta-tests (offline, deterministic) --------------------
+
+
+async def test_meta_wss_connect_refused_skips(monkeypatch):
+    """An OS-level refusal at connect makes the live probe SKIP."""
+    def boom(*args, **kwargs):
+        raise OSError("connection refused")
+
+    monkeypatch.setattr(websockets, "connect", boom)
+    with pytest.raises(pytest.skip.Exception):
+        await test_live_book_message_shape()
+
+
+async def test_meta_wss_handshake_error_skips(monkeypatch):
+    """A WebSocketException at handshake makes the live probe SKIP."""
+    def boom(*args, **kwargs):
+        raise websockets.exceptions.WebSocketException("handshake failed")
+
+    monkeypatch.setattr(websockets, "connect", boom)
+    with pytest.raises(pytest.skip.Exception):
+        await test_live_book_message_shape()
+
+
+async def test_meta_wss_recv_timeout_skips(monkeypatch):
+    """A stalled socket (recv timeout) makes the live probe SKIP."""
+    class FakeWs:
+        async def send(self, payload):
+            pass
+
+        async def recv(self):
+            raise asyncio.TimeoutError()
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+    def fake_connect(*args, **kwargs):
+        return FakeWs()
+
+    monkeypatch.setattr(websockets, "connect", fake_connect)
+    with pytest.raises(pytest.skip.Exception):
+        await test_live_book_message_shape()
+
+
+async def test_meta_wss_no_book_still_fails(monkeypatch):
+    """GREEN pre and post: the deliberate pytest.fail path (no book message
+    in the window) must NEVER be swallowed by the transport guard."""
+    class FakeWs:
+        async def send(self, payload):
+            pass
+
+        async def recv(self):
+            return json.dumps({"event_type": "other"})
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+    monkeypatch.setattr(websockets, "connect", lambda *a, **k: FakeWs())
+    with pytest.raises(pytest.fail.Exception):
+        await test_live_book_message_shape()
