@@ -204,7 +204,17 @@ async def search_markets(
         List of markets matching the query
     """
     try:
-        markets = await _fetch_clob_markets(params=None, limit=limit * 2)
+        params = {"closed": "false", "active": "true"}
+
+        if filters:
+            if filters.get("active"):
+                params["active"] = filters["active"]
+            if filters.get("closed"):
+                params["closed"] = filters["closed"]
+            if filters.get("tag"):
+                params["tags"] = filters["tag"]
+
+        markets = await _fetch_gamma_markets(params=params, limit=limit * 2)
 
         if query:
             query_lower = query.lower()
@@ -215,15 +225,6 @@ async def search_markets(
                    query_lower in m.get("slug", "").lower() or
                    any(query_lower in str(tag).lower() for tag in m.get("tags", []))
             ]
-
-        if filters:
-            if filters.get("active") == "true":
-                markets = [m for m in markets if m.get("active", True)]
-            if filters.get("closed") == "true":
-                markets = [m for m in markets if not m.get("active", True)]
-            if filters.get("tag"):
-                tag = filters["tag"].lower()
-                markets = [m for m in markets if tag in str(m.get("tags", [])).lower()]
 
         logger.info(f"Found {len(markets)} markets for query: {query}")
         return markets[:limit]
@@ -248,26 +249,17 @@ async def get_trending_markets(
         Top markets by volume in the specified timeframe
     """
     try:
-        markets = await _fetch_clob_markets(params=None, limit=100)
+        params = {"closed": "false", "active": "true", "order": "volume24hr", "ascending": "false"}
 
-        volume_key_map = {
-            "24h": "volume24hr",
-            "7d": "volume7d",
-            "30d": "volume30d"
-        }
+        if timeframe == "7d":
+            params["order"] = "volume7d"
+        elif timeframe == "30d":
+            params["order"] = "volume30d"
 
-        volume_key = volume_key_map.get(timeframe, "volume24hr")
+        markets = await _fetch_gamma_markets(params=params, limit=limit)
+        logger.info(f"Found {len(markets)} trending markets for timeframe: {timeframe}")
 
-        sorted_markets = sorted(
-            markets,
-            key=lambda m: float(m.get(volume_key, 0) or 0),
-            reverse=True
-        )
-
-        result = sorted_markets[:limit]
-        logger.info(f"Found {len(result)} trending markets for timeframe: {timeframe}")
-
-        return result
+        return markets
 
     except Exception as e:
         logger.error(f"Failed to get trending markets: {e}")
@@ -291,18 +283,17 @@ async def filter_markets_by_category(
         Markets in the specified category
     """
     try:
-        markets = await _fetch_clob_markets(params=None, limit=limit * 2)
+        params = {"closed": "false", "active": "true" if active_only else "false"}
+
+        markets = await _fetch_gamma_markets(params=params, limit=500)
 
         category_lower = category.lower()
         filtered_markets = [
             m for m in markets
-            if category_lower in m.get("question", "").lower() or
-               category_lower in m.get("description", "").lower() or
-               category_lower in str(m.get("tags", [])).lower()
+            if category_lower in str(m.get("tags", [])).lower() or
+               category_lower in m.get("question", "").lower() or
+               category_lower in m.get("description", "").lower()
         ]
-
-        if active_only:
-            filtered_markets = [m for m in filtered_markets if m.get("active", True)]
 
         logger.info(f"Found {len(filtered_markets)} markets in category: {category}")
         return filtered_markets[:limit]
@@ -319,48 +310,23 @@ async def get_event_markets(
     """
     Get all markets for a specific event.
 
-    Note: The Gamma API events endpoint is deprecated. This function now:
-    1. Searches markets for matching event_slug in tags
-    2. Returns filtered results
-
     Args:
         event_slug: Event slug (e.g., "presidential-election-2024")
-        event_id: Event ID (alternative to slug, not currently supported)
+        event_id: Event ID (alternative to slug)
 
     Returns:
         All markets belonging to the event
     """
     try:
-        if not event_slug and not event_id:
-            raise ValueError("Either event_slug or event_id must be provided")
+        params = {"closed": "false", "active": "true"}
 
-        # Use CLOB API to get all markets and filter by event
-        markets = await _fetch_clob_markets(params=None, limit=500)
+        if event_slug:
+            params["slug"] = event_slug
 
-        # Filter markets matching the event_slug in tags, slug, or description
-        filtered_markets = []
-        event_slug_lower = (event_slug or event_id).lower()
+        markets = await _fetch_events_with_markets(params=params)
 
-        for market in markets:
-            # Check in tags
-            tags = market.get('tags', [])
-            if isinstance(tags, list):
-                if any(event_slug_lower in str(tag).lower() for tag in tags):
-                    filtered_markets.append(market)
-                    continue
-
-            # Check in market slug
-            if event_slug_lower in market.get('market_slug', '').lower():
-                filtered_markets.append(market)
-                continue
-
-            # Check in description
-            if event_slug_lower in market.get('description', '').lower():
-                filtered_markets.append(market)
-                continue
-
-        logger.info(f"Found {len(filtered_markets)} markets for event: {event_slug or event_id}")
-        return filtered_markets
+        logger.info(f"Found {len(markets)} markets for event: {event_slug or event_id}")
+        return markets
 
     except Exception as e:
         logger.error(f"Failed to get event markets: {e}")
@@ -378,7 +344,9 @@ async def get_featured_markets(limit: int = 10) -> List[Dict[str, Any]]:
         Featured markets
     """
     try:
-        markets = await get_trending_markets("24h", limit)
+        params = {"closed": "false", "active": "true", "order": "volume24hr", "ascending": "false"}
+
+        markets = await _fetch_gamma_markets(params=params, limit=limit)
 
         logger.info(f"Found {len(markets)} featured markets")
         return markets
@@ -403,13 +371,14 @@ async def get_closing_soon_markets(
         Markets closing soon
     """
     try:
-        cutoff_time = datetime.utcnow().replace(tzinfo=None) + timedelta(hours=hours)
+        params = {"closed": "false", "active": "true"}
+        markets = await _fetch_gamma_markets(params=params, limit=500)
 
-        markets = await _fetch_clob_markets(params=None, limit=100)
+        cutoff_time = datetime.utcnow().replace(tzinfo=None) + timedelta(hours=hours)
 
         closing_soon = []
         for market in markets:
-            end_date = market.get("endDate") or market.get("end_date_iso")
+            end_date = market.get("endDate")
             if end_date:
                 try:
                     if isinstance(end_date, str):
@@ -424,7 +393,7 @@ async def get_closing_soon_markets(
                     logger.warning(f"Failed to parse end_date: {end_date}, error: {parse_error}")
                     continue
 
-        closing_soon.sort(key=lambda m: m.get("endDate", m.get("end_date_iso", "")))
+        closing_soon.sort(key=lambda m: m.get("endDate", ""))
 
         result = closing_soon[:limit]
         logger.info(f"Found {len(result)} markets closing within {hours} hours")
@@ -451,7 +420,12 @@ async def get_sports_markets(
         Sports markets
     """
     try:
-        markets = await _fetch_clob_markets(params=None, limit=100)
+        params = {"closed": "false", "active": "true"}
+
+        if sport_type:
+            params["tags"] = sport_type
+
+        markets = await _fetch_gamma_markets(params=params, limit=500)
 
         sports_keywords = ["sport", "basketball", "football", "soccer", "baseball", "hockey", "tennis", "golf", "nfl", "nba", "mlb", "nhl", "fifa", "olympics"]
         sports_markets = [
@@ -492,7 +466,12 @@ async def get_crypto_markets(
         Crypto-related markets
     """
     try:
-        markets = await _fetch_clob_markets(params=None, limit=100)
+        params = {"closed": "false", "active": "true"}
+
+        if symbol:
+            params["tags"] = symbol.upper()
+
+        markets = await _fetch_gamma_markets(params=params, limit=500)
 
         crypto_keywords = ["bitcoin", "ethereum", "crypto", "btc", "eth", "solana", "cardano", "dogecoin"]
         crypto_markets = [
