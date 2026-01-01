@@ -24,6 +24,8 @@ from ..utils import (
 
 logger = logging.getLogger(__name__)
 
+VALID_ORDER_TYPES: List[str] = ["GTC", "GTD", "FOK", "FAK"]
+
 async def _note_clob_429(rate_limiter: Any, exc: BaseException) -> None:
     """Thin delegate to the shared 429 note helper; the order-placement
     wiring pins ``EndpointCategory.TRADING_BURST`` (arming a different
@@ -214,7 +216,7 @@ class TradingTools:
                 raise ValueError(f"Side must be BUY or SELL, got {side}")
 
             order_type = order_type.upper()
-            if order_type not in ['GTC', 'GTD', 'FOK', 'FAK']:
+            if order_type not in VALID_ORDER_TYPES:
                 raise ValueError(f"Invalid order type: {order_type}")
 
             if order_type == 'GTD' and not expiration:
@@ -1434,7 +1436,7 @@ def get_tool_definitions() -> List[types.Tool]:
                     },
                     "order_type": {
                         "type": "string",
-                        "enum": ["GTC", "GTD", "FOK", "FAK"],
+                        "enum": VALID_ORDER_TYPES,
                         "default": "GTC",
                         "description": "Order type"
                     },
@@ -1526,8 +1528,14 @@ def get_tool_definitions() -> List[types.Tool]:
                                 "side": {"type": "string", "enum": ["BUY", "SELL"]},
                                 "price": {"type": "number"},
                                 "size": {"type": "number"},
-                                "order_type": {"type": "string"},
-                                "expiration": {"type": "integer"},
+                                "order_type": {
+                                    "type": "string",
+                                    "enum": VALID_ORDER_TYPES
+                                },
+                                "expiration": {
+                                    "type": "integer",
+                                    "description": "Unix timestamp for GTD orders (optional)"
+                                },
                                 "outcome": {"type": "string"}
                             },
                             "required": ["market_id", "side", "price", "size"]
