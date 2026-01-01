@@ -83,6 +83,10 @@ safety_limits: Optional[SafetyLimits] = None
 trading_tools: Optional[TradingTools] = None
 websocket_manager: Optional[WebSocketManager] = None
 _shutdown_event: Optional[asyncio.Event] = None
+# Loop captured at signal-handler registration (main), so the handler can
+# schedule the signal-shutdown-and-exit task even when it runs at an
+# interrupt boundary with no running-loop context (T-0398).
+_signal_loop: Optional[asyncio.AbstractEventLoop] = None
 
 # Strong references to fire-and-forget tasks, so they are not garbage collected
 # mid-flight (asyncio only keeps weak references to running tasks).
@@ -361,6 +365,31 @@ def _signal_handler(signum: int, frame) -> None:
     logger.info(f"Received {sig_name}, initiating shutdown...")
     if _shutdown_event and not _shutdown_event.is_set():
         _shutdown_event.set()
+    # T-0398: a signal-delivered shutdown cannot ride main()'s normal
+    # teardown. Proven 1st-hand (macOS kqueue, SDK 1.30): after the event
+    # wakes main()'s asyncio.wait, main cancels the server task and then
+    # blocks INSIDE the `async with stdio_server()` exit - the SDK task
+    # group waits for its stdin_reader child, which sits in a worker thread
+    # on the held-open stdin, so the context exit never completes and the
+    # graceful shutdown never runs (the process hangs until SIGKILL). Run
+    # the graceful shutdown on the loop and force-exit; the EOF path
+    # (client closes stdin) is untouched and exits 0 through main()'s
+    # finally. shutdown() is bounded (no-credential cancel skip +
+    # stop_background_task wait_for(5.0)).
+    if _signal_loop is not None:
+        _signal_loop.create_task(_signal_shutdown_and_exit())
+
+
+async def _signal_shutdown_and_exit() -> None:
+    """Graceful shutdown for the signal path, then forced exit (T-0398).
+
+    Runs shutdown() (logs "Graceful shutdown initiated..." through
+    "Graceful shutdown complete") and exits 0. Only the signal handler
+    schedules this task; the EOF path never does, so main()'s own
+    finally-shutdown stays the sole path when the client closes stdin.
+    """
+    await shutdown()
+    os._exit(0)
 
 
 @server.list_tools()
@@ -713,7 +742,7 @@ async def main() -> None:
     Initializes all components and runs the stdio-based MCP server.
     Registers SIGTERM/SIGINT handlers for graceful shutdown.
     """
-    global _shutdown_event
+    global _shutdown_event, _signal_loop
 
     try:
         # Initialize server components
@@ -721,6 +750,28 @@ async def main() -> None:
 
         # Set up shutdown event and signal handlers
         _shutdown_event = asyncio.Event()
+        # Wake-up-capable registration FIRST (T-0398): loop.add_signal_handler
+        # installs the loop's wakeup-fd, so signal delivery wakes an idle
+        # kqueue/epoll loop at the C level. A plain signal.signal handler
+        # (below) only appends to the loop's _ready deque without writing the
+        # wakeup fd - on an idle loop (no I/O, kevent sleeping with the
+        # original timeout after EINTR restart) the appended callback is
+        # processed only on the NEXT I/O, so the graceful shutdown never runs
+        # and the process dead-hangs until SIGKILL. The signal.signal calls
+        # below REPLACE the loop's internal Python handler but LEAVE the
+        # wakeup-fd in place, so delivery wakes the loop (C-level write) and
+        # then runs _signal_handler directly - the double set() is safe
+        # (is_set() guard in _signal_handler). On ProactorEventLoop (Windows)
+        # this raises NotImplementedError and the signal.signal path below
+        # remains the only registration (no regression there: send_signal is
+        # TerminateProcess anyway).
+        loop = asyncio.get_running_loop()
+        _signal_loop = loop
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            try:
+                loop.add_signal_handler(sig, _signal_handler, sig, None)
+            except NotImplementedError:
+                logger.info("loop.add_signal_handler unavailable for %s; signal.signal remains", sig.name)
         signal.signal(signal.SIGTERM, _signal_handler)
         signal.signal(signal.SIGINT, _signal_handler)
 
