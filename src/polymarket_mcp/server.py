@@ -88,6 +88,10 @@ _shutdown_event: Optional[asyncio.Event] = None
 # interrupt boundary with no running-loop context (T-0398).
 _signal_loop: Optional[asyncio.AbstractEventLoop] = None
 
+# One-shot flag for the EXIT-TASK scheduling (T-0429/L-0408): the wakeup-byte
+# re-invocation must not schedule a second exit-task.
+_signal_scheduled: bool = False
+
 # Strong references to fire-and-forget tasks, so they are not garbage collected
 # mid-flight (asyncio only keeps weak references to running tasks).
 _background_tasks: set = set()
@@ -360,7 +364,13 @@ async def shutdown() -> None:
 
 
 def _signal_handler(signum: int, frame) -> None:
-    """Handle SIGTERM/SIGINT by scheduling async shutdown."""
+    """Handle SIGTERM/SIGINT by scheduling async shutdown.
+
+    The scheduling is one-shot (T-0429): the OS-level signal.signal handler
+    and the loop's wakeup-byte Handle both invoke this handler for one
+    signal -- only the FIRST invocation schedules the exit-task.
+    """
+    global _signal_scheduled
     sig_name = signal.Signals(signum).name
     logger.info(f"Received {sig_name}, initiating shutdown...")
     if _shutdown_event and not _shutdown_event.is_set():
@@ -376,7 +386,8 @@ def _signal_handler(signum: int, frame) -> None:
     # (client closes stdin) is untouched and exits 0 through main()'s
     # finally. shutdown() is bounded (no-credential cancel skip +
     # stop_background_task wait_for(5.0)).
-    if _signal_loop is not None:
+    if _signal_loop is not None and not _signal_scheduled:
+        _signal_scheduled = True
         _signal_loop.create_task(_signal_shutdown_and_exit())
 
 
@@ -387,9 +398,15 @@ async def _signal_shutdown_and_exit() -> None:
     "Graceful shutdown complete") and exits 0. Only the signal handler
     schedules this task; the EOF path never does, so main()'s own
     finally-shutdown stays the sole path when the client closes stdin.
+
+    The forced exit is UNCONDITIONAL (T-0429, try/finally): a shutdown()
+    failure must never leave the process hanging on the SDK task-group
+    teardown -- os._exit(0) runs even when shutdown() raises.
     """
-    await shutdown()
-    os._exit(0)
+    try:
+        await shutdown()
+    finally:
+        os._exit(0)
 
 
 @server.list_tools()
@@ -742,7 +759,7 @@ async def main() -> None:
     Initializes all components and runs the stdio-based MCP server.
     Registers SIGTERM/SIGINT handlers for graceful shutdown.
     """
-    global _shutdown_event, _signal_loop
+    global _shutdown_event, _signal_loop, _signal_scheduled
 
     try:
         # Initialize server components
@@ -767,6 +784,9 @@ async def main() -> None:
         # TerminateProcess anyway).
         loop = asyncio.get_running_loop()
         _signal_loop = loop
+        # Per-restart reset (T-0429): a one-shot flag from a previous
+        # lifecycle cycle must never survive into this one.
+        _signal_scheduled = False
         for sig in (signal.SIGTERM, signal.SIGINT):
             try:
                 loop.add_signal_handler(sig, _signal_handler, sig, None)
