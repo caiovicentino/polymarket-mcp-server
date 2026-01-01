@@ -146,9 +146,12 @@ pytest tests/test_config_security.py -v
 pytest -m "not integration and not slow and not real_api and not performance" --cov=polymarket_mcp --cov-report=html
 
 # CI runs these selections (source: .github/workflows/tests.yml):
-pytest tests/ -m "not integration and not slow and not real_api"  # unit step
-pytest tests/ -m "not real_api"  # demo step: includes the integration tier; needs network
-pytest tests/ -m "integration"  # integration-test job
+pytest tests/ -m "not integration and not slow and not real_api and not performance"  # unit step
+pytest tests/ -m "not integration and not slow and not real_api and not performance"  # demo step (runs with POLYMARKET_DEMO_MODE=true)
+pytest tests/ -m "not slow and not real_api and not integration and not performance" --cov=polymarket_mcp --cov-fail-under=35  # coverage job
+pytest tests/ -m "integration"  # integration-test job (informational: job-level continue-on-error; mesmo tratamento para e2e-test/performance-test)
+# [ci-unblock 2026-09-20]: live-API CI jobs (integration-test, e2e-test, performance-test) are informational -
+# job-level continue-on-error keeps their failures non-gating; the merge gate stays on the offline jobs above.
 
 # Skip slow tests only — note: this does NOT exclude real_api (or integration/performance) suites
 pytest -m "not slow"
