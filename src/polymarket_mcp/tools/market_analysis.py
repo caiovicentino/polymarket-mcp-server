@@ -125,7 +125,7 @@ async def get_market_details(
     Get complete market information.
 
     Args:
-        market_id: Market ID
+        market_id: Market ID (can be token_id or condition_id)
         condition_id: Condition ID (alternative identifier)
         slug: Market slug (alternative identifier)
 
@@ -133,12 +133,31 @@ async def get_market_details(
         Full market object with all metadata
     """
     try:
-        # Determine which identifier to use
+        # Check if market_id is actually a condition_id (common case from discovery tools)
+        search_id = condition_id or market_id
+
+        if search_id:
+            # Try CLOB API first - it returns matching markets
+            all_markets = await _fetch_clob_api("/sampling-markets", {"limit": 1000})
+            if isinstance(all_markets, dict):
+                all_markets = all_markets.get("data", all_markets.get("markets", {}))
+                if isinstance(all_markets, dict):
+                    all_markets = list(all_markets.values())
+
+            # Find the market with matching condition_id
+            if isinstance(all_markets, list):
+                for market in all_markets:
+                    if market.get('condition_id') == search_id:
+                        return market
+                    # Also check if it matches a token_id
+                    for token in market.get('tokens', []):
+                        if token.get('token_id') == search_id:
+                            return market
+
+        # Fallback to Gamma API for slug
         if slug:
             data = await _fetch_gamma_api(f"/markets/{slug}")
-        elif condition_id:
-            data = await _fetch_gamma_api(f"/markets", {"condition_id": condition_id})
-        elif market_id:
+        elif market_id and not condition_id:
             data = await _fetch_gamma_api(f"/markets/{market_id}")
         else:
             raise ValueError("One of market_id, condition_id, or slug must be provided")

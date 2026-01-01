@@ -319,9 +319,13 @@ async def get_event_markets(
     """
     Get all markets for a specific event.
 
+    Note: The Gamma API events endpoint is deprecated. This function now:
+    1. Searches markets for matching event_slug in tags
+    2. Returns filtered results
+
     Args:
         event_slug: Event slug (e.g., "presidential-election-2024")
-        event_id: Event ID (alternative to slug)
+        event_id: Event ID (alternative to slug, not currently supported)
 
     Returns:
         All markets belonging to the event
@@ -330,16 +334,33 @@ async def get_event_markets(
         if not event_slug and not event_id:
             raise ValueError("Either event_slug or event_id must be provided")
 
-        event_endpoint = f"/events/{event_slug or event_id}"
-        event_data = await _fetch_gamma_markets(event_endpoint)
+        # Use CLOB API to get all markets and filter by event
+        markets = await _fetch_clob_markets(params=None, limit=500)
 
-        if isinstance(event_data, list) and len(event_data) > 0:
-            markets = event_data[0].get("markets", []) if isinstance(event_data[0], dict) else []
-        else:
-            markets = []
+        # Filter markets matching the event_slug in tags, slug, or description
+        filtered_markets = []
+        event_slug_lower = (event_slug or event_id).lower()
 
-        logger.info(f"Found {len(markets)} markets for event: {event_slug or event_id}")
-        return markets
+        for market in markets:
+            # Check in tags
+            tags = market.get('tags', [])
+            if isinstance(tags, list):
+                if any(event_slug_lower in str(tag).lower() for tag in tags):
+                    filtered_markets.append(market)
+                    continue
+
+            # Check in market slug
+            if event_slug_lower in market.get('market_slug', '').lower():
+                filtered_markets.append(market)
+                continue
+
+            # Check in description
+            if event_slug_lower in market.get('description', '').lower():
+                filtered_markets.append(market)
+                continue
+
+        logger.info(f"Found {len(filtered_markets)} markets for event: {event_slug or event_id}")
+        return filtered_markets
 
     except Exception as e:
         logger.error(f"Failed to get event markets: {e}")
