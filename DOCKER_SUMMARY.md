@@ -183,8 +183,8 @@ kubectl logs -f deployment/polymarket-mcp
 # DOCKER_PASSWORD
 
 # 2. Create release or push tag
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.2.0
+git push origin v0.2.0
 
 # 3. GitHub Actions builds and publishes automatically
 # Multi-arch image pushed to Docker Hub

@@ -503,5 +503,5 @@ Ready to use now with: `polymarket-web`
 ---
 
 **Implementation Date**: January 11, 2025
-**Version**: 0.1.0
+**Version**: 0.2.0
 **Status**: Production Ready
