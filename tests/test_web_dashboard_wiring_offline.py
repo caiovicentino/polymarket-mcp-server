@@ -242,15 +242,18 @@ def test_closing_soon_route_wraps_bare_list(_stubbed_discovery):
     assert resp.json() == {"markets": [{"question": "A"}, {"question": "B"}]}
 
 
-def test_closing_soon_route_passthrough_error_envelope(_stubbed_discovery):
-    """Dict payloads (tool error envelopes) pass through unchanged."""
+def test_closing_soon_route_tool_error_envelope_becomes_500(_stubbed_discovery):
+    """Tool error envelopes propagate as 500 {"detail": ...} (farm/T-0440,
+    item 169): the same body shape the route's except branch returns; the
+    frontend reads errorBody.detail (apiRequest + panels). Supersedes the
+    stub-compat pass-through pinned by the T-0373 slice."""
     _stubbed_discovery(results={
         "get_closing_soon_markets": text_payload({"error": "boom"}),
     })
     with TestClient(wa.app) as client:
         resp = client.get("/api/markets/closing-soon")
-    assert resp.status_code == 200
-    assert resp.json() == {"error": "boom"}
+    assert resp.status_code == 500
+    assert resp.json() == {"detail": "boom"}
 
 
 def test_closing_soon_route_500_on_tool_crash(_stubbed_discovery):

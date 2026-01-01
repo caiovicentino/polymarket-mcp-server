@@ -345,6 +345,9 @@ async def get_trending_markets(limit: int = 10):
         if result and len(result) > 0:
             import json
             data = json.loads(result[0].text)
+            if isinstance(data, dict) and "error" in data:
+                stats["errors"] = cast(int, stats["errors"]) + 1
+                return JSONResponse({"detail": str(data["error"])}, status_code=500)
             # The tool result is a bare market list (proven on the wire); the
             # dashboard frontend consumes {"markets": [...]}. Wrap arrays; dicts
             # pass through unchanged (stub-compat with test_web_app_offline.py).
@@ -375,6 +378,9 @@ async def search_markets(q: str, limit: int = 20):
         if result and len(result) > 0:
             import json
             data = json.loads(result[0].text)
+            if isinstance(data, dict) and "error" in data:
+                stats["errors"] = cast(int, stats["errors"]) + 1
+                return JSONResponse({"detail": str(data["error"])}, status_code=500)
             # Same wrap as /api/markets/trending: the tool result is a bare
             # list; dict payloads pass through unchanged (stub-compat).
             if isinstance(data, list):
@@ -409,6 +415,9 @@ async def get_closing_soon_markets_route(limit: int = 20, hours: int = 24):
         if result and len(result) > 0:
             import json
             data = json.loads(result[0].text)
+            if isinstance(data, dict) and "error" in data:
+                stats["errors"] = cast(int, stats["errors"]) + 1
+                return JSONResponse({"detail": str(data["error"])}, status_code=500)
             if isinstance(data, list):
                 data = {"markets": data}
             return JSONResponse(data)
@@ -434,6 +443,9 @@ async def get_market_details(market_id: str):
         if result and len(result) > 0:
             import json
             data = json.loads(result[0].text)
+            if isinstance(data, dict) and "error" in data:
+                stats["errors"] = cast(int, stats["errors"]) + 1
+                return JSONResponse({"detail": str(data["error"])}, status_code=500)
             return JSONResponse(data)
 
         raise HTTPException(status_code=404, detail="Market not found")
@@ -457,6 +469,9 @@ async def analyze_market(market_id: str):
         if result and len(result) > 0:
             import json
             data = json.loads(result[0].text)
+            if isinstance(data, dict) and "error" in data:
+                stats["errors"] = cast(int, stats["errors"]) + 1
+                return JSONResponse({"detail": str(data["error"])}, status_code=500)
             return JSONResponse(data)
 
         raise HTTPException(status_code=404, detail="Market not found")
