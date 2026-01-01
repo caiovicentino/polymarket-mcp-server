@@ -11,6 +11,7 @@ Tests:
 import sys
 from pathlib import Path
 
+
 def test_imports():
     """Test that all modules can be imported"""
     print("Testing imports...")

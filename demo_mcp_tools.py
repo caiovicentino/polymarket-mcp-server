@@ -4,12 +4,15 @@ Demo completo das ferramentas do MCP Polymarket
 Mostra dados reais usando as tools que criamos
 """
 import sys
+
 sys.path.insert(0, 'src')
 
 import asyncio
-import httpx
 import json
 from decimal import Decimal
+
+import httpx
+
 
 # Simular o ambiente do MCP sem precisar de auth
 async def demo_market_discovery():
@@ -63,7 +66,7 @@ async def demo_market_discovery():
 
         for i, market in enumerate(featured[:3], 1):
             print(f"\n{i}. {market.get('question', 'N/A')}")
-            print(f"   🏷️  Featured Market")
+            print("   🏷️  Featured Market")
             if market.get('category'):
                 print(f"   📂 Category: {market['category']}")
 
@@ -124,7 +127,7 @@ async def demo_market_analysis():
         print("\n\n💵 Tool: get_current_price")
         print("-" * 50)
         response = await client.get(
-            f'https://clob.polymarket.com/midpoint',
+            'https://clob.polymarket.com/midpoint',
             params={'token_id': token_id}
         )
         mid_data = response.json()
@@ -135,7 +138,7 @@ async def demo_market_analysis():
         print("\n\n📖 Tool: get_orderbook")
         print("-" * 50)
         response = await client.get(
-            f'https://clob.polymarket.com/book',
+            'https://clob.polymarket.com/book',
             params={'token_id': token_id}
         )
         book = response.json()
@@ -172,7 +175,7 @@ async def demo_market_analysis():
             print("\n\n🤖 Tool: analyze_market_opportunity")
             print("-" * 50)
             print(f"Market: {market.get('question', 'N/A')[:60]}...")
-            print(f"\nAnalysis:")
+            print("\nAnalysis:")
             print(f"  • Spread: {spread_pct:.2f}% ({'✅ Good' if spread_pct < 2 else '⚠️  Wide'})")
             print(f"  • Liquidity: ${liquidity:,.0f} ({'✅ High' if liquidity > 50000 else '⚠️  Low'})")
             print(f"  • Volume: ${volume:,.0f} ({'✅ Active' if volume > 1000 else '📊 Moderate'})")

@@ -15,15 +15,15 @@ Author: Caio Vicentino
 License: MIT
 """
 
-import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
 import json
 import os
-import sys
 import platform
-from pathlib import Path
-from typing import Optional, Dict, Any
 import re
+import sys
+import tkinter as tk
+from pathlib import Path
+from tkinter import filedialog, messagebox, ttk
+from typing import Any, Dict, Optional
 
 
 class PolymarketSetupWizard:

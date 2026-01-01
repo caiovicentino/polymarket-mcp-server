@@ -98,13 +98,6 @@ repos:
         args: ['--convention=google']
         exclude: ^tests/
 
-  # Check requirements.txt files
-  - repo: https://github.com/python-poetry/poetry
-    rev: 1.7.0
-    hooks:
-      - id: poetry-check
-        files: ^pyproject.toml$
-
   # Fast unit tests (critical path only)
   - repo: local
     hooks:

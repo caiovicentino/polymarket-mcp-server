@@ -92,7 +92,7 @@ async def test_signer(config):
 
 async def test_rate_limiter():
     """Test rate limiter"""
-    from polymarket_mcp.utils import get_rate_limiter, EndpointCategory
+    from polymarket_mcp.utils import EndpointCategory, get_rate_limiter
 
     print("\n=== Testing Rate Limiter ===")
     try:
@@ -121,10 +121,10 @@ async def test_rate_limiter():
 async def test_safety_limits(config):
     """Test safety limits"""
     from polymarket_mcp.utils import (
-        create_safety_limits_from_config,
+        MarketData,
         OrderRequest,
         Position,
-        MarketData
+        create_safety_limits_from_config,
     )
 
     print("\n=== Testing Safety Limits ===")
@@ -177,7 +177,7 @@ async def test_safety_limits(config):
 
 async def test_markets(client):
     """Test fetching markets"""
-    from polymarket_mcp.utils import get_rate_limiter, EndpointCategory
+    from polymarket_mcp.utils import EndpointCategory, get_rate_limiter
 
     print("\n=== Testing Market Data Fetch ===")
     try:
@@ -203,7 +203,7 @@ async def test_markets(client):
 
 async def test_balance(client):
     """Test fetching balance"""
-    from polymarket_mcp.utils import get_rate_limiter, EndpointCategory
+    from polymarket_mcp.utils import EndpointCategory, get_rate_limiter
 
     print("\n=== Testing Balance Fetch ===")
     try:
