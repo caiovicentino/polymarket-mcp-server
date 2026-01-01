@@ -312,7 +312,7 @@ ORDER_TYPE_GTD = "GTD"  # Good Till Date
 
 ## File Locations
 
-Base: `/Users/caiovicentino/Desktop/poly/polymarket-mcp/`
+Base: `polymarket-mcp-server/`
 
 Add your files:
 - Tools: `src/polymarket_mcp/tools/your_tool.py`
@@ -374,8 +374,7 @@ async def your_tool(param1: str, param2: float) -> dict:
 ## Questions?
 
 Refer to:
-- `/Users/caiovicentino/Desktop/poly/polymarket-mcp/README.md` - Full documentation
-- `/Users/caiovicentino/Desktop/poly/polymarket-mcp/IMPLEMENTATION_SUMMARY.md` - Implementation details
-- `/Users/caiovicentino/Desktop/poly/polymarket-mcp/.env.example` - Configuration options
+- `polymarket-mcp-server/README.md` - Full documentation
+- `polymarket-mcp-server/.env.example` - Configuration options
 
 All infrastructure is production-ready and tested. Build your phase on top!
