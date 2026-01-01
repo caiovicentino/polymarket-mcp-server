@@ -134,6 +134,19 @@ async def test_closing_soon_includes_z_suffixed_end_date(monkeypatch):
     assert [m["id"] for m in result] == ["m"]
 
 
+def _skip_on_transport(exc, label):
+    """Network guard: infra failures SKIP (never fail the suite for infra)."""
+    pytest.skip(f"{label} unreachable ({type(exc).__name__}: {exc})")
+
+
+def _check_response(response, label):
+    """Fail-closed response check: 5xx is an API-side outage (documented
+    skip); any other non-200 is a live-contract violation (FAIL)."""
+    if response.status_code >= 500:
+        pytest.skip(f"{label}: live API outage (HTTP {response.status_code})")
+    assert response.status_code == 200, f"{label}: expected HTTP 200, got {response.status_code}"
+
+
 # ---------------------------------------------------------------------------
 # Live contract (integration; deselected by the offline suite run)
 # ---------------------------------------------------------------------------
@@ -144,11 +157,14 @@ async def test_live_markets_list_field_contract():
     import httpx
 
     async with httpx.AsyncClient(timeout=20.0) as client:
-        response = await client.get(
-            "https://gamma-api.polymarket.com/markets",
-            params={"active": "true", "closed": "false", "limit": 3},
-        )
-        response.raise_for_status()
+        try:
+            response = await client.get(
+                "https://gamma-api.polymarket.com/markets",
+                params={"active": "true", "closed": "false", "limit": 3},
+            )
+        except (httpx.HTTPError, OSError) as exc:
+            _skip_on_transport(exc, "gamma /markets")
+        _check_response(response, "gamma /markets")
         markets = response.json()
     assert isinstance(markets, list) and markets
     for m in markets:
@@ -168,9 +184,117 @@ async def test_live_featured_query_accepted():
     import httpx
 
     async with httpx.AsyncClient(timeout=20.0) as client:
-        response = await client.get(
-            "https://gamma-api.polymarket.com/markets",
-            params={"featured": "true", "active": "true", "closed": "false", "limit": 2},
-        )
-    assert response.status_code == 200
+        try:
+            response = await client.get(
+                "https://gamma-api.polymarket.com/markets",
+                params={"featured": "true", "active": "true", "closed": "false", "limit": 2},
+            )
+        except (httpx.HTTPError, OSError) as exc:
+            _skip_on_transport(exc, "gamma /markets featured")
+    _check_response(response, "gamma /markets featured")
     assert isinstance(response.json(), list)
+
+
+# --- Transport-guard meta-tests (offline; proves the L-0026 skip-of-infra) --
+
+class _ProbeResponse:
+    """httpx.Response stand-in for the meta-tests: fixed status + JSON."""
+
+    def __init__(self, status_code, payload):
+        self.status_code = status_code
+        self._payload = payload
+
+    def raise_for_status(self):
+        """200-only stand-in: healthy responses never raise here."""
+
+    def json(self):
+        return self._payload
+
+
+async def _run_probe_outcome(coro):
+    """Run a live test body to completion and report its outcome name.
+
+    'Passed' when the body completes; otherwise the exception class name
+    ('Skipped'/'Skip' when the transport guard fires; the raw transport
+    class -- e.g. ConnectError -- pre-guard, which is the deterministic RED
+    this meta-suite pins). ``except BaseException`` is deliberate: the
+    probe reports the outcome, it does not swallow it.
+    """
+    try:
+        await coro
+    except BaseException as exc:
+        return type(exc).__name__
+    return "Passed"
+
+
+@pytest.mark.asyncio
+async def test_meta_transport_guard_skips_when_transport_always_booms(monkeypatch):
+    """Meta-1 (always-boom): ConnectError from the transport -> the live
+    test SKIPS via the guard instead of erroring (pre-guard the exception
+    propagated and this test was RED -- L-0026 skip-of-infra)."""
+    import httpx
+
+    class _AlwaysBoomClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc_info):
+            return False
+
+        async def get(self, url, params=None):
+            raise httpx.ConnectError("synthetic transport outage")
+
+    monkeypatch.setattr(httpx, "AsyncClient", _AlwaysBoomClient)
+
+    name = await _run_probe_outcome(test_live_markets_list_field_contract())
+
+    assert name in ("Skipped", "Skip")
+
+
+@pytest.mark.asyncio
+async def test_meta_transport_guard_skips_on_second_call_boom(monkeypatch):
+    """Meta-2 (counter-boom, raise on call >= 2): the 1st call (the
+    /markets list) succeeds with the fake (the field-contract asserts pass;
+    endDate absent = the ``if`` branch is skipped) and the 2nd call (the
+    featured query) booms -> SKIP. Proves the guard wraps each call site,
+    not the whole module."""
+    import httpx
+
+    class _CounterBoomClient:
+        calls = 0
+
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc_info):
+            return False
+
+        async def get(self, url, params=None):
+            type(self).calls += 1
+            if type(self).calls >= 2:
+                raise httpx.ConnectError("synthetic transport outage")
+            return _ProbeResponse(
+                200,
+                [
+                    {
+                        "volume1wk": "1.0",
+                        "volume1mo": "2.0",
+                        "volume24hr": "3.0",
+                        "volumeNum": "4.0",
+                    }
+                ],
+            )
+
+    monkeypatch.setattr(httpx, "AsyncClient", _CounterBoomClient)
+
+    first = await _run_probe_outcome(test_live_markets_list_field_contract())
+    assert first == "Passed"
+
+    second = await _run_probe_outcome(test_live_featured_query_accepted())
+    assert second in ("Skipped", "Skip")
