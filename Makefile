@@ -1,7 +1,7 @@
 # Polymarket MCP Server - Makefile
 # Convenient commands for Docker operations
 
-.PHONY: help build up down restart logs shell test clean
+.PHONY: help build up down restart logs logs-tail ps stats test clean clean-all start shell build-multi push deploy-k8s undeploy-k8s validate env health update backup restore
 
 # Default target
 .DEFAULT_GOAL := help
@@ -10,7 +10,9 @@
 DOCKER_COMPOSE := docker compose
 SERVICE_NAME := polymarket-mcp
 IMAGE_NAME := polymarket-mcp
-VERSION := 0.1.0
+# Version derived from the package source of truth (src/polymarket_mcp/__init__.py;
+# pyproject hatch reads the same file), so build-multi/push tags never drift.
+VERSION := $(shell sed -n 's/^__version__ = "\(.*\)"/\1/p' src/polymarket_mcp/__init__.py)
 
 ## help: Show this help message
 help:
@@ -152,7 +154,7 @@ backup:
 
 ## restore: Restore volumes from latest backup
 restore:
-	@if [ ! -d backups ] || [ -z "$$(ls -A backups)" ]; then \
+	@if [ ! -d backups ] || [ -z "$$(ls backups/*.tar.gz 2>/dev/null)" ]; then \
 		echo "No backups found"; \
 		exit 1; \
 	fi
