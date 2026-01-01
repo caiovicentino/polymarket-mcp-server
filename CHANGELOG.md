@@ -409,6 +409,10 @@ The first public release of Polymarket MCP Server - a complete AI-powered tradin
   closing-soon, market detail, analysis) propagate tool error envelopes as
   HTTP 500 with a JSON `detail` body instead of raw 200 payloads, so panels
   surface real errors (PR #200).
+- **Schema bounds r3**: the tool registry declares the missing bounds - six
+  Gamma pagination tools cap each call at `maximum: 1000` rows (derived from
+  the module constants), `compare_markets` requires 2-10 markets, and the
+  `hours`, `min_value` and `max_actions` parameters gain minimums (PR #203).
 
 ### Added
 
