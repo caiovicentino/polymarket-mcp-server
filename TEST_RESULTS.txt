@@ -1,0 +1,47 @@
+======================================================================
+GAMMA API: Testing closed=false Parameter
+======================================================================
+
+Test 1: WITHOUT closed=false parameter (original)
+----------------------------------------------------------------------
+  Year: 2020 ❌ Historical
+  Question: Will Joe Biden get Coronavirus before the election?...
+
+  Year: 2021 ❌ Historical
+  Question: Will Airbnb begin publicly trading before Jan 1, 2021?...
+
+  Year: 2020 ❌ Historical
+  Question: Will a new Supreme Court Justice be confirmed before Nov 3rd...
+
+Average year: 2020.3
+Result: ❌ Returns HISTORICAL data
+
+Test 2: WITH closed=false parameter (FIXED)
+----------------------------------------------------------------------
+  Year: 2025 ✅ Current
+  Question: MicroStrategy sells any Bitcoin in 2025?...
+
+  Year: 2025 ✅ Current
+  Question: Will 2025 be the hottest year on record?...
+
+  Year: 2025 ✅ Current
+  Question: Will Avatar 3 be the top grossing movie of 2025?...
+
+Average year: 2025.0
+Result: ✅ Returns CURRENT data
+
+======================================================================
+SUMMARY
+======================================================================
+
+The fix is simple: Add 'closed=false' parameter to all Gamma API calls.
+
+Before fix:
+  params = {'active': 'true'}  # Returns historical data
+
+After fix:
+  params = {'closed': 'false', 'active': 'true'}  # Returns current data
+
+✅ This ensures market discovery tools return current (2024-2027) data
+✅ instead of historical data from 2020-2021.
+
