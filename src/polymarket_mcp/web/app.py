@@ -472,7 +472,7 @@ async def update_config(config_update: ConfigUpdateRequest):
             raise HTTPException(status_code=404, detail=".env file not found")
 
         # Read current .env
-        env_lines = env_file.read_text().split('\n')
+        env_lines = env_file.read_text(encoding="utf-8").split('\n')
         updated_lines = []
 
         # Update values
@@ -498,7 +498,7 @@ async def update_config(config_update: ConfigUpdateRequest):
                 updated_lines.append(line)
 
         # Write back
-        env_file.write_text('\n'.join(updated_lines))
+        env_file.write_text('\n'.join(updated_lines), encoding="utf-8")
 
         # Reload config
         await load_mcp_config()

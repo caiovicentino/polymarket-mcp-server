@@ -60,8 +60,8 @@
                     <form id="config-form">
                         <div class="form-group">
                             <label for="max_order_size">Max Order Size (USD)</label>
-                            <input type="range" id="max_order_size" name="max_order_size_usd"
-                                   min="100" max="10000" step="100"
+                            <input type="number" id="max_order_size" name="max_order_size_usd"
+                                   min="0.01" step="0.01"
                                    value="{{ config.safety_limits.max_order_size_usd }}"
                                    oninput="updateRangeValue('max_order_size', this.value)">
                             <span class="range-value" id="max_order_size_value">${{ config.safety_limits.max_order_size_usd }}</span>
@@ -69,8 +69,8 @@
 
                         <div class="form-group">
                             <label for="max_exposure">Max Total Exposure (USD)</label>
-                            <input type="range" id="max_exposure" name="max_total_exposure_usd"
-                                   min="1000" max="50000" step="1000"
+                            <input type="number" id="max_exposure" name="max_total_exposure_usd"
+                                   min="0.01" step="0.01"
                                    value="{{ config.safety_limits.max_total_exposure_usd }}"
                                    oninput="updateRangeValue('max_exposure', this.value)">
                             <span class="range-value" id="max_exposure_value">${{ config.safety_limits.max_total_exposure_usd }}</span>
@@ -78,8 +78,8 @@
 
                         <div class="form-group">
                             <label for="max_position">Max Position Per Market (USD)</label>
-                            <input type="range" id="max_position" name="max_position_size_per_market"
-                                   min="500" max="20000" step="500"
+                            <input type="number" id="max_position" name="max_position_size_per_market"
+                                   min="0.01" step="0.01"
                                    value="{{ config.safety_limits.max_position_size_per_market }}"
                                    oninput="updateRangeValue('max_position', this.value)">
                             <span class="range-value" id="max_position_value">${{ config.safety_limits.max_position_size_per_market }}</span>
@@ -87,8 +87,8 @@
 
                         <div class="form-group">
                             <label for="min_liquidity">Min Liquidity Required (USD)</label>
-                            <input type="range" id="min_liquidity" name="min_liquidity_required"
-                                   min="1000" max="100000" step="1000"
+                            <input type="number" id="min_liquidity" name="min_liquidity_required"
+                                   min="0.01" step="0.01"
                                    value="{{ config.safety_limits.min_liquidity_required }}"
                                    oninput="updateRangeValue('min_liquidity', this.value)">
                             <span class="range-value" id="min_liquidity_value">${{ config.safety_limits.min_liquidity_required }}</span>
@@ -96,8 +96,8 @@
 
                         <div class="form-group">
                             <label for="max_spread">Max Spread Tolerance (%)</label>
-                            <input type="range" id="max_spread" name="max_spread_tolerance"
-                                   min="0.01" max="0.20" step="0.01"
+                            <input type="number" id="max_spread" name="max_spread_tolerance"
+                                   min="0" max="1" step="0.01"
                                    value="{{ config.safety_limits.max_spread_tolerance }}"
                                    oninput="updateRangeValue('max_spread', (this.value * 100).toFixed(0))">
                             <span class="range-value" id="max_spread_value">{{ (config.safety_limits.max_spread_tolerance * 100)|int }}%</span>
@@ -118,8 +118,8 @@
 
                         <div class="form-group">
                             <label for="confirmation_threshold">Require Confirmation Above (USD)</label>
-                            <input type="range" id="confirmation_threshold" name="require_confirmation_above_usd"
-                                   min="100" max="5000" step="100"
+                            <input type="number" id="confirmation_threshold" name="require_confirmation_above_usd"
+                                   min="0" step="0.01"
                                    value="{{ config.trading_controls.require_confirmation_above_usd }}"
                                    oninput="updateRangeValue('confirmation_threshold', this.value)">
                             <span class="range-value" id="confirmation_threshold_value">${{ config.trading_controls.require_confirmation_above_usd }}</span>
@@ -165,6 +165,18 @@
             document.getElementById(`${id}_value`).textContent = value.toString().includes('.') ? value : `$${value}`;
         }
 
+        // formatDetailErrors-begin
+        function formatDetailErrors(detail) {
+            if (Array.isArray(detail)) {
+                return detail
+                    .map(d => (d.loc && d.loc.length ? d.loc.join('.') + ': ' : '') + (d.msg ?? ''))
+                    .filter(Boolean)
+                    .join('; ');
+            }
+            return String(detail ?? '');
+        }
+        // formatDetailErrors-end
+
         document.getElementById('config-form').addEventListener('submit', async (e) => {
             e.preventDefault();
 
@@ -196,7 +208,7 @@
                 if (response.ok) {
                     showNotification(result.message, 'success');
                 } else {
-                    showNotification('Failed to save: ' + result.detail, 'error');
+                    showNotification('Failed to save: ' + formatDetailErrors(result.detail), 'error');
                 }
             } catch (error) {
                 showNotification('Save failed: ' + error.message, 'error');
