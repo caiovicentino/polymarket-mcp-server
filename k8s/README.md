@@ -40,7 +40,7 @@ kubectl create secret generic polymarket-mcp-secrets \
   --from-literal=POLYMARKET_API_SECRET=... \
   --from-literal=POLYMARKET_PASSPHRASE=... \
   -n default
-# Note: API_SECRET and PASSPHRASE are DIFFERENT values — do not reuse one for
+# Note: API_SECRET and PASSPHRASE are DIFFERENT values -- do not reuse one for
 # both, or request signing will fail.
 
 # Or from .env file

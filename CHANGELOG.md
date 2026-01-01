@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.0] - 2026-07-29
 
-### ⚠️ Breaking Changes
+### Breaking Changes
 
 - **`ENABLE_AUTONOMOUS_TRADING` now defaults to `false`.** Every order requires
   `confirm=true` unless you opt in. Previously it defaulted to `true` and, with
@@ -71,7 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - 2025-01-10
 
-### 🎉 Initial Public Release
+### Initial Public Release
 
 The first public release of Polymarket MCP Server - a complete AI-powered trading platform for Polymarket prediction markets.
 

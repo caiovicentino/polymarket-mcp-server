@@ -3,285 +3,285 @@
 ## System Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                     Claude Desktop / MCP Client                  │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-                             │ MCP Protocol
-                             │
-┌────────────────────────────▼────────────────────────────────────┐
-│                    Polymarket MCP Server                         │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │                   server.py (Main)                       │   │
-│  │  - Tool routing (canonical registry, see Tool Registry section) │   │
-│  │  - Resource management                                   │   │
-│  │  - Initialization & lifecycle                           │   │
-│  └──────────┬──────────────────┬──────────────┬─────────────┘   │
-│             │                  │              │                  │
-│    ┌────────▼────────┐ ┌───────▼──────┐ ┌────▼──────────────┐  │
-│    │ Market Discovery│ │Market Analysis│ │  Trading Tools    │  │
-│    │    (8 tools)   │ │   (10 tools)  │ │    (12 tools)    │  │
-│    └────────────────┘ └───────────────┘ └────┬──────────────┘  │
-│                                               │                  │
-│  ┌────────────────────────────────────────────▼──────────────┐  │
-│  │              TradingTools Class (trading.py)              │  │
-│  │  ┌──────────────────────────────────────────────────────┐ │  │
-│  │  │         Order Creation (4 tools)                     │ │  │
-│  │  │  • create_limit_order                                │ │  │
-│  │  │  • create_market_order                               │ │  │
-│  │  │  • create_batch_orders                               │ │  │
-│  │  │  • suggest_order_price                               │ │  │
-│  │  └──────────────────────────────────────────────────────┘ │  │
-│  │  ┌──────────────────────────────────────────────────────┐ │  │
-│  │  │        Order Management (6 tools)                    │ │  │
-│  │  │  • get_order_status                                  │ │  │
-│  │  │  • get_open_orders                                   │ │  │
-│  │  │  • get_order_history                                 │ │  │
-│  │  │  • cancel_order                                      │ │  │
-│  │  │  • cancel_market_orders                              │ │  │
-│  │  │  • cancel_all_orders                                 │ │  │
-│  │  └──────────────────────────────────────────────────────┘ │  │
-│  │  ┌──────────────────────────────────────────────────────┐ │  │
-│  │  │         Smart Trading (2 tools)                      │ │  │
-│  │  │  • execute_smart_trade (AI-powered)                  │ │  │
-│  │  │  • rebalance_position                                │ │  │
-│  │  └──────────────────────────────────────────────────────┘ │  │
-│  └──────────┬───────────────────┬─────────────────┬───────────┘  │
-│             │                   │                 │              │
-│    ┌────────▼────────┐ ┌────────▼────────┐ ┌─────▼──────────┐  │
-│    │  SafetyLimits  │ │  RateLimiter    │ │ PolymarketClient│  │
-│    │  Validation    │ │  Token Bucket   │ │  CLOB API       │  │
-│    └────────────────┘ └─────────────────┘ └─────┬───────────┘  │
-└──────────────────────────────────────────────────┼──────────────┘
-                                                    │
-                                                    │ HTTPS
-                                                    │
-                                        ┌───────────▼─────────────┐
-                                        │  Polymarket CLOB API    │
-                                        │  clob.polymarket.com    │
-                                        └─────────────────────────┘
++-----------------------------------------------------------------+
+|                     Claude Desktop / MCP Client                  |
++----------------------------+------------------------------------+
+                             |
+                             | MCP Protocol
+                             |
++----------------------------v------------------------------------+
+|                    Polymarket MCP Server                         |
+|  +----------------------------------------------------------+   |
+|  |                   server.py (Main)                       |   |
+|  |  - Tool routing (canonical registry, see Tool Registry section) |   |
+|  |  - Resource management                                   |   |
+|  |  - Initialization & lifecycle                           |   |
+|  +----------+------------------+--------------+-------------+   |
+|             |                  |              |                  |
+|    +--------v--------+ +-------v------+ +----v--------------+  |
+|    | Market Discovery| |Market Analysis| |  Trading Tools    |  |
+|    |    (8 tools)   | |   (10 tools)  | |    (12 tools)    |  |
+|    +----------------+ +---------------+ +----+--------------+  |
+|                                               |                  |
+|  +--------------------------------------------v--------------+  |
+|  |              TradingTools Class (trading.py)              |  |
+|  |  +------------------------------------------------------+ |  |
+|  |  |         Order Creation (4 tools)                     | |  |
+|  |  |  - create_limit_order                                | |  |
+|  |  |  - create_market_order                               | |  |
+|  |  |  - create_batch_orders                               | |  |
+|  |  |  - suggest_order_price                               | |  |
+|  |  +------------------------------------------------------+ |  |
+|  |  +------------------------------------------------------+ |  |
+|  |  |        Order Management (6 tools)                    | |  |
+|  |  |  - get_order_status                                  | |  |
+|  |  |  - get_open_orders                                   | |  |
+|  |  |  - get_order_history                                 | |  |
+|  |  |  - cancel_order                                      | |  |
+|  |  |  - cancel_market_orders                              | |  |
+|  |  |  - cancel_all_orders                                 | |  |
+|  |  +------------------------------------------------------+ |  |
+|  |  +------------------------------------------------------+ |  |
+|  |  |         Smart Trading (2 tools)                      | |  |
+|  |  |  - execute_smart_trade (AI-powered)                  | |  |
+|  |  |  - rebalance_position                                | |  |
+|  |  +------------------------------------------------------+ |  |
+|  +----------+-------------------+-----------------+-----------+  |
+|             |                   |                 |              |
+|    +--------v--------+ +--------v--------+ +-----v----------+  |
+|    |  SafetyLimits  | |  RateLimiter    | | PolymarketClient|  |
+|    |  Validation    | |  Token Bucket   | |  CLOB API       |  |
+|    +----------------+ +-----------------+ +-----+-----------+  |
++--------------------------------------------------+--------------+
+                                                    |
+                                                    | HTTPS
+                                                    |
+                                        +-----------v-------------+
+                                        |  Polymarket CLOB API    |
+                                        |  clob.polymarket.com    |
+                                        +-------------------------+
 ```
 
 ## Data Flow: Creating a Limit Order
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│ 1. User Request via Claude                                       │
-│    "Create a buy order for $100 in market X at price 0.55"      │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────────────┐
-│ 2. MCP Server receives call_tool()                              │
-│    tool: "create_limit_order"                                    │
-│    args: {market_id, side:"BUY", price:0.55, size:100}          │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────────────┐
-│ 3. TradingTools.create_limit_order()                            │
-│    a) Rate Limiter: Check TRADING_BURST (2400/10s)             │
-│    b) Validate: price (0-1), size (>0), side (BUY|SELL)        │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────────────┐
-│ 4. Fetch Market Data                                             │
-│    • Get market details (tokens, volume)                        │
-│    • Get orderbook (bids, asks, liquidity)                      │
-│    • Calculate: best_bid, best_ask, spread                      │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────────────┐
-│ 5. Get Current Positions                                         │
-│    • Fetch user positions from API                              │
-│    • Convert to Position objects                                │
-│    • Calculate current exposure                                 │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────────────┐
-│ 6. Safety Validation (SafetyLimits.validate_order)             │
-│    ✓ Order size < MAX_ORDER_SIZE_USD                            │
-│    ✓ New exposure < MAX_TOTAL_EXPOSURE_USD                      │
-│    ✓ Market exposure < MAX_POSITION_SIZE_PER_MARKET             │
-│    ✓ Liquidity > MIN_LIQUIDITY_REQUIRED                         │
-│    ✓ Spread < MAX_SPREAD_TOLERANCE                              │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-                    ┌────────┴────────┐
-                    │  Validation OK? │
-                    └────────┬────────┘
-                             │ YES
-┌────────────────────────────▼────────────────────────────────────┐
-│ 7. Check Confirmation Threshold                                  │
-│    if size > REQUIRE_CONFIRMATION_ABOVE_USD:                    │
-│        Log warning (proceed in autonomous mode)                 │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────────────┐
-│ 8. Post Order to CLOB API                                        │
-│    • Convert size USD to shares (size / price)                  │
-│    • Build OrderArgs with token_id, price, size, side, type     │
-│    • Sign order with private key (L1 auth)                      │
-│    • POST to /order with HMAC signature (L2 auth)               │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────────────┐
-│ 9. Return Result                                                 │
-│    {                                                             │
-│      "success": true,                                            │
-│      "order_id": "0x...",                                        │
-│      "status": "submitted",                                      │
-│      "details": {...}                                            │
-│    }                                                             │
-└─────────────────────────────────────────────────────────────────┘
++-----------------------------------------------------------------+
+| 1. User Request via Claude                                       |
+|    "Create a buy order for $100 in market X at price 0.55"      |
++----------------------------+------------------------------------+
+                             |
++----------------------------v------------------------------------+
+| 2. MCP Server receives call_tool()                              |
+|    tool: "create_limit_order"                                    |
+|    args: {market_id, side:"BUY", price:0.55, size:100}          |
++----------------------------+------------------------------------+
+                             |
++----------------------------v------------------------------------+
+| 3. TradingTools.create_limit_order()                            |
+|    a) Rate Limiter: Check TRADING_BURST (2400/10s)             |
+|    b) Validate: price (0-1), size (>0), side (BUY|SELL)        |
++----------------------------+------------------------------------+
+                             |
++----------------------------v------------------------------------+
+| 4. Fetch Market Data                                             |
+|    - Get market details (tokens, volume)                        |
+|    - Get orderbook (bids, asks, liquidity)                      |
+|    - Calculate: best_bid, best_ask, spread                      |
++----------------------------+------------------------------------+
+                             |
++----------------------------v------------------------------------+
+| 5. Get Current Positions                                         |
+|    - Fetch user positions from API                              |
+|    - Convert to Position objects                                |
+|    - Calculate current exposure                                 |
++----------------------------+------------------------------------+
+                             |
++----------------------------v------------------------------------+
+| 6. Safety Validation (SafetyLimits.validate_order)             |
+|    v Order size < MAX_ORDER_SIZE_USD                            |
+|    v New exposure < MAX_TOTAL_EXPOSURE_USD                      |
+|    v Market exposure < MAX_POSITION_SIZE_PER_MARKET             |
+|    v Liquidity > MIN_LIQUIDITY_REQUIRED                         |
+|    v Spread < MAX_SPREAD_TOLERANCE                              |
++----------------------------+------------------------------------+
+                             |
+                    +--------+--------+
+                    |  Validation OK? |
+                    +--------+--------+
+                             | YES
++----------------------------v------------------------------------+
+| 7. Check Confirmation Threshold                                  |
+|    if size > REQUIRE_CONFIRMATION_ABOVE_USD:                    |
+|        Log warning (proceed in autonomous mode)                 |
++----------------------------+------------------------------------+
+                             |
++----------------------------v------------------------------------+
+| 8. Post Order to CLOB API                                        |
+|    - Convert size USD to shares (size / price)                  |
+|    - Build OrderArgs with token_id, price, size, side, type     |
+|    - Sign order with private key (L1 auth)                      |
+|    - POST to /order with HMAC signature (L2 auth)               |
++----------------------------+------------------------------------+
+                             |
++----------------------------v------------------------------------+
+| 9. Return Result                                                 |
+|    {                                                             |
+|      "success": true,                                            |
+|      "order_id": "0x...",                                        |
+|      "status": "submitted",                                      |
+|      "details": {...}                                            |
+|    }                                                             |
++-----------------------------------------------------------------+
 ```
 
 ## Safety Validation Flow
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    SafetyLimits Validation                       │
-└─────────────────────────────────────────────────────────────────┘
++-----------------------------------------------------------------+
+|                    SafetyLimits Validation                       |
++-----------------------------------------------------------------+
 
   Input: OrderRequest, Positions, MarketData
 
-         │
-         ▼
-  ┌─────────────────┐
-  │ 1. Order Size   │──────► order_value = size * price
-  │    Check        │        IF order_value > MAX_ORDER_SIZE_USD
-  └────────┬────────┘            REJECT "Order size exceeds maximum"
-           │ PASS
-           ▼
-  ┌─────────────────┐
-  │ 2. Total        │──────► new_exposure = current + order_value
-  │    Exposure     │        IF new_exposure > MAX_TOTAL_EXPOSURE_USD
-  └────────┬────────┘            REJECT "Exposure exceeds maximum"
-           │ PASS
-           ▼
-  ┌─────────────────┐
-  │ 3. Market       │──────► market_exposure = sum(market_positions)
-  │    Position     │        new_market_exp = market_exposure + order
-  └────────┬────────┘        IF new_market_exp > MAX_POSITION_SIZE_PER_MARKET
-           │ PASS                REJECT "Market exposure exceeds maximum"
-           ▼
-  ┌─────────────────┐
-  │ 4. Liquidity    │──────► total_liquidity = bid_liq + ask_liq
-  │    Check        │        IF total_liquidity < MIN_LIQUIDITY_REQUIRED
-  └────────┬────────┘            REJECT "Insufficient liquidity"
-           │ PASS
-           ▼
-  ┌─────────────────┐
-  │ 5. Spread       │──────► spread = (ask - bid) / bid
-  │    Tolerance    │        IF spread > MAX_SPREAD_TOLERANCE
-  └────────┬────────┘            REJECT "Spread exceeds tolerance"
-           │ PASS
-           ▼
-  ┌─────────────────┐
-  │  ✓ VALIDATED    │──────► Order can proceed
-  └─────────────────┘
+         |
+         v
+  +-----------------+
+  | 1. Order Size   |------> order_value = size * price
+  |    Check        |        IF order_value > MAX_ORDER_SIZE_USD
+  +--------+--------+            REJECT "Order size exceeds maximum"
+           | PASS
+           v
+  +-----------------+
+  | 2. Total        |------> new_exposure = current + order_value
+  |    Exposure     |        IF new_exposure > MAX_TOTAL_EXPOSURE_USD
+  +--------+--------+            REJECT "Exposure exceeds maximum"
+           | PASS
+           v
+  +-----------------+
+  | 3. Market       |------> market_exposure = sum(market_positions)
+  |    Position     |        new_market_exp = market_exposure + order
+  +--------+--------+        IF new_market_exp > MAX_POSITION_SIZE_PER_MARKET
+           | PASS                REJECT "Market exposure exceeds maximum"
+           v
+  +-----------------+
+  | 4. Liquidity    |------> total_liquidity = bid_liq + ask_liq
+  |    Check        |        IF total_liquidity < MIN_LIQUIDITY_REQUIRED
+  +--------+--------+            REJECT "Insufficient liquidity"
+           | PASS
+           v
+  +-----------------+
+  | 5. Spread       |------> spread = (ask - bid) / bid
+  |    Tolerance    |        IF spread > MAX_SPREAD_TOLERANCE
+  +--------+--------+            REJECT "Spread exceeds tolerance"
+           | PASS
+           v
+  +-----------------+
+  |  v VALIDATED    |------> Order can proceed
+  +-----------------+
 ```
 
 ## Smart Trade Execution Flow
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│ execute_smart_trade(market_id, intent, max_budget)              │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────────────┐
-│ 1. Parse Intent                                                  │
-│    Intent: "Buy YES quickly up to $200"                         │
-│    → side: BUY                                                   │
-│    → strategy: aggressive (keywords: "quickly")                 │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────────────┐
-│ 2. Get Price Suggestion                                          │
-│    suggest_order_price(market_id, BUY, size, "aggressive")     │
-│    → suggested_price: 0.58 (best ask)                           │
-│    → fill_probability: 0.95                                     │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────────────┐
-│ 3. Determine Execution Strategy                                  │
-│    IF fill_probability > 0.8 OR strategy == "aggressive":       │
-│        → Single market order                                     │
-│    ELSE:                                                         │
-│        → Split into multiple limit orders                       │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────────────┐
-│ 4. Execute Orders                                                │
-│    Plan: Single market order for $200                           │
-│    → create_market_order(market_id, BUY, 200)                   │
-│       → Executes at best ask 0.58                               │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────────────┐
-│ 5. Return Execution Summary                                      │
-│    {                                                             │
-│      "success": true,                                            │
-│      "strategy": "aggressive",                                   │
-│      "execution_summary": {                                      │
-│        "total_orders": 1,                                        │
-│        "successful": 1,                                          │
-│        "total_value": 200,                                       │
-│        "budget_used": 100%                                       │
-│      }                                                            │
-│    }                                                             │
-└─────────────────────────────────────────────────────────────────┘
++-----------------------------------------------------------------+
+| execute_smart_trade(market_id, intent, max_budget)              |
++----------------------------+------------------------------------+
+                             |
++----------------------------v------------------------------------+
+| 1. Parse Intent                                                  |
+|    Intent: "Buy YES quickly up to $200"                         |
+|    > side: BUY                                                   |
+|    > strategy: aggressive (keywords: "quickly")                 |
++----------------------------+------------------------------------+
+                             |
++----------------------------v------------------------------------+
+| 2. Get Price Suggestion                                          |
+|    suggest_order_price(market_id, BUY, size, "aggressive")     |
+|    > suggested_price: 0.58 (best ask)                           |
+|    > fill_probability: 0.95                                     |
++----------------------------+------------------------------------+
+                             |
++----------------------------v------------------------------------+
+| 3. Determine Execution Strategy                                  |
+|    IF fill_probability > 0.8 OR strategy == "aggressive":       |
+|        > Single market order                                     |
+|    ELSE:                                                         |
+|        > Split into multiple limit orders                       |
++----------------------------+------------------------------------+
+                             |
++----------------------------v------------------------------------+
+| 4. Execute Orders                                                |
+|    Plan: Single market order for $200                           |
+|    > create_market_order(market_id, BUY, 200)                   |
+|       > Executes at best ask 0.58                               |
++----------------------------+------------------------------------+
+                             |
++----------------------------v------------------------------------+
+| 5. Return Execution Summary                                      |
+|    {                                                             |
+|      "success": true,                                            |
+|      "strategy": "aggressive",                                   |
+|      "execution_summary": {                                      |
+|        "total_orders": 1,                                        |
+|        "successful": 1,                                          |
+|        "total_value": 200,                                       |
+|        "budget_used": 100%                                       |
+|      }                                                            |
+|    }                                                             |
++-----------------------------------------------------------------+
 ```
 
 ## Rate Limiting Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                      Rate Limiter (Singleton)                    │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │              Token Bucket per Category                   │   │
-│  │                                                           │   │
-│  │  TRADING_BURST:    [████████████░░░░░░░░] 1200/2400     │   │
-│  │  max: 2400, refill: 240/s, window: 10s                  │   │
-│  │                                                           │   │
-│  │  TRADING_SUSTAINED: [█████████████████░░] 18000/24000   │   │
-│  │  max: 24000, refill: 40/s, window: 600s                 │   │
-│  │                                                           │   │
-│  │  MARKET_DATA:      [████████████████████] 195/200       │   │
-│  │  max: 200, refill: 20/s, window: 10s                    │   │
-│  │                                                           │   │
-│  │  CLOB_GENERAL:     [████████████████████] 4800/5000     │   │
-│  │  max: 5000, refill: 500/s, window: 10s                  │   │
-│  └──────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
++-----------------------------------------------------------------+
+|                      Rate Limiter (Singleton)                    |
+|  +----------------------------------------------------------+   |
+|  |              Token Bucket per Category                   |   |
+|  |                                                           |   |
+|  |  TRADING_BURST:    [############........] 1200/2400     |   |
+|  |  max: 2400, refill: 240/s, window: 10s                  |   |
+|  |                                                           |   |
+|  |  TRADING_SUSTAINED: [#################..] 18000/24000   |   |
+|  |  max: 24000, refill: 40/s, window: 600s                 |   |
+|  |                                                           |   |
+|  |  MARKET_DATA:      [####################] 195/200       |   |
+|  |  max: 200, refill: 20/s, window: 10s                    |   |
+|  |                                                           |   |
+|  |  CLOB_GENERAL:     [####################] 4800/5000     |   |
+|  |  max: 5000, refill: 500/s, window: 10s                  |   |
+|  +----------------------------------------------------------+   |
++-----------------------------------------------------------------+
 
 How it works:
 1. Before each API call: rate_limiter.acquire(category, tokens=1)
 2. If tokens available: Proceed immediately
 3. If insufficient: Calculate wait_time = tokens_needed / refill_rate
 4. Sleep for wait_time, then proceed
-5. On 429 error: Exponential backoff (1s → 2s → 4s → ... → 60s max)
+5. On 429 error: Exponential backoff (1s > 2s > 4s > ... > 60s max)
 ```
 
 ## Component Dependencies
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         trading.py                               │
-├─────────────────────────────────────────────────────────────────┤
-│ Imports:                                                         │
-│  • config.PolymarketConfig         - Configuration               │
-│  • auth.PolymarketClient          - API client                  │
-│  • utils.SafetyLimits             - Risk validation             │
-│  • utils.OrderRequest             - Order data model            │
-│  • utils.Position                 - Position data model         │
-│  • utils.MarketData               - Market data model           │
-│  • utils.EndpointCategory         - Rate limit categories       │
-│  • utils.get_rate_limiter         - Rate limiter singleton      │
-│  • mcp.types                      - MCP protocol types          │
-│                                                                  │
-│ Exports:                                                         │
-│  • TradingTools                   - Main tools class            │
-│  • get_tool_definitions()         - MCP tool schemas            │
-└─────────────────────────────────────────────────────────────────┘
++-----------------------------------------------------------------+
+|                         trading.py                               |
++-----------------------------------------------------------------+
+| Imports:                                                         |
+|  - config.PolymarketConfig         - Configuration               |
+|  - auth.PolymarketClient          - API client                  |
+|  - utils.SafetyLimits             - Risk validation             |
+|  - utils.OrderRequest             - Order data model            |
+|  - utils.Position                 - Position data model         |
+|  - utils.MarketData               - Market data model           |
+|  - utils.EndpointCategory         - Rate limit categories       |
+|  - utils.get_rate_limiter         - Rate limiter singleton      |
+|  - mcp.types                      - MCP protocol types          |
+|                                                                  |
+| Exports:                                                         |
+|  - TradingTools                   - Main tools class            |
+|  - get_tool_definitions()         - MCP tool schemas            |
++-----------------------------------------------------------------+
 ```
 
 ## Error Handling Strategy
@@ -359,23 +359,23 @@ async def tool_method(params):
 
 ```
 Unit Tests (Isolated)
-├── Parameter validation
-├── Safety limit calculations
-├── Intent parsing
-└── Error handling
++-- Parameter validation
++-- Safety limit calculations
++-- Intent parsing
++-- Error handling
 
 Integration Tests (With Real API)
-├── Order creation flow
-├── Order lifecycle (create → status → cancel)
-├── Batch operations
-├── Smart trading execution
-└── Safety limit enforcement
++-- Order creation flow
++-- Order lifecycle (create > status > cancel)
++-- Batch operations
++-- Smart trading execution
++-- Safety limit enforcement
 
 End-to-End Tests
-├── Complete user workflows
-├── Multi-market operations
-├── Error recovery
-└── Rate limit handling
++-- Complete user workflows
++-- Multi-market operations
++-- Error recovery
++-- Rate limit handling
 ```
 
 ---
@@ -452,7 +452,7 @@ Derived from the live `get_tools()`/tool-definition surface;
 
 The Trading Tools architecture provides:
 
-1. **Clean Separation**: Tools → SafetyLimits → RateLimiter → Client → API
+1. **Clean Separation**: Tools > SafetyLimits > RateLimiter > Client > API
 2. **Comprehensive Validation**: Every order validated before execution
 3. **Automatic Rate Limiting**: Never exceeds API limits
 4. **Smart Execution**: AI-powered trade optimization
