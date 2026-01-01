@@ -268,6 +268,9 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: always
+    env_file:
+      - path: .env
+        required: false
     environment:
       - LOG_LEVEL=WARNING
     deploy:
@@ -289,7 +292,7 @@ services:
       retries: 5
 ```
 
-Start with: `docker compose -f docker-compose.prod.yml up -d`
+Start with: `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d`
 
 ## Troubleshooting
 
