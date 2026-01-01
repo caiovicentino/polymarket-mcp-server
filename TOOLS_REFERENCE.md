@@ -330,7 +330,7 @@ Get available liquidity in USD.
     "token_id": "string (required)",
     "start_date": "string (optional)",
     "end_date": "string (optional)",
-    "resolution": "enum['1m', '5m', '1h', '1d'] (default: '1h')"
+    "resolution": "enum['1m', '1h', '6h', '1d', '1w'] (default: '1h')"
   },
   "returns": "List[OHLC]"
 }

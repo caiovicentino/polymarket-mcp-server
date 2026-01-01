@@ -400,10 +400,14 @@ async def get_price_history(
         token_id: Token ID
         start_date: Start date (ISO format or timestamp)
         end_date: End date (ISO format or timestamp)
-        resolution: Time resolution ('1m', '5m', '1h', '1d')
+        resolution: Time resolution ('1m', '1h', '6h', '1d', '1w')
 
     Returns:
         OHLC price data
+
+    Note: the CLOB /prices-history endpoint rejects unknown intervals
+    (probed 2026-09-20: interval=5m -> HTTP 400 "the 'interval' value is
+    unknown. Known values: '1m', '1w', '1d', '6h', '1h'").
     """
     try:
         # Calculate default date range if not provided
@@ -773,7 +777,7 @@ def get_tools() -> List[types.Tool]:
                     },
                     "resolution": {
                         "type": "string",
-                        "enum": ["1m", "5m", "1h", "1d"],
+                        "enum": ["1m", "1h", "6h", "1d", "1w"],
                         "description": "Time resolution (default: 1h)",
                         "default": "1h"
                     }
