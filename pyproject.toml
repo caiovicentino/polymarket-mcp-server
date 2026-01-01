@@ -55,7 +55,7 @@ dev = [
 ]
 
 [project.scripts]
-polymarket-mcp = "polymarket_mcp.server:main"
+polymarket-mcp = "polymarket_mcp.server:run"
 polymarket-web = "polymarket_mcp.web.app:start"
 polymarket-setup = "setup_wizard:main"
 
