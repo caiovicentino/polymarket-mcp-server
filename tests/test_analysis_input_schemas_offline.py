@@ -167,13 +167,37 @@ class _StdioSession:
                 return message
 
 
+# Windows needs the OS environment for WSAStartup (SystemRoot et al.); a
+# minimal env breaks `import _overlapped` inside asyncio with WinError 10106
+# (proven live: CI run 35472550234). The sibling stdio suites inherit
+# dict(os.environ) + overrides (L-0316 face (c) house pattern) and pass the
+# windows-latest runners since their merge. Config-ish keys are stripped and
+# the prescribed values win below; POSIX keeps the byte-identical minimal env.
+_CONFIG_ENV_PREFIXES = ("DEMO_MODE", "PYTHONPATH", "POLYMARKET_", "POLYGON_")
+
+
+def _server_env() -> dict:
+    """Env for the spawned server subprocess (prescribed hermeticity, L-0316)."""
+    env: dict = {}
+    if sys.platform == "win32":
+        env = {
+            key: value
+            for key, value in os.environ.items()
+            if not key.upper().startswith(_CONFIG_ENV_PREFIXES)
+        }
+    env["DEMO_MODE"] = "true"
+    env["PYTHONPATH"] = str(REPO_ROOT / "src")
+    env["PATH"] = os.environ.get("PATH", os.defpath)
+    if sys.platform == "win32":
+        env["PYTHONIOENCODING"] = "utf-8"
+    return env
+
+
 def _start_server(tmp_path):
-    """Spawn the server subprocess (pristine cwd, prescribed env)."""
-    env = {
-        "DEMO_MODE": "true",
-        "PYTHONPATH": str(REPO_ROOT / "src"),
-        "PATH": os.environ.get("PATH", os.defpath),
-    }
+    """Spawn the server subprocess (pristine cwd, prescribed env).
+
+    env built by ``_server_env`` -- see its docstring for the Windows rationale.
+    """
     return subprocess.Popen(
         [sys.executable, "-m", "polymarket_mcp.server"],
         stdin=subprocess.PIPE,
@@ -182,7 +206,7 @@ def _start_server(tmp_path):
         text=True,
         encoding="utf-8",
         cwd=str(tmp_path),
-        env=env,
+        env=_server_env(),
         bufsize=1,
     )
 
@@ -214,6 +238,11 @@ def _teardown(proc):
                 stream.close()
 
 
+def _winsock_unavailable(stderr_tail: str) -> bool:
+    """True iff the child died from the Windows Winsock init failure."""
+    return "WinError 10106" in stderr_tail or "_overlapped" in stderr_tail
+
+
 def _handshake(session):
     request_id = session.request(
         "initialize",
@@ -223,7 +252,17 @@ def _handshake(session):
             "clientInfo": {"name": "t-0290-offline-suite", "version": "0.0.1"},
         },
     )
-    init = session.response(request_id)
+    try:
+        init = session.response(request_id)
+    except RuntimeError as exc:
+        if _winsock_unavailable(str(exc)):
+            pytest.skip(
+                "Windows runner cannot initialize Winsock in the spawned "
+                "subprocess (WinError 10106 / _overlapped); the stdio "
+                "handshake is environment-limited -- skipped with reason "
+                "(SKIP-de-infra, L-0026), re-runs where sockets work."
+            )
+        raise
     assert init["result"]["serverInfo"]["name"] == "polymarket-trading"
     session.notify("notifications/initialized")
 
@@ -264,3 +303,52 @@ def test_stdio_enforcement_depth_zero_invalid_params(stdio_server):
     text = result["content"][0]["text"]
     assert text.startswith("Input validation error")
     assert "not of type" in text
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="POSIX equality assert: the win32 branch builds a different env",
+)
+def test_server_env_posix_is_exactly_minimal(monkeypatch):
+    """POSIX ``_server_env()`` is EXACTLY the minimal env (L-0316 face (c):
+    equality, never membership). SYSTEMROOT is set on the host to prove it is
+    present but irrelevant on POSIX -- the minimal env is byte-identical to
+    the pre-fix spawn on this platform."""
+    monkeypatch.setenv("SYSTEMROOT", "C:\\Windows")
+    env = _server_env()
+    assert env == {
+        "DEMO_MODE": "true",
+        "PYTHONPATH": str(REPO_ROOT / "src"),
+        "PATH": os.environ.get("PATH", os.defpath),
+    }
+
+
+def test_server_env_windows_inherits_os_and_wins_prescribed(monkeypatch):
+    """win32: ``_server_env()`` inherits dict(os.environ) minus config-ish
+    keys; the prescribed values win over inherited ones (dev-only proof of
+    the win32 branch via monkeypatch -- probable, never run on a runner;
+    the final proof is the windows-latest CI, L-0316 face (e))."""
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setenv("SYSTEMROOT", "C:\\Windows")
+    monkeypatch.setenv("POLYMARKET_API_KEY", "leak-check")
+    monkeypatch.setenv("DEMO_MODE", "false")
+    env = _server_env()
+    assert env["SYSTEMROOT"] == "C:\\Windows"  # OS environment inherited
+    assert env["DEMO_MODE"] == "true"  # prescribed wins over inherited
+    assert "POLYMARKET_API_KEY" not in env  # config key never leaks
+    assert env["PYTHONIOENCODING"] == "utf-8"
+    assert env["PYTHONPATH"] == str(REPO_ROOT / "src")
+
+
+def test_winsock_unavailable_signature_is_infra_only():
+    """The skip guard matches ONLY the observed Winsock failure signature --
+    a genuine boot error (e.g. missing module) and an empty stderr tail are
+    re-raised (the guard never masks a real failure, anti-over-fix)."""
+    observed = (
+        "OSError: [WinError 10106] The requested service provider could not "
+        "be loaded or initialized (via import _overlapped)"
+    )
+    assert _winsock_unavailable(observed) is True
+    genuine = "ModuleNotFoundError: No module named 'polymarket_mcp'"
+    assert _winsock_unavailable(genuine) is False
+    assert _winsock_unavailable("") is False
