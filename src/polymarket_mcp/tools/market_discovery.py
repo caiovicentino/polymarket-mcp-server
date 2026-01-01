@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 # Gamma API base URL
 GAMMA_API_URL = "https://gamma-api.polymarket.com"
+CLOB_API_URL = "https://clob.polymarket.com"
 
 
 async def _fetch_gamma_markets(
@@ -50,11 +51,9 @@ async def _fetch_gamma_markets(
         async with httpx.AsyncClient(timeout=30.0) as client:
             url = f"{GAMMA_API_URL}{endpoint}"
 
-            # Set default params
             if params is None:
                 params = {}
 
-            # Add limit if specified
             if limit:
                 params["limit"] = limit
 
@@ -65,14 +64,11 @@ async def _fetch_gamma_markets(
 
             data = response.json()
 
-            # Handle different response formats
             if isinstance(data, list):
                 return data[:limit] if limit else data
             elif isinstance(data, dict):
-                # Some endpoints return {data: [...], next_cursor: ...}
                 if "data" in data:
                     return data["data"][:limit] if limit else data["data"]
-                # Others return the market directly
                 return [data]
 
             return []
@@ -82,6 +78,112 @@ async def _fetch_gamma_markets(
         raise
     except Exception as e:
         logger.error(f"Error fetching markets: {e}")
+        raise
+
+
+async def _fetch_events_with_markets(
+    params: Optional[Dict[str, Any]] = None,
+    limit: Optional[int] = None
+) -> List[Dict[str, Any]]:
+    """Fetch events from Gamma API and extract markets.
+
+    Args:
+        params: Query parameters (active=true, etc.)
+        limit: Maximum number of MARKETS to return (not events)
+
+    Returns:
+        List of market dictionaries extracted from events
+    """
+    rate_limiter = get_rate_limiter()
+    await rate_limiter.acquire(EndpointCategory.GAMMA_API)
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            url = f"{GAMMA_API_URL}/events"
+
+            if params is None:
+                params = {}
+
+            if limit:
+                params["limit"] = min(limit * 2, 100)
+
+            logger.debug(f"Fetching events from {url} with params: {params}")
+
+            response = await client.get(url, params=params)
+            response.raise_for_status()
+
+            events = response.json()
+
+            all_markets = []
+            if isinstance(events, dict) and "data" in events:
+                events = events["data"]
+
+            if isinstance(events, list):
+                for event in events:
+                    markets = event.get("markets", []) if isinstance(event, dict) else []
+                    all_markets.extend(markets)
+
+                    if limit and len(all_markets) >= limit:
+                        break
+
+            return all_markets[:limit] if limit else all_markets
+
+    except httpx.HTTPError as e:
+        logger.error(f"HTTP error fetching events: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching events: {e}")
+        raise
+
+
+async def _fetch_clob_markets(
+    params: Optional[Dict[str, Any]] = None,
+    limit: Optional[int] = None
+) -> List[Dict[str, Any]]:
+    """Fetch markets from CLOB API sampling-markets endpoint.
+
+    Returns current/active markets from CLOB API.
+
+    Args:
+        params: Query parameters
+        limit: Maximum number of results to return
+
+    Returns:
+        List of market dictionaries
+    """
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            url = f"{CLOB_API_URL}/sampling-markets"
+
+            if params is None:
+                params = {}
+
+            if limit:
+                params["limit"] = limit
+
+            logger.debug(f"Fetching from CLOB {url} with params: {params}")
+
+            response = await client.get(url, params=params)
+            response.raise_for_status()
+
+            data = response.json()
+
+            if isinstance(data, dict):
+                if "data" in data:
+                    data = data["data"]
+                elif "markets" in data:
+                    data = list(data["markets"].values())
+
+            if isinstance(data, list):
+                return data[:limit] if limit else data
+
+            return []
+
+    except httpx.HTTPError as e:
+        logger.error(f"HTTP error fetching CLOB markets: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching CLOB markets: {e}")
         raise
 
 
@@ -102,16 +204,29 @@ async def search_markets(
         List of markets matching the query
     """
     try:
-        # Fetch markets with search
-        params = {"query": query}
+        markets = await _fetch_clob_markets(params=None, limit=limit * 2)
+
+        if query:
+            query_lower = query.lower()
+            markets = [
+                m for m in markets
+                if query_lower in m.get("question", "").lower() or
+                   query_lower in m.get("description", "").lower() or
+                   query_lower in m.get("slug", "").lower() or
+                   any(query_lower in str(tag).lower() for tag in m.get("tags", []))
+            ]
 
         if filters:
-            params.update(filters)
-
-        markets = await _fetch_gamma_markets("/markets", params, limit)
+            if filters.get("active") == "true":
+                markets = [m for m in markets if m.get("active", True)]
+            if filters.get("closed") == "true":
+                markets = [m for m in markets if not m.get("active", True)]
+            if filters.get("tag"):
+                tag = filters["tag"].lower()
+                markets = [m for m in markets if tag in str(m.get("tags", [])).lower()]
 
         logger.info(f"Found {len(markets)} markets for query: {query}")
-        return markets
+        return markets[:limit]
 
     except Exception as e:
         logger.error(f"Failed to search markets: {e}")
@@ -133,10 +248,8 @@ async def get_trending_markets(
         Top markets by volume in the specified timeframe
     """
     try:
-        # Fetch all active markets
-        markets = await _fetch_gamma_markets("/markets", {"active": "true"}, limit=100)
+        markets = await _fetch_clob_markets(params=None, limit=100)
 
-        # Sort by volume based on timeframe
         volume_key_map = {
             "24h": "volume24hr",
             "7d": "volume7d",
@@ -145,7 +258,6 @@ async def get_trending_markets(
 
         volume_key = volume_key_map.get(timeframe, "volume24hr")
 
-        # Sort by volume (descending)
         sorted_markets = sorted(
             markets,
             key=lambda m: float(m.get(volume_key, 0) or 0),
@@ -179,15 +291,21 @@ async def filter_markets_by_category(
         Markets in the specified category
     """
     try:
-        params = {"tag": category}
+        markets = await _fetch_clob_markets(params=None, limit=limit * 2)
+
+        category_lower = category.lower()
+        filtered_markets = [
+            m for m in markets
+            if category_lower in m.get("question", "").lower() or
+               category_lower in m.get("description", "").lower() or
+               category_lower in str(m.get("tags", [])).lower()
+        ]
 
         if active_only:
-            params["active"] = "true"
+            filtered_markets = [m for m in filtered_markets if m.get("active", True)]
 
-        markets = await _fetch_gamma_markets("/markets", params, limit)
-
-        logger.info(f"Found {len(markets)} markets in category: {category}")
-        return markets
+        logger.info(f"Found {len(filtered_markets)} markets in category: {category}")
+        return filtered_markets[:limit]
 
     except Exception as e:
         logger.error(f"Failed to filter markets by category: {e}")
@@ -212,19 +330,13 @@ async def get_event_markets(
         if not event_slug and not event_id:
             raise ValueError("Either event_slug or event_id must be provided")
 
-        # First, get the event details
-        if event_slug:
-            event_data = await _fetch_gamma_markets(f"/events/{event_slug}")
-        else:
-            event_data = await _fetch_gamma_markets(f"/events/{event_id}")
+        event_endpoint = f"/events/{event_slug or event_id}"
+        event_data = await _fetch_gamma_markets(event_endpoint)
 
-        # Extract markets from event
         if isinstance(event_data, list) and len(event_data) > 0:
-            event = event_data[0]
+            markets = event_data[0].get("markets", []) if isinstance(event_data[0], dict) else []
         else:
-            event = event_data
-
-        markets = event.get("markets", [])
+            markets = []
 
         logger.info(f"Found {len(markets)} markets for event: {event_slug or event_id}")
         return markets
@@ -245,14 +357,7 @@ async def get_featured_markets(limit: int = 10) -> List[Dict[str, Any]]:
         Featured markets
     """
     try:
-        # Fetch markets with featured flag
-        params = {"featured": "true", "active": "true"}
-        markets = await _fetch_gamma_markets("/markets", params, limit)
-
-        # If no featured flag exists, return highest volume markets
-        if not markets:
-            logger.info("No featured markets found, returning highest volume markets")
-            markets = await get_trending_markets("24h", limit)
+        markets = await get_trending_markets("24h", limit)
 
         logger.info(f"Found {len(markets)} featured markets")
         return markets
@@ -277,26 +382,20 @@ async def get_closing_soon_markets(
         Markets closing soon
     """
     try:
-        # Calculate cutoff time
         cutoff_time = datetime.utcnow() + timedelta(hours=hours)
-        cutoff_timestamp = int(cutoff_time.timestamp())
 
-        # Fetch active markets
-        markets = await _fetch_gamma_markets("/markets", {"active": "true"}, limit=100)
+        markets = await _fetch_clob_markets(params=None, limit=100)
 
-        # Filter markets closing within timeframe
         closing_soon = []
         for market in markets:
             end_date = market.get("endDate") or market.get("end_date_iso")
             if end_date:
-                # Parse ISO date or timestamp
                 try:
                     if isinstance(end_date, str):
                         end_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
                     else:
                         end_dt = datetime.fromtimestamp(int(end_date))
 
-                    # Check if closing within timeframe
                     if end_dt <= cutoff_time:
                         closing_soon.append(market)
 
@@ -304,7 +403,6 @@ async def get_closing_soon_markets(
                     logger.warning(f"Failed to parse end_date: {end_date}, error: {parse_error}")
                     continue
 
-        # Sort by end date (soonest first)
         closing_soon.sort(key=lambda m: m.get("endDate", m.get("end_date_iso", "")))
 
         result = closing_soon[:limit]
@@ -332,21 +430,23 @@ async def get_sports_markets(
         Sports markets
     """
     try:
-        params = {"tag": "Sports", "active": "true"}
+        markets = await _fetch_clob_markets(params=None, limit=100)
 
-        markets = await _fetch_gamma_markets("/markets", params, limit=100)
+        sports_keywords = ["sport", "basketball", "football", "soccer", "baseball", "hockey", "tennis", "golf", "nfl", "nba", "mlb", "nhl", "fifa", "olympics"]
+        sports_markets = [
+            m for m in markets
+            if any(kw in m.get("question", "").lower() or kw in str(m.get("tags", [])).lower() for kw in sports_keywords)
+        ]
 
-        # Further filter by sport type if specified
         if sport_type:
             sport_type_lower = sport_type.lower()
-            markets = [
-                m for m in markets
+            sports_markets = [
+                m for m in sports_markets
                 if sport_type_lower in m.get("question", "").lower() or
-                   sport_type_lower in m.get("title", "").lower() or
-                   any(sport_type_lower in tag.lower() for tag in m.get("tags", []))
+                   sport_type_lower in str(m.get("tags", [])).lower()
             ]
 
-        result = markets[:limit]
+        result = sports_markets[:limit]
         logger.info(f"Found {len(result)} sports markets (type: {sport_type or 'all'})")
 
         return result
@@ -371,21 +471,23 @@ async def get_crypto_markets(
         Crypto-related markets
     """
     try:
-        params = {"tag": "Crypto", "active": "true"}
+        markets = await _fetch_clob_markets(params=None, limit=100)
 
-        markets = await _fetch_gamma_markets("/markets", params, limit=100)
+        crypto_keywords = ["bitcoin", "ethereum", "crypto", "btc", "eth", "solana", "cardano", "dogecoin"]
+        crypto_markets = [
+            m for m in markets
+            if any(kw in m.get("question", "").lower() or kw in str(m.get("tags", [])).lower() for kw in crypto_keywords)
+        ]
 
-        # Further filter by symbol if specified
         if symbol:
             symbol_upper = symbol.upper()
-            markets = [
-                m for m in markets
+            crypto_markets = [
+                m for m in crypto_markets
                 if symbol_upper in m.get("question", "").upper() or
-                   symbol_upper in m.get("title", "").upper() or
-                   any(symbol_upper in tag.upper() for tag in m.get("tags", []))
+                   symbol_upper in str(m.get("tags", [])).upper()
             ]
 
-        result = markets[:limit]
+        result = crypto_markets[:limit]
         logger.info(f"Found {len(result)} crypto markets (symbol: {symbol or 'all'})")
 
         return result

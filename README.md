@@ -503,6 +503,41 @@ Special thanks to all contributors and community members who have helped improve
 
 ---
 
+## 🐛 Known Issues & Fixes
+
+### ✅ Fixed: Stale Historical Data (v0.1.1)
+
+**Issue**: Market discovery tools were returning only historical markets from 2020-2021 instead of current/active markets.
+
+**Symptoms**:
+- All markets had `endDate` from 2020-2021
+- All markets were marked as `closed: true`
+- No active markets from 2024-2027
+- Trending markets showed old election markets
+
+**Root Cause**: The Gamma API `/markets` and `/events` endpoints were deprecated and only return cached historical data.
+
+**Solution**: Updated all market discovery functions to use the CLOB API `/sampling-markets` endpoint which returns current/active markets.
+
+**Fixed Functions**:
+- `get_trending_markets()` - Now returns trending current markets (2025-2027)
+- `search_markets()` - Searches active markets only
+- `filter_markets_by_category()` - Filters active by category
+- `get_closing_soon_markets()` - Active markets closing soon
+- `get_sports_markets()` - Active sports markets
+- `get_crypto_markets()` - Active crypto markets
+- `get_event_markets()` - Fixed type safety issues
+
+**Technical Details**:
+- Added `CLOB_API_URL` constant
+- Added `_fetch_clob_markets()` helper function
+- Updated 8 discovery functions to use CLOB API
+- All market discovery now returns real-time data
+
+**Status**: ✅ **Production Ready**
+
+---
+
 ## ⚠️ Disclaimer
 
 This software is provided for educational and research purposes. Trading prediction markets involves financial risk.
