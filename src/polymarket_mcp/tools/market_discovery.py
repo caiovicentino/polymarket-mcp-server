@@ -26,6 +26,12 @@ logger = logging.getLogger(__name__)
 # Gamma API base URL
 GAMMA_API_URL = "https://gamma-api.polymarket.com"
 
+# The Gamma wire caps /markets pages at 100 rows (proven live 2026-09-18:
+# limit=500 -> exactly 100). Tools that request more than one page silently
+# truncated at 100 (V-GCAP); pagination via `offset` (proven honored) closes it.
+_GAMMA_PAGE_SIZE: int = 100
+_GAMMA_MAX_PAGES: int = 10
+
 
 async def _fetch_gamma_markets(
     endpoint: str = "/markets",
@@ -45,39 +51,66 @@ async def _fetch_gamma_markets(
     """
     rate_limiter = get_rate_limiter()
 
-    await rate_limiter.acquire(EndpointCategory.GAMMA_API)
-
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             url = f"{GAMMA_API_URL}{endpoint}"
 
-            # Set default params
-            if params is None:
-                params = {}
-
-            # Add limit if specified
+            # Pagination (V-GCAP): the wire caps /markets pages at 100 rows
+            # (proven live 2026-09-18: limit=500 -> 100 rows) and HONORS
+            # `offset` (proven: offset=0 vs offset=100 return disjoint ids).
+            # For limits <= the page size the single-call fast path is
+            # byte-identical to the pre-pagination behavior (the module tests
+            # pin calls[0] params/limit and ONE acquire for that path).
+            page_size = 0
             if limit:
-                params["limit"] = limit
+                page_size = _GAMMA_PAGE_SIZE if limit > _GAMMA_PAGE_SIZE else limit
+            max_pages = _GAMMA_MAX_PAGES if (limit and limit > _GAMMA_PAGE_SIZE) else 1
 
-            logger.debug(f"Fetching from {url} with params: {params}")
+            base_params: Dict[str, Any] = dict(params) if params else {}
+            rows: List[Dict[str, Any]] = []
+            offset = 0
+            first_id: Any = None
 
-            response = await client.get(url, params=params)
-            response.raise_for_status()
+            for _page in range(max_pages):
+                page_params = dict(base_params)
+                if page_size:
+                    page_params["limit"] = page_size
+                if offset:
+                    page_params["offset"] = offset
 
-            data = response.json()
+                logger.debug(f"Fetching from {url} with params: {page_params}")
 
-            # Handle different response formats
-            if isinstance(data, list):
-                return data[:limit] if limit else data
-            elif isinstance(data, dict):
-                # Some endpoints return {data: [...], next_cursor: ...}
-                if "data" in data:
-                    rows = cast(List[Dict[str, Any]], data["data"])
-                    return rows[:limit] if limit else rows
-                # Others return the market directly
-                return [data]
+                await rate_limiter.acquire(EndpointCategory.GAMMA_API)
+                response = await client.get(url, params=page_params)
+                response.raise_for_status()
 
-            return []
+                data = response.json()
+
+                # Handle different response formats
+                page_rows: List[Dict[str, Any]] = []
+                if isinstance(data, list):
+                    page_rows = data
+                elif isinstance(data, dict):
+                    if "data" in data:
+                        page_rows = cast(List[Dict[str, Any]], data["data"])
+                    else:
+                        page_rows = [data]
+
+                if not page_rows:
+                    break
+                if first_id is not None and page_rows and page_rows[0].get("id") == first_id:
+                    # no-progress guard: the wire ignored `offset` (degenerate)
+                    break
+                if first_id is None and page_rows:
+                    first_id = page_rows[0].get("id")
+                rows.extend(page_rows)
+                if limit and len(rows) >= limit:
+                    break
+                if page_size and len(page_rows) < page_size:
+                    break  # last page
+                offset += page_size
+
+            return rows[:limit] if limit else rows
 
     except httpx.HTTPError as e:
         logger.error(f"HTTP error fetching markets: {e}")
@@ -199,7 +232,9 @@ async def get_trending_markets(
     try:
         # Fetch all active, non-closed markets
         markets = await _fetch_gamma_markets(
-            "/markets", {"active": "true", "closed": "false"}, limit=100
+            "/markets",
+            {"active": "true", "closed": "false"},
+            limit=limit if limit > _GAMMA_PAGE_SIZE else _GAMMA_PAGE_SIZE,
         )
 
         # Filter out markets with end_date_iso in the past
@@ -383,7 +418,8 @@ async def get_closing_soon_markets(
         cutoff_time = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=hours)
 
         # Fetch active, non-closed markets
-        markets = await _fetch_gamma_markets("/markets", {"active": "true", "closed": "false"}, limit=100)
+        fetch_limit = limit if limit > _GAMMA_PAGE_SIZE else _GAMMA_PAGE_SIZE
+        markets = await _fetch_gamma_markets("/markets", {"active": "true", "closed": "false"}, limit=fetch_limit)
 
         # Filter markets closing within timeframe
         closing_soon = []
@@ -435,7 +471,8 @@ async def get_sports_markets(
     try:
         params = {"tag": "Sports", "active": "true", "closed": "false"}
 
-        markets = await _fetch_gamma_markets("/markets", params, limit=100)
+        fetch_limit = limit if limit > _GAMMA_PAGE_SIZE else _GAMMA_PAGE_SIZE
+        markets = await _fetch_gamma_markets("/markets", params, limit=fetch_limit)
 
         # Further filter by sport type if specified
         if sport_type:
@@ -474,7 +511,8 @@ async def get_crypto_markets(
     try:
         params = {"tag": "Crypto", "active": "true", "closed": "false"}
 
-        markets = await _fetch_gamma_markets("/markets", params, limit=100)
+        fetch_limit = limit if limit > _GAMMA_PAGE_SIZE else _GAMMA_PAGE_SIZE
+        markets = await _fetch_gamma_markets("/markets", params, limit=fetch_limit)
 
         # Further filter by symbol if specified
         if symbol:
