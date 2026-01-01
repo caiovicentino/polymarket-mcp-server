@@ -1493,7 +1493,8 @@ PORTFOLIO_TOOLS = [
                 "min_value": {
                     "type": "number",
                     "description": "Minimum position value in USD (default: 1.0)",
-                    "default": 1.0
+                    "default": 1.0,
+                    "minimum": 0,
                 },
                 "sort_by": {
                     "type": "string",
@@ -1639,7 +1640,8 @@ PORTFOLIO_TOOLS = [
                 "max_actions": {
                     "type": "number",
                     "description": "Maximum number of suggestions (default: 5)",
-                    "default": 5
+                    "default": 5,
+                    "minimum": 1,
                 }
             }
         },

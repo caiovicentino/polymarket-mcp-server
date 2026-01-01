@@ -566,7 +566,7 @@ def get_tools() -> List[types.Tool]:
                     },
                     "limit": {
                         "type": "integer",
-                        "description": "Maximum number of results (default 20)",
+                        "description": "Maximum number of results (default 20). The search endpoint caps results per type at 50; results are flattened from matching events and truncated to this limit.",
                         "default": 20
                     },
                     "filters": {
@@ -597,7 +597,8 @@ def get_tools() -> List[types.Tool]:
                     "limit": {
                         "type": "integer",
                         "description": "Number of markets to return (default 10)",
-                        "default": 10
+                        "default": 10,
+                        "maximum": _GAMMA_PAGE_SIZE * _GAMMA_MAX_PAGES,
                     }
                 },
                 "required": []
@@ -621,7 +622,8 @@ def get_tools() -> List[types.Tool]:
                     "limit": {
                         "type": "integer",
                         "description": "Maximum number of results (default 20)",
-                        "default": 20
+                        "default": 20,
+                        "maximum": _GAMMA_PAGE_SIZE * _GAMMA_MAX_PAGES,
                     }
                 },
                 "required": ["category"]
@@ -654,7 +656,8 @@ def get_tools() -> List[types.Tool]:
                     "limit": {
                         "type": "integer",
                         "description": "Number of markets to return (default 10)",
-                        "default": 10
+                        "default": 10,
+                        "maximum": _GAMMA_PAGE_SIZE * _GAMMA_MAX_PAGES,
                     }
                 },
                 "required": []
@@ -669,12 +672,14 @@ def get_tools() -> List[types.Tool]:
                     "hours": {
                         "type": "integer",
                         "description": "Number of hours to look ahead (default 24)",
-                        "default": 24
+                        "default": 24,
+                        "minimum": 1,
                     },
                     "limit": {
                         "type": "integer",
                         "description": "Maximum number of results (default 20)",
-                        "default": 20
+                        "default": 20,
+                        "maximum": _GAMMA_PAGE_SIZE * _GAMMA_MAX_PAGES,
                     }
                 },
                 "required": []
@@ -693,7 +698,8 @@ def get_tools() -> List[types.Tool]:
                     "limit": {
                         "type": "integer",
                         "description": "Maximum number of results (default 20)",
-                        "default": 20
+                        "default": 20,
+                        "maximum": _GAMMA_PAGE_SIZE * _GAMMA_MAX_PAGES,
                     }
                 },
                 "required": []
@@ -712,7 +718,8 @@ def get_tools() -> List[types.Tool]:
                     "limit": {
                         "type": "integer",
                         "description": "Maximum number of results (default 20)",
-                        "default": 20
+                        "default": 20,
+                        "maximum": _GAMMA_PAGE_SIZE * _GAMMA_MAX_PAGES,
                     }
                 },
                 "required": []
