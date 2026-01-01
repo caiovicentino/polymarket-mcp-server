@@ -370,11 +370,11 @@ async def list_tools() -> list[types.Tool]:
 
     Returns:
         List of tools (conditional on authentication):
-        - 8 Market Discovery tools (always available - public API)
-        - 10 Market Analysis tools (always available - public API)
-        - 12 Trading tools (requires API credentials)
-        - 8 Portfolio Management tools (requires API credentials)
-        - 7 Real-time WebSocket tools (partial - some require auth)
+        - Market Discovery tools (always available - public API)
+        - Market Analysis tools (always available - public API)
+        - Trading tools (require API credentials)
+        - Portfolio Management tools (require API credentials)
+        - Real-time WebSocket tools (partial - some require auth)
     """
     tools = []
 
@@ -447,7 +447,11 @@ async def read_resource(uri: str) -> str:
     """
     import json
 
-    if uri == "polymarket://status":
+    # MCP SDK passes AnyUrl (pydantic v2, not a str subclass); comparing
+    # AnyUrl == "literal" is always False. Normalize once, compare as str.
+    uri_text = str(uri)
+
+    if uri_text == "polymarket://status":
         # Connection and authentication status
         status_data = {
             "connected": polymarket_client is not None,
@@ -461,7 +465,7 @@ async def read_resource(uri: str) -> str:
         }
         return json.dumps(status_data, indent=2)
 
-    elif uri == "polymarket://config":
+    elif uri_text == "polymarket://config":
         # Safety limits and configuration
         if not config or not safety_limits:
             return json.dumps({"error": "Configuration not loaded"})
@@ -486,14 +490,14 @@ async def read_resource(uri: str) -> str:
         }
         return json.dumps(config_data, indent=2)
 
-    elif uri == "polymarket://rate-limits":
+    elif uri_text == "polymarket://rate-limits":
         # Rate limiter status
         rate_limiter = get_rate_limiter()
         status = rate_limiter.get_status()
         return json.dumps(status, indent=2)
 
     else:
-        return json.dumps({"error": f"Unknown resource: {uri}"})
+        return json.dumps({"error": f"Unknown resource: {uri_text}"})
 
 
 @server.call_tool()
