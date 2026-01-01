@@ -487,6 +487,10 @@ Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on:
 - 💰 **[Renda Cripto](https://rendacripto.com.br/)** - Crypto Trading & Investments
 - 🏗️ **[Cultura Builder](https://culturabuilder.com/)** - Builder Culture & Development
 
+### Featured In
+
+- **[Awesome Agent Trading](https://github.com/laplace0x/awesome-agent-trading)** - Curated directory of AI trading agents, MCP servers, and prediction market tools
+
 ### Get Support
 
 - **GitHub Issues**: [Report bugs or request features](https://github.com/caiovicentino/polymarket-mcp-server/issues)
