@@ -385,6 +385,14 @@ The first public release of Polymarket MCP Server - a complete AI-powered tradin
   client) pass the opt-in `rate_limiter`/`category` kwargs, so a 429 on
   page 2 or later arms the backoff instead of only the first page
   (PR #176).
+- **Exception log redaction**: the seven residual log sites in `server.py`
+  that interpolated raw exceptions now sanitize hex-bearing secrets through
+  the shared redaction helper; messages without secrets stay byte-identical
+  (PR #184).
+- **Signal-path hardening**: a one-shot scheduling flag guarantees one
+  shutdown task per signal (double dispatch scheduled two concurrent exit
+  tasks), and the forced-exit helper wraps shutdown in try/finally so a
+  raised exception cannot leave the process hanging (PR #192).
 
 ### Added
 
@@ -403,6 +411,9 @@ The first public release of Polymarket MCP Server - a complete AI-powered tradin
   Trading directory (PR #114).
 - **Confirmation flow reference**: TOOLS_REFERENCE documents which tools
   require explicit confirmation (PR #117).
+- **Markets closing soon panel**: the dashboard index page fetches
+  `/api/markets/closing-soon` and renders the next markets to expire, with
+  error envelopes and HTTP failures surfaced (PR #190).
 
 ### Changed
 
@@ -430,6 +441,10 @@ The first public release of Polymarket MCP Server - a complete AI-powered tradin
   while the remaining 26 findings stay with documented justification
   (F401 probe imports, E722 Ctrl+C handlers, F841 scaffolding)
   (PR #177).
+- **CI tier alignment**: the demo and coverage steps run the canonical
+  offline selection (live tiers excluded from matrix jobs) and the
+  integration/e2e jobs are informational (job-level continue-on-error);
+  the merge gate stays on the offline jobs (PR #187).
 
 ### Planned Features
 - Enhanced AI analysis tools
