@@ -42,30 +42,30 @@ ENV_CREATED=0
 
 print_header() {
     echo ""
-    echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
-    echo -e "${CYAN}  $1${NC}"
-    echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+    printf '%b\n' "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+    printf '%b%s%b\n' "${CYAN}" "  $1" "${NC}"
+    printf '%b\n' "${CYAN}═══════════════════════════════════════════════════════════${NC}"
     echo ""
 }
 
 print_step() {
-    echo -e "${BLUE}[$1/7]${NC} $2"
+    printf '%b%s\n' "${BLUE}[$1/7]${NC} " "$2"
 }
 
 print_success() {
-    echo -e "${GREEN}✓${NC} $1"
+    printf '%b%s\n' "${GREEN}✓${NC} " "$1"
 }
 
 print_error() {
-    echo -e "${RED}✗${NC} $1"
+    printf '%b%s\n' "${RED}✗${NC} " "$1"
 }
 
 print_warning() {
-    echo -e "${YELLOW}⚠${NC} $1"
+    printf '%b%s\n' "${YELLOW}⚠${NC} " "$1"
 }
 
 print_info() {
-    echo -e "${CYAN}ℹ${NC} $1"
+    printf '%b%s\n' "${CYAN}ℹ${NC} " "$1"
 }
 
 show_help() {

@@ -228,6 +228,23 @@ def _win_path_prefix(shim_dir=None):
     return os.pathsep.join(parts)
 
 
+def _env_get(env, name):
+    """Case-insensitive lookup of a plain env dict.
+
+    Why: CPython's os.environ on Windows stores keys UPPERCASED
+    (Lib/os.py _createenviron, 'nt' branch: encodekey = encode(key).upper()),
+    so dict(os.environ) carries 'SYSTEMROOT' while the mixed-case lookup
+    'SystemRoot' raises KeyError on win32 (works on POSIX). The
+    case-insensitive lookup preserves the assertion's intent on every
+    platform (provenance: CPython Lib/os.py read first-hand 2026-09-18;
+    fix pattern: T-0315 #100, test_uninstall_script_offline.py).
+    """
+    for k, v in env.items():
+        if k.upper() == name.upper():
+            return v
+    raise KeyError(name)
+
+
 def _probe_env():
     """Env for syntax probes (bash -n / --help executes nothing from PATH).
 
@@ -626,7 +643,7 @@ def test_win_subprocess_receives_full_bash_path(tmp_path, monkeypatch):
     argv, env = captured[0]
     assert argv == [str(fake_bash), "-n", str(sb / "install.sh")]
     assert argv[0] != "bash", "spawn must NEVER use the generic 'bash' on the win branch"
-    assert env["SystemRoot"] == "C:\\Windows", "merged env must keep SystemRoot (P2-01)"
+    assert _env_get(env, "SystemRoot") == "C:\\Windows", "merged env must keep SystemRoot (P2-01)"
 
     captured.clear()
     proc = _run_driver(sb)
@@ -636,7 +653,7 @@ def test_win_subprocess_receives_full_bash_path(tmp_path, monkeypatch):
     argv, env = captured[0]
     assert argv == [str(fake_bash), str(sb / "driver.sh")]
     assert argv[0] != "bash"
-    assert env["SystemRoot"] == "C:\\Windows"
+    assert _env_get(env, "SystemRoot") == "C:\\Windows"
     assert env["HOME"] == str(sb / "home")
     assert env["PYTHONIOENCODING"] == "utf-8"
     parts = env["PATH"].split(os.pathsep)
@@ -660,7 +677,7 @@ def test_win_env_merges_system_root_and_overrides(monkeypatch):
     monkeypatch.setattr(mod, "_IS_WIN", True)
     monkeypatch.setattr(mod, "_WIN_BASH", fake_bash)
     env = _probe_env()
-    assert env["SystemRoot"] == "C:\\Windows", "P2-01: SystemRoot must survive the win env merge"
+    assert _env_get(env, "SystemRoot") == "C:\\Windows", "P2-01: SystemRoot must survive the win env merge"
     assert env["T0215_HOST_ONLY"] == "host-value", "win env is a MERGE, not a reset"
     assert env["TERM"] == "xterm"
     # PATH assertion via prefix (the fake win path contains ":", which would
@@ -670,7 +687,7 @@ def test_win_env_merges_system_root_and_overrides(monkeypatch):
     env = _run_env(home, Path("/T0215-sandbox-bin"))
     assert env["HOME"] == str(home), "HOME must be overridden to the sandbox"
     assert env["PYTHONIOENCODING"] == "utf-8"
-    assert env["SystemRoot"] == "C:\\Windows"
+    assert _env_get(env, "SystemRoot") == "C:\\Windows"
     assert env["T0215_HOST_ONLY"] == "host-value"
     assert env["PATH"].startswith(
         str(Path("C:/Program Files/Git/usr/bin"))
