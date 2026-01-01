@@ -103,7 +103,7 @@ async def search_markets(
     """
     try:
         # Fetch markets with search
-        params = {"query": query}
+        params = {"query": query, "closed": "false", "active": "true"}
 
         if filters:
             params.update(filters)
@@ -134,7 +134,7 @@ async def get_trending_markets(
     """
     try:
         # Fetch all active markets
-        markets = await _fetch_gamma_markets("/markets", {"active": "true"}, limit=100)
+        markets = await _fetch_gamma_markets("/markets", {"closed": "false", "active": "true"}, limit=100)
 
         # Sort by volume based on timeframe
         volume_key_map = {
@@ -179,10 +179,12 @@ async def filter_markets_by_category(
         Markets in the specified category
     """
     try:
-        params = {"tag": category}
+        params = {"tag": category, "closed": "false"}
 
         if active_only:
             params["active"] = "true"
+        else:
+            params["active"] = "false"
 
         markets = await _fetch_gamma_markets("/markets", params, limit)
 
@@ -221,8 +223,10 @@ async def get_event_markets(
         # Extract markets from event
         if isinstance(event_data, list) and len(event_data) > 0:
             event = event_data[0]
-        else:
+        elif isinstance(event_data, dict):
             event = event_data
+        else:
+            event = {}
 
         markets = event.get("markets", [])
 
@@ -282,7 +286,7 @@ async def get_closing_soon_markets(
         cutoff_timestamp = int(cutoff_time.timestamp())
 
         # Fetch active markets
-        markets = await _fetch_gamma_markets("/markets", {"active": "true"}, limit=100)
+        markets = await _fetch_gamma_markets("/markets", {"closed": "false", "active": "true"}, limit=100)
 
         # Filter markets closing within timeframe
         closing_soon = []
@@ -297,7 +301,7 @@ async def get_closing_soon_markets(
                         end_dt = datetime.fromtimestamp(int(end_date))
 
                     # Check if closing within timeframe
-                    if end_dt <= cutoff_time:
+                    if end_dt.replace(tzinfo=None) <= cutoff_time:
                         closing_soon.append(market)
 
                 except Exception as parse_error:
@@ -332,7 +336,7 @@ async def get_sports_markets(
         Sports markets
     """
     try:
-        params = {"tag": "Sports", "active": "true"}
+        params = {"tag": "Sports", "closed": "false", "active": "true"}
 
         markets = await _fetch_gamma_markets("/markets", params, limit=100)
 
@@ -371,7 +375,7 @@ async def get_crypto_markets(
         Crypto-related markets
     """
     try:
-        params = {"tag": "Crypto", "active": "true"}
+        params = {"tag": "Crypto", "closed": "false", "active": "true"}
 
         markets = await _fetch_gamma_markets("/markets", params, limit=100)
 
