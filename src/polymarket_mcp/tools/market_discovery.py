@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Optional, cast
 import httpx
 import mcp.types as types
 
-from ..utils.rate_limiter import EndpointCategory, get_rate_limiter
+from ..utils.rate_limiter import EndpointCategory, RateLimiter, get_rate_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +33,33 @@ _GAMMA_PAGE_SIZE: int = 100
 _GAMMA_MAX_PAGES: int = 10
 
 
+async def _note_http_429(
+    rate_limiter: RateLimiter,
+    response: Any,
+    category: EndpointCategory,
+) -> None:
+    """Record an HTTP 429 on the rate limiter so the NEXT acquire() waits.
+
+    Wiring for the previously-dead 429 path: ``RateLimiter.handle_429_error``
+    had ZERO callers in src/ (grep-proven), so a real 429 from the wire armed
+    no backoff and immediate retries hammered the API. Called right before
+    ``raise_for_status()``: on a 429 it arms the exponential backoff (or the
+    server's ``Retry-After``) and the existing raise/return path proceeds
+    UNCHANGED, so the error-envelope pins of the offline suites hold.
+
+    ``status_code`` is read via getattr with default None so stub responses
+    without the attribute (the offline suites' fakes) are untouched: they
+    never report 429, so no backoff is armed and nothing can AttributeError.
+    """
+    if getattr(response, "status_code", None) != 429:
+        return
+    headers = getattr(response, "headers", None)
+    retry_after: Optional[int] = None
+    if headers is not None:
+        raw = headers.get("retry-after")
+        if raw is not None and str(raw).strip().isdigit():
+            retry_after = int(raw)
+    await rate_limiter.handle_429_error(category, retry_after)
 async def _fetch_gamma_markets(
     endpoint: str = "/markets",
     params: Optional[Dict[str, Any]] = None,
@@ -82,6 +109,7 @@ async def _fetch_gamma_markets(
 
                 await rate_limiter.acquire(EndpointCategory.GAMMA_API)
                 response = await client.get(url, params=page_params)
+                await _note_http_429(rate_limiter, response, EndpointCategory.GAMMA_API)
                 response.raise_for_status()
 
                 data = response.json()
@@ -169,6 +197,7 @@ async def _search_gamma_markets(
             logger.debug(f"Searching markets from {url} with params: {search_params}")
 
             response = await client.get(url, params=search_params)
+            await _note_http_429(rate_limiter, response, EndpointCategory.GAMMA_API)
             response.raise_for_status()
 
             data = response.json()

@@ -22,7 +22,7 @@ import httpx
 import mcp.types as types
 from pydantic import BaseModel, Field
 
-from ..utils.rate_limiter import EndpointCategory, get_rate_limiter
+from ..utils.rate_limiter import EndpointCategory, RateLimiter, get_rate_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +101,35 @@ class MarketOpportunity(BaseModel):
     last_updated: datetime = Field(default_factory=_utcnow_naive)
 
 
+async def _note_http_429(
+    rate_limiter: RateLimiter,
+    response: Any,
+    category: EndpointCategory,
+) -> None:
+    """Record an HTTP 429 on the rate limiter so the NEXT acquire() waits.
+
+    Wiring for the previously-dead 429 path: ``RateLimiter.handle_429_error``
+    had ZERO callers in src/ (grep-proven), so a real 429 from the wire armed
+    no backoff and immediate retries hammered the API. Called right before
+    ``raise_for_status()``: on a 429 it arms the exponential backoff (or the
+    server's ``Retry-After``) and the existing raise/return path proceeds
+    UNCHANGED, so the error-envelope pins of the offline suites hold.
+
+    ``status_code`` is read via getattr with default None so stub responses
+    without the attribute (the offline suites' fakes) are untouched: they
+    never report 429, so no backoff is armed and nothing can AttributeError.
+    """
+    if getattr(response, "status_code", None) != 429:
+        return
+    headers = getattr(response, "headers", None)
+    retry_after: Optional[int] = None
+    if headers is not None:
+        raw = headers.get("retry-after")
+        if raw is not None and str(raw).strip().isdigit():
+            retry_after = int(raw)
+    await rate_limiter.handle_429_error(category, retry_after)
+
+
 async def _fetch_gamma_api(endpoint: str, params: Optional[Dict] = None) -> Any:
     """Fetch from Gamma API with rate limiting"""
     rate_limiter = get_rate_limiter()
@@ -111,6 +140,7 @@ async def _fetch_gamma_api(endpoint: str, params: Optional[Dict] = None) -> Any:
         async with httpx.AsyncClient(timeout=30.0) as client:
             url = f"{GAMMA_API_URL}{endpoint}"
             response = await client.get(url, params=params or {})
+            await _note_http_429(rate_limiter, response, EndpointCategory.GAMMA_API)
             response.raise_for_status()
             return response.json()
     except Exception as e:
@@ -128,6 +158,7 @@ async def _fetch_clob_api(endpoint: str, params: Optional[Dict] = None) -> Any:
         async with httpx.AsyncClient(timeout=30.0) as client:
             url = f"{CLOB_API_URL}{endpoint}"
             response = await client.get(url, params=params or {})
+            await _note_http_429(rate_limiter, response, EndpointCategory.MARKET_DATA)
             response.raise_for_status()
             return response.json()
     except Exception as e:
