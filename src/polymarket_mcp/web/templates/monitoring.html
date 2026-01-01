@@ -260,6 +260,9 @@
             setInterval(async () => {
                 try {
                     const response = await fetch('/api/stats');
+                    if (!response.ok) {
+                        throw new Error('HTTP ' + response.status);
+                    }
                     const data = await response.json();
 
                     // Update stats display

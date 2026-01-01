@@ -166,12 +166,19 @@
             const container = document.getElementById('trending-markets');
             try {
                 const response = await fetch('/api/markets/trending?limit=5');
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status);
+                }
                 const data = await response.json();
-
-                if (data.markets && data.markets.length > 0) {
+                const rows = marketRowsOf(data);
+                if (data.error) {
+                    container.innerHTML = `<p class="text-error">Failed to load markets: ${esc(String(data.error))}</p>`;
+                    return;
+                }
+                if (rows.length > 0) {
                     container.innerHTML = `
                         <div class="market-list">
-                            ${data.markets.map(market => `
+                            ${rows.map(market => `
                                 <div class="market-item">
                                     <div class="market-title">${esc(market.question || 'Unknown Market')}</div>
                                     <div class="market-meta">

@@ -180,6 +180,18 @@ async function apiRequest(endpoint, options = {}) {
  * Get MCP status
  * @returns {Promise} Status data
  */
+/**
+ * Extract market rows from a /api/markets response in either wire state:
+ * a bare array (pre-wrap routes) or the {"markets": [...]} envelope
+ * (T-0307 wrap). Returns [] for error envelopes and garbage so callers
+ * fall through to their empty-state handling.
+ */
+function marketRowsOf(data) {
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.markets)) return data.markets;
+    return [];
+}
+
 async function getMCPStatus() {
     return apiRequest('/api/status');
 }
