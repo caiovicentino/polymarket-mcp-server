@@ -123,7 +123,6 @@ async def test_safety_limits(config):
     from polymarket_mcp.utils import (
         MarketData,
         OrderRequest,
-        Position,
         create_safety_limits_from_config,
     )
 
@@ -248,11 +247,11 @@ async def run_all_tests():
 
     # Test 6: Markets (if client available)
     if client:
-        markets = await test_markets(client)
+        await test_markets(client)
 
     # Test 7: Balance (if client has credentials)
     if client:
-        balance = await test_balance(client)
+        await test_balance(client)
 
     print("\n" + "=" * 60)
     print("TESTS COMPLETE")

@@ -4,7 +4,6 @@ Test script to fetch real data from Polymarket APIs
 Demonstrates that the MCP server integration works with live data
 """
 import asyncio
-import json
 
 import httpx
 
