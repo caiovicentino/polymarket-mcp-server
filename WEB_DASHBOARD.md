@@ -98,7 +98,7 @@ A modern, real-time web dashboard for managing and monitoring the Polymarket MCP
 ### 1. Install Dependencies
 
 ```bash
-cd /Users/caiovicentino/Desktop/poly/polymarket-mcp
+cd polymarket-mcp-server
 pip install -e .
 ```
 
