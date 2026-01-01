@@ -25,6 +25,7 @@ MANIFEST
 
 # Virtual environments
 venv/
+.venv/
 env/
 ENV/
 env.bak/
@@ -80,7 +81,13 @@ docker-compose*.yml
 # Kubernetes
 k8s/
 *.yaml
-!pyproject.toml
+
+# Caches and local tooling (dot-prefixed - the bare patterns above do not match them)
+.mypy_cache/
+.ruff_cache/
+
+# Farm worktrees (isolated task branches)
+.worktrees/
 
 # Misc
 tmp/

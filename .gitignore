@@ -25,6 +25,7 @@ MANIFEST
 
 # Virtual Environment
 venv/
+.venv/
 env/
 ENV/
 env.bak/
@@ -45,6 +46,13 @@ venv.bak/
 # OS
 .DS_Store
 Thumbs.db
+
+# Caches and local tooling (dot-prefixed - the bare patterns above do not match them)
+.mypy_cache/
+.ruff_cache/
+
+# Farm worktrees (isolated task branches)
+.worktrees/
 
 # Testing
 .pytest_cache/
