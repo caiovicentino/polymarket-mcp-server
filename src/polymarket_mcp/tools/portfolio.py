@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Literal, Optional, Tuple, cast
 import httpx
 import mcp.types as types
 
+from ..utils import rate_limit_note
 from ..utils.data_api_pagination import fetch_all_pages
 from ..utils.rate_limiter import EndpointCategory, RateLimiter
 
@@ -26,28 +27,12 @@ async def _note_http_429(
     response: Any,
     category: EndpointCategory,
 ) -> None:
-    """Record an HTTP 429 on the rate limiter so the NEXT acquire() waits.
+    """Thin delegate to the shared 429 note helper (wiring T-0357).
 
-    Wiring for the previously-dead 429 path: ``RateLimiter.handle_429_error``
-    had ZERO callers in src/ (grep-proven), so a real 429 from the wire armed
-    no backoff and immediate retries hammered the API. Called right before
-    ``raise_for_status()``: on a 429 it arms the exponential backoff (or the
-    server's ``Retry-After``) and the existing raise/return path proceeds
-    UNCHANGED, so the error-envelope pins of the offline suites hold.
-
-    ``status_code`` is read via getattr with default None so stub responses
-    without the attribute (the offline suites' fakes) are untouched: they
-    never report 429, so no backoff is armed and nothing can AttributeError.
+    Name/signature preserved for the direct Data-API fetch sites; the
+    Retry-After clamp lives in ``handle_429_error``.
     """
-    if getattr(response, "status_code", None) != 429:
-        return
-    headers = getattr(response, "headers", None)
-    retry_after: Optional[int] = None
-    if headers is not None:
-        raw = headers.get("retry-after")
-        if raw is not None and str(raw).strip().isdigit():
-            retry_after = int(raw)
-    await rate_limiter.handle_429_error(category, retry_after)
+    await rate_limit_note.note_http_429(rate_limiter, response, category)
 
 
 class PortfolioDataCache:
@@ -84,25 +69,16 @@ async def _note_clob_429(
     exc: BaseException,
     category: Any,
 ) -> None:
-    """Record a CLOB 429 on the rate limiter so the NEXT acquire() waits.
+    """Thin delegate to the shared 429 note helper (wiring T-0357).
 
-    Wiring for the PolyApiException surfaces of the portfolio tools:
-    ``auth/client.py`` re-raises py-clob-client errors, so ``get_orderbook``
-    /``get_balance``/``get_orders`` failures carry ``status_code`` from the
-    wire. A real 429 previously armed NO backoff (``handle_429_error`` had
-    ZERO callers in src/, grep-proven) and immediate retries hammered the
-    API. The existing per-position fallbacks and error envelopes proceed
-    UNCHANGED, so the degraded-mode pins of the offline suites hold.
     PolyApiException does not expose response headers, so the exponential
     default is used; ``category`` matches the acquire() that preceded the
     failing call. Direct Data-API (httpx) responses are handled by the
     sibling ``_note_http_429`` helper instead - the outer excepts here
     intentionally check ONLY the exception-carried status so a wired
-    fetch_all_pages pass-through (declared follow-up) can never double-arm.
+    fetch_all_pages pass-through can never double-arm.
     """
-    if getattr(exc, "status_code", None) != 429:
-        return
-    await rate_limiter.handle_429_error(category, None)
+    await rate_limit_note.note_clob_429(rate_limiter, exc, category)
 
 
 async def get_all_positions(

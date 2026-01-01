@@ -23,9 +23,11 @@ Out-of-scope sites (user-capped semantics, intentionally single-page):
 ``get_trade_history`` (min(limit, 500)) and ``get_activity_log``
 (min(limit, 500)) -- the limit there is a USER cap, not a page size.
 """
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import httpx
+
+from . import rate_limit_note
 
 MAX_PAGES = 50
 
@@ -39,23 +41,15 @@ async def _note_http_429(
 
     Optional wiring: ``rate_limiter``/``category`` kwargs default to None so
     the existing call sites (which acquire inside the caller's window) are
-    byte-identical until they opt in (declared follow-up). On a 429 the
-    helper arms the exponential backoff (or the server's ``Retry-After``)
-    and the raise path proceeds UNCHANGED, so existing error pins hold.
-    ``status_code`` is read via getattr with default None so stub responses
-    without the attribute are untouched.
+    byte-identical until they opt in (declared follow-up). The None-guard
+    stays here (the canonical helper assumes non-None callers), then the
+    call delegates to the shared implementation; on a 429 it arms the
+    exponential backoff (or the server's ``Retry-After``) and the raise
+    path proceeds UNCHANGED, so existing error pins hold.
     """
     if rate_limiter is None or category is None:
         return
-    if getattr(response, "status_code", None) != 429:
-        return
-    headers = getattr(response, "headers", None)
-    retry_after: Optional[int] = None
-    if headers is not None:
-        raw = headers.get("retry-after")
-        if raw is not None and str(raw).strip().isdigit():
-            retry_after = int(raw)
-    await rate_limiter.handle_429_error(category, retry_after)
+    await rate_limit_note.note_http_429(rate_limiter, response, category)
 
 
 async def fetch_all_pages(
