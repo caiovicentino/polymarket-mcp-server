@@ -3,7 +3,7 @@ Order signing utilities for Polymarket CLOB.
 Handles EIP-712 signatures and order hash generation.
 """
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, cast
 
 from eth_account import Account
 from eth_account.messages import encode_defunct, encode_typed_data
@@ -88,7 +88,7 @@ class OrderSigner:
         signature = signed_message.signature.hex()
 
         logger.debug(f"Signed order: {self._get_order_hash(order)}")
-        return signature
+        return cast(str, signature)
 
     def sign_api_key_request(self, nonce: int) -> str:
         """
@@ -107,7 +107,7 @@ class OrderSigner:
             encode_defunct(text=message)
         )
 
-        return signed_message.signature.hex()
+        return cast(str, signed_message.signature.hex())
 
     def sign_cancel_order(
         self,
@@ -152,7 +152,7 @@ class OrderSigner:
         encoded_data = encode_typed_data(full_message=typed_data)
         signed_message = self.account.sign_message(encoded_data)
 
-        return signed_message.signature.hex()
+        return cast(str, signed_message.signature.hex())
 
     def _build_typed_data(self, order: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -245,7 +245,7 @@ class OrderSigner:
                     f"Expected: {self.address}, Got: {recovered_address}"
                 )
 
-            return is_valid
+            return cast(bool, is_valid)
 
         except Exception as e:
             logger.error(f"Error verifying signature: {e}")
