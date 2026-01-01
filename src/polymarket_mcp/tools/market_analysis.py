@@ -228,15 +228,27 @@ async def get_orderbook(
     try:
         book_data = await _fetch_clob_api("/book", {"token_id": token_id})
 
-        # Parse bids and asks
+        # /book do CLOB ordena WORST-FIRST (bids ascendente — best bid no fim;
+        # asks descendente — best ask no fim). Ordenar best-first ANTES da fatia
+        # depth: a fatia corta os PIORES níveis, não os melhores. Fakes best-first
+        # já-normalizados são invariantes ao sorting (compat test_get_orderbook_truncates_to_depth).
+        raw_bids = sorted(
+            book_data.get("bids", []),
+            key=lambda entry: float(entry["price"]),
+            reverse=True,
+        )[:depth]
+        raw_asks = sorted(
+            book_data.get("asks", []),
+            key=lambda entry: float(entry["price"]),
+        )[:depth]
+
         bids = [
             OrderBookEntry(price=float(entry["price"]), size=float(entry["size"]))
-            for entry in book_data.get("bids", [])[:depth]
+            for entry in raw_bids
         ]
-
         asks = [
             OrderBookEntry(price=float(entry["price"]), size=float(entry["size"]))
-            for entry in book_data.get("asks", [])[:depth]
+            for entry in raw_asks
         ]
 
         orderbook = OrderBook(
