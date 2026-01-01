@@ -30,6 +30,7 @@ A complete, production-ready web dashboard for the Polymarket MCP Server has bee
 - `GET /api/test-connection` - Connection test
 - `GET /api/markets/trending` - Trending markets
 - `GET /api/markets/search` - Search markets
+- `GET /api/markets/closing-soon` - Markets closing soon
 - `GET /api/markets/{id}` - Market details
 - `GET /api/markets/{id}/analyze` - Market analysis
 - `POST /api/config` - Update configuration
@@ -262,6 +263,11 @@ Testing routes...
 ✅ Route registered: /api/test-connection
 ✅ Route registered: /api/markets/trending
 ✅ Route registered: /api/markets/search
+Route registered: /api/markets/closing-soon
+Route registered: /api/markets/{market_id}
+Route registered: /api/markets/{market_id}/analyze
+Route registered: /api/config
+Route registered: /api/stats
 ✅ Route registered: /ws
 
 ============================================================

@@ -68,6 +68,11 @@ def test_routes():
             "/api/test-connection",
             "/api/markets/trending",
             "/api/markets/search",
+            "/api/markets/closing-soon",
+            "/api/markets/{market_id}",
+            "/api/markets/{market_id}/analyze",
+            "/api/config",
+            "/api/stats",
             "/ws",
         ]
 
