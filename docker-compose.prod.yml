@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  polymarket-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - LOG_LEVEL=WARNING
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+    healthcheck:
+      interval: 15s
+      timeout: 5s
+      retries: 5
