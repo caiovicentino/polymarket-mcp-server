@@ -63,36 +63,126 @@ if [ ! -f .env ]; then
         cp .env.example .env
         print_info "Created .env from .env.example"
     else
-        # Create minimal .env
-        cat > .env << EOF
+        # Create minimal .env (byte-identical to .env.example)
+        cat > .env << 'EOF'
 # Polymarket MCP Server Configuration
+# Copy this file to .env and fill in your values
 
-# Required: Your Polygon wallet credentials
-POLYGON_PRIVATE_KEY=your_private_key_here
-POLYGON_ADDRESS=your_wallet_address_here
-
-# Optional: Polymarket API credentials (if you have them)
-POLYMARKET_API_KEY=
-POLYMARKET_PASSPHRASE=
-
-# Operating mode
+# ============================================================================
+# DEMO MODE - Run without real wallet credentials (read-only)
+# ============================================================================
+# Set to true for read-only access without needing a wallet
+# Perfect for testing market discovery, analysis, and monitoring features
+# Trading functions will be disabled in DEMO mode
+#
+# When DEMO_MODE=true, you don't need to provide:
+#   - POLYGON_PRIVATE_KEY
+#   - POLYGON_ADDRESS
+#
+# The system will use safe demo values automatically.
 DEMO_MODE=false
 
-# Configuration
-LOG_LEVEL=INFO
+# ============================================================================
+# Polygon Wallet Configuration (REQUIRED unless DEMO_MODE=true)
+# ============================================================================
+
+# Your Polygon wallet private key (without 0x prefix)
+# Get from: MetaMask > Settings > Security > Export Private Key
+# IMPORTANT: Keep this secret! Never commit to git or share publicly
+POLYGON_PRIVATE_KEY=your_private_key_here
+
+# Your Polygon wallet address (with 0x prefix)
+# Get from: Your wallet's public address
+POLYGON_ADDRESS=0xYourAddressHere
+
+# Polygon chain ID (137 for mainnet, 80002 for Amoy testnet)
 POLYMARKET_CHAIN_ID=137
 
-# Safety limits
+# ============================================================================
+# Polymarket API Credentials (OPTIONAL - auto-created if not provided)
+# ============================================================================
+
+# L2 API credentials for authenticated requests.
+# Leave empty to auto-generate on first run.
+# Or get from: https://polymarket.com/settings/api
+# API_SECRET and PASSPHRASE are DIFFERENT values - do not reuse one for both,
+# or request signing will fail.
+POLYMARKET_API_KEY=
+POLYMARKET_API_SECRET=
+POLYMARKET_PASSPHRASE=
+POLYMARKET_API_KEY_NAME=
+
+# ============================================================================
+# Safety Limits - Risk Management
+# ============================================================================
+
+# Maximum size for a single order in USD
 MAX_ORDER_SIZE_USD=1000
-MAX_TOTAL_EXPOSURE_USD=10000
-REQUIRE_CONFIRMATION_ABOVE_USD=100
+
+# Maximum total exposure across all positions in USD
+MAX_TOTAL_EXPOSURE_USD=5000
+
+# Maximum position size per market in USD
+MAX_POSITION_SIZE_PER_MARKET=2000
+
+# Minimum liquidity required in market before trading (USD)
+MIN_LIQUIDITY_REQUIRED=10000
+
+# Maximum spread tolerance (0.05 = 5%)
+MAX_SPREAD_TOLERANCE=0.05
+
+# ============================================================================
+# Trading Controls
+# ============================================================================
+
+# Trade without per-order confirmation.
+# SAFE DEFAULT: false -> every order requires confirm=true to be placed.
+# When true, only orders above REQUIRE_CONFIRMATION_ABOVE_USD require confirm=true.
+# WARNING: setting this to true lets an agent place orders on its own.
+ENABLE_AUTONOMOUS_TRADING=false
+
+# Require user confirmation for orders above this USD amount
+REQUIRE_CONFIRMATION_ABOVE_USD=500
+
+# Automatically cancel orders if spread exceeds MAX_SPREAD_TOLERANCE
+AUTO_CANCEL_ON_LARGE_SPREAD=true
+
+# ============================================================================
+# API Endpoints (OPTIONAL - uses defaults if not set)
+# ============================================================================
+
+# Polymarket CLOB API endpoint
+CLOB_API_URL=https://clob.polymarket.com
+
+# Gamma API endpoint for market data
+GAMMA_API_URL=https://gamma-api.polymarket.com
+
+# ============================================================================
+# Logging
+# ============================================================================
+
+# Log level: DEBUG, INFO, WARNING, ERROR
+LOG_LEVEL=INFO
+
+# ============================================================================
+# Advanced Configuration (typically no changes needed)
+# ============================================================================
+
+# USDC token address on Polygon
+USDC_ADDRESS=0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174
+
+# CTF Exchange contract address
+CTF_EXCHANGE_ADDRESS=0x4bFb41d5B3570DeFd03C39a9A4D8dE6Bd8B8982E
+
+# Conditional Token contract address
+CONDITIONAL_TOKEN_ADDRESS=0x4D97DCd97eC945f40cF65F87097ACe5EA0476045
 EOF
         print_info "Created default .env file"
     fi
 
     print_warning "Please edit .env with your credentials before continuing!"
     print_info "Open .env in your text editor and add your POLYGON_PRIVATE_KEY and POLYGON_ADDRESS"
-    read -p "Press Enter when ready to continue..."
+    read -p "Press Enter when ready to continue..." || true
 fi
 
 # Validate environment variables
@@ -106,7 +196,7 @@ if [ -z "$POLYGON_PRIVATE_KEY" ] || [ "$POLYGON_PRIVATE_KEY" = "your_private_key
     exit 1
 fi
 
-if [ -z "$POLYGON_ADDRESS" ] || [ "$POLYGON_ADDRESS" = "your_wallet_address_here" ]; then
+if [ -z "$POLYGON_ADDRESS" ] || [ "$POLYGON_ADDRESS" = "0xYourAddressHere" ]; then
     print_error "POLYGON_ADDRESS not set in .env!"
     print_info "Get your wallet address from your Polygon wallet"
     exit 1
