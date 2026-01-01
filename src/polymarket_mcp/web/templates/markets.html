@@ -89,6 +89,7 @@
     <script>
         let currentMarkets = [];
         let autoRefreshInterval = null;
+        let currentMarketId = null;
 
         // Initialize on load
         document.addEventListener('DOMContentLoaded', () => {
@@ -125,7 +126,7 @@
                     container.innerHTML = '<p class="text-muted">No markets found</p>';
                 }
             } catch (error) {
-                container.innerHTML = `<p class="text-error">Search failed: ${error.message}</p>`;
+                container.innerHTML = `<p class="text-error">Search failed: ${esc(error.message)}</p>`;
             }
         }
 
@@ -145,7 +146,7 @@
                     container.innerHTML = '<p class="text-muted">No trending markets available</p>';
                 }
             } catch (error) {
-                container.innerHTML = `<p class="text-error">Failed to load: ${error.message}</p>`;
+                container.innerHTML = `<p class="text-error">Failed to load: ${esc(error.message)}</p>`;
             }
         }
 
@@ -188,7 +189,7 @@
                         <tbody>
                             ${markets.map((market, index) => `
                                 <tr>
-                                    <td class="market-question">${market.question || 'Unknown'}</td>
+                                    <td class="market-question">${esc(market.question || 'Unknown')}</td>
                                     <td>
                                         <span class="price-yes">${formatPrice(market.price_yes)}</span> /
                                         <span class="price-no">${formatPrice(market.price_no)}</span>
@@ -198,10 +199,10 @@
                                     <td class="text-right">${formatPercent(market.spread || 0)}</td>
                                     <td>
                                         <div class="action-buttons">
-                                            <button class="btn btn-sm" onclick="analyzeMarket('${market.condition_id || market.id}')">
+                                            <button class="btn btn-sm" data-action="analyze" data-market-id="${esc(market.condition_id || market.id)}">
                                                 Analyze
                                             </button>
-                                            <button class="btn btn-sm btn-secondary" onclick="viewDetails('${market.condition_id || market.id}')">
+                                            <button class="btn btn-sm btn-secondary" data-action="details" data-market-id="${esc(market.condition_id || market.id)}">
                                                 Details
                                             </button>
                                         </div>
@@ -220,21 +221,22 @@
             const modal = document.getElementById('market-modal');
             const modalBody = document.getElementById('modal-body');
 
+            currentMarketId = marketId;
             modal.style.display = 'flex';
             modalBody.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading details...</p></div>';
 
             try {
-                const response = await fetch(`/api/markets/${marketId}`);
+                const response = await fetch(`/api/markets/${encodeURIComponent(marketId)}`);
                 const market = await response.json();
 
                 modalBody.innerHTML = `
                     <div class="market-details">
-                        <h3>${market.question || 'Unknown Market'}</h3>
+                        <h3>${esc(market.question || 'Unknown Market')}</h3>
 
                         <div class="details-grid">
                             <div class="detail-item">
                                 <strong>Market ID:</strong>
-                                <span class="mono">${market.condition_id || market.id}</span>
+                                <span class="mono">${esc(market.condition_id || market.id)}</span>
                             </div>
                             <div class="detail-item">
                                 <strong>Volume (24h):</strong>
@@ -261,12 +263,12 @@
                         ${market.description ? `
                             <div class="market-description">
                                 <strong>Description:</strong>
-                                <p>${market.description}</p>
+                                <p>${esc(market.description)}</p>
                             </div>
                         ` : ''}
 
                         <div class="button-group">
-                            <button class="btn btn-primary" onclick="analyzeMarket('${market.condition_id || market.id}')">
+                            <button class="btn btn-primary" data-action="analyze" data-market-id="${esc(currentMarketId)}">
                                 Analyze Market
                             </button>
                             <button class="btn btn-secondary" onclick="closeModal()">
@@ -276,7 +278,7 @@
                     </div>
                 `;
             } catch (error) {
-                modalBody.innerHTML = `<p class="text-error">Failed to load details: ${error.message}</p>`;
+                modalBody.innerHTML = `<p class="text-error">Failed to load details: ${esc(error.message)}</p>`;
             }
         }
 
@@ -284,10 +286,15 @@
             showNotification('Analyzing market...', 'info');
 
             try {
-                const response = await fetch(`/api/markets/${marketId}/analyze`);
+                const response = await fetch(`/api/markets/${encodeURIComponent(marketId)}/analyze`);
                 const analysis = await response.json();
 
                 showNotification('Analysis complete!', 'success');
+
+                // Confidence is clamped to [0, 100] and NaN-safe before it
+                // reaches style/span interpolation (external value never
+                // interpolates raw).
+                const pct = Math.max(0, Math.min(100, Number(analysis.confidence_score) || 0));
 
                 // Display analysis in modal
                 const modalBody = document.getElementById('modal-body');
@@ -297,19 +304,19 @@
 
                         <div class="analysis-section">
                             <h4>Recommendation</h4>
-                            <p class="analysis-recommendation ${analysis.recommendation?.toLowerCase()}">${analysis.recommendation || 'N/A'}</p>
+                            <p class="analysis-recommendation ${esc(analysis.recommendation?.toLowerCase())}">${esc(analysis.recommendation || 'N/A')}</p>
                         </div>
 
                         <div class="analysis-section">
                             <h4>Risk Assessment</h4>
-                            <p>${analysis.risk_assessment || 'N/A'}</p>
+                            <p>${esc(analysis.risk_assessment || 'N/A')}</p>
                         </div>
 
                         <div class="analysis-section">
                             <h4>Confidence Score</h4>
                             <div class="confidence-bar">
-                                <div class="confidence-fill" style="width: ${(analysis.confidence_score || 0) * 100}%"></div>
-                                <span>${((analysis.confidence_score || 0) * 100).toFixed(0)}%</span>
+                                <div class="confidence-fill" style="width: ${pct}%"></div>
+                                <span>${pct.toFixed(0)}%</span>
                             </div>
                         </div>
 
@@ -317,7 +324,7 @@
                             <div class="analysis-section">
                                 <h4>Key Factors</h4>
                                 <ul>
-                                    ${analysis.key_factors.map(factor => `<li>${factor}</li>`).join('')}
+                                    ${analysis.key_factors.map(factor => `<li>${esc(factor)}</li>`).join('')}
                                 </ul>
                             </div>
                         ` : ''}

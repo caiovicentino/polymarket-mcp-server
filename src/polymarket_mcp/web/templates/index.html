@@ -173,7 +173,7 @@
                         <div class="market-list">
                             ${data.markets.map(market => `
                                 <div class="market-item">
-                                    <div class="market-title">${market.question || 'Unknown Market'}</div>
+                                    <div class="market-title">${esc(market.question || 'Unknown Market')}</div>
                                     <div class="market-meta">
                                         <span>Volume: $${formatNumber(market.volume_24h || 0)}</span>
                                         <span>Liquidity: $${formatNumber(market.liquidity || 0)}</span>
@@ -186,7 +186,7 @@
                     container.innerHTML = '<p class="text-muted">No trending markets available</p>';
                 }
             } catch (error) {
-                container.innerHTML = `<p class="text-error">Failed to load markets: ${error.message}</p>`;
+                container.innerHTML = `<p class="text-error">Failed to load markets: ${esc(error.message)}</p>`;
             }
         }
 

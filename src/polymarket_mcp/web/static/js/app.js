@@ -49,6 +49,32 @@ function showNotification(message, type = 'info') {
 }
 
 // ============================================================================
+// HTML Escaping
+// ============================================================================
+
+/**
+ * Escape HTML-significant characters (& < > " ') for safe interpolation
+ * into innerHTML and attributes.
+ *
+ * Frontend-only defense: the API keeps returning raw text (contract pin),
+ * so every render site that interpolates external data MUST route it
+ * through esc(). Note that esc() protects innerHTML/text nodes and static
+ * attribute values, but NOT onclick="...${...}" -- the attribute is decoded
+ * before the JS parser sees it; those sites use event delegation instead
+ * (data-action/data-market-id).
+ * @param {*} value - Value to escape (coerced to string)
+ * @returns {string} Escaped string
+ */
+function esc(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
+}
+
+// ============================================================================
 // Formatting Utilities
 // ============================================================================
 
@@ -59,6 +85,7 @@ function showNotification(message, type = 'info') {
  */
 function formatNumber(num) {
     if (num === null || num === undefined) return '0';
+    num = Number(num);
     return num.toLocaleString('en-US', {
         maximumFractionDigits: 0
     });
@@ -71,6 +98,7 @@ function formatNumber(num) {
  */
 function formatCurrency(amount) {
     if (amount === null || amount === undefined) return '$0';
+    amount = Number(amount);
     return new Intl.NumberFormat('en-US', {
         style: 'currency',
         currency: 'USD',
@@ -86,6 +114,7 @@ function formatCurrency(amount) {
  */
 function formatPrice(price) {
     if (price === null || price === undefined) return 'N/A';
+    price = Number(price);
     return `${(price * 100).toFixed(1)}%`;
 }
 
@@ -188,7 +217,7 @@ async function searchMarkets(query, limit = 20) {
  * @returns {Promise} Market details
  */
 async function getMarketDetails(marketId) {
-    return apiRequest(`/api/markets/${marketId}`);
+    return apiRequest(`/api/markets/${encodeURIComponent(marketId)}`);
 }
 
 /**
@@ -197,7 +226,7 @@ async function getMarketDetails(marketId) {
  * @returns {Promise} Analysis result
  */
 async function analyzeMarket(marketId) {
-    return apiRequest(`/api/markets/${marketId}/analyze`);
+    return apiRequest(`/api/markets/${encodeURIComponent(marketId)}/analyze`);
 }
 
 /**
@@ -483,6 +512,32 @@ window.addEventListener('unhandledrejection', (event) => {
 });
 
 // ============================================================================
+// Event Delegation (XSS-safe dynamic action buttons)
+// ============================================================================
+
+/**
+ * Delegated click handler for dynamically-rendered action buttons.
+ *
+ * Buttons carry data-action ("analyze" | "details") and data-market-id
+ * (HTML-escaped at render time via esc(); the browser decodes the attribute
+ * value before dataset reads it, so dataset.marketId is the raw id).
+ * Delegation replaces interpolated inline onclick="fn('${id}')" attributes,
+ * which HTML-escaping alone cannot make safe.
+ */
+document.body.addEventListener('click', (event) => {
+    const actionEl = event.target.closest('[data-action]');
+    if (!actionEl) return;
+    const marketId = actionEl.dataset.marketId;
+    if (!marketId) return;
+
+    if (actionEl.dataset.action === 'analyze' && typeof window.analyzeMarket === 'function') {
+        window.analyzeMarket(marketId);
+    } else if (actionEl.dataset.action === 'details' && typeof window.viewDetails === 'function') {
+        window.viewDetails(marketId);
+    }
+});
+
+// ============================================================================
 // Initialization
 // ============================================================================
 
@@ -494,6 +549,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Export functions for use in inline scripts
 window.showNotification = showNotification;
+window.esc = esc;
 window.formatNumber = formatNumber;
 window.formatCurrency = formatCurrency;
 window.formatPrice = formatPrice;
