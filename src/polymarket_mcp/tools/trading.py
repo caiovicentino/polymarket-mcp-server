@@ -1396,6 +1396,7 @@ def get_tool_definitions() -> List[types.Tool]:
                     },
                     "expiration": {
                         "type": "integer",
+                        "minimum": 1,
                         "description": "Unix timestamp for GTD orders (optional)"
                     },
                     "confirm": {
@@ -1514,6 +1515,7 @@ def get_tool_definitions() -> List[types.Tool]:
                     },
                     "size": {
                         "type": "number",
+                        "minimum": 0.01,
                         "description": "Order size in USD"
                     },
                     "strategy": {
@@ -1584,6 +1586,7 @@ def get_tool_definitions() -> List[types.Tool]:
                     "limit": {
                         "type": "integer",
                         "default": 100,
+                        "minimum": 1,
                         "description": "Maximum number of orders"
                     }
                 }
@@ -1651,6 +1654,7 @@ def get_tool_definitions() -> List[types.Tool]:
                     },
                     "max_budget": {
                         "type": "number",
+                        "minimum": 0.01,
                         "description": "Maximum budget in USD"
                     },
                     "confirm": {
@@ -1689,10 +1693,13 @@ def get_tool_definitions() -> List[types.Tool]:
                     },
                     "target_size": {
                         "type": "number",
+                        "minimum": 0,
                         "description": "Target position size in USD (null to close)"
                     },
                     "max_slippage": {
                         "type": "number",
+                        "minimum": 0,
+                        "maximum": 1,
                         "default": 0.02,
                         "description": "Maximum acceptable slippage (0.02 = 2%)"
                     },

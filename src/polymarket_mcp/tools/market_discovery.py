@@ -550,6 +550,7 @@ def get_tools() -> List[types.Tool]:
                     },
                     "limit": {
                         "type": "integer",
+                        "minimum": 1,
                         "description": "Maximum number of results (default 20)",
                         "default": 20
                     },
@@ -580,6 +581,7 @@ def get_tools() -> List[types.Tool]:
                     },
                     "limit": {
                         "type": "integer",
+                        "minimum": 1,
                         "description": "Number of markets to return (default 10)",
                         "default": 10
                     }
@@ -604,6 +606,7 @@ def get_tools() -> List[types.Tool]:
                     },
                     "limit": {
                         "type": "integer",
+                        "minimum": 1,
                         "description": "Maximum number of results (default 20)",
                         "default": 20
                     }
@@ -637,6 +640,7 @@ def get_tools() -> List[types.Tool]:
                 "properties": {
                     "limit": {
                         "type": "integer",
+                        "minimum": 1,
                         "description": "Number of markets to return (default 10)",
                         "default": 10
                     }
@@ -652,11 +656,13 @@ def get_tools() -> List[types.Tool]:
                 "properties": {
                     "hours": {
                         "type": "integer",
+                        "minimum": 1,
                         "description": "Number of hours to look ahead (default 24)",
                         "default": 24
                     },
                     "limit": {
                         "type": "integer",
+                        "minimum": 1,
                         "description": "Maximum number of results (default 20)",
                         "default": 20
                     }
@@ -676,6 +682,7 @@ def get_tools() -> List[types.Tool]:
                     },
                     "limit": {
                         "type": "integer",
+                        "minimum": 1,
                         "description": "Maximum number of results (default 20)",
                         "default": 20
                     }
@@ -695,6 +702,7 @@ def get_tools() -> List[types.Tool]:
                     },
                     "limit": {
                         "type": "integer",
+                        "minimum": 1,
                         "description": "Maximum number of results (default 20)",
                         "default": 20
                     }
