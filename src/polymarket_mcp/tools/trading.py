@@ -5,6 +5,7 @@ Implements 12 comprehensive tools for order management and smart trading.
 import logging
 import math
 from datetime import datetime, timezone
+from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
 import mcp.types as types
@@ -76,6 +77,35 @@ def resolve_token_id(
         f"Market {market_id} is not a Yes/No market, so the outcome cannot be "
         f"inferred. Pass 'outcome' explicitly. Available outcomes: {labels}"
     )
+
+
+def parse_tick_size(tick_raw: Any) -> Optional[Decimal]:
+    """
+    Decode an orderbook's tick_size wire value into a Decimal.
+
+    Args:
+        tick_raw: The tick_size field as delivered by the wire (a string on
+            the live OrderBookSummary payload; absent on stubbed books).
+
+    Returns:
+        The tick as a Decimal, or None when the field is absent or unusable
+        (non-numeric / non-positive). Callers keep the legacy
+        no-alignment behavior in the None case.
+
+    Note:
+        Decimal construction happens from the STRING form of the value -
+        arithmetic in float would re-introduce the silent drift this module
+        guards against (e.g. 0.40 + 0.10 * 0.1 = 0.40999999999999998).
+    """
+    if tick_raw is None:
+        return None
+    try:
+        tick = Decimal(str(tick_raw))
+    except (TypeError, ValueError, ArithmeticError):
+        return None
+    if tick <= 0:
+        return None
+    return tick
 
 
 class TradingTools:
@@ -172,6 +202,38 @@ class TradingTools:
 
             best_bid = float(bids[0]['price']) if bids else 0.0
             best_ask = float(asks[0]['price']) if asks else 1.0
+
+            # Tick validation (fail-loud): the exchange client rejects prices
+            # outside [tick, 1-tick] (py_clob_client price_valid) and the
+            # order builder SILENTLY rounds unaligned prices (round_normal) -
+            # a different order than the one requested. Both are rejected
+            # here, before anything posts. The RANGE check runs first: an
+            # out-of-range price reports the range (matching the client's own
+            # error, e.g. 0.995 on a 0.01-tick market), and alignment then
+            # only fires for in-range prices, so its two suggested neighbors
+            # are always themselves valid prices.
+            tick_raw = orderbook.get('tick_size')
+            tick = parse_tick_size(tick_raw)
+            if tick is not None:
+                price_d = Decimal(str(price))
+                if not (tick <= price_d <= 1 - tick):
+                    raise ValueError(
+                        f"Price {price} outside the valid range "
+                        f"[{tick}, {1 - float(tick)}] "
+                        f"for tick size {tick_raw}"
+                    )
+                if price_d % tick != 0:
+                    floor_price = (price_d / tick).to_integral_value(
+                        rounding=ROUND_FLOOR
+                    ) * tick
+                    ceil_price = (price_d / tick).to_integral_value(
+                        rounding=ROUND_CEILING
+                    ) * tick
+                    raise ValueError(
+                        f"Price {price} is not aligned to the market's tick "
+                        f"size {tick_raw}. Nearest valid prices: "
+                        f"{float(floor_price)} or {float(ceil_price)}"
+                    )
 
             # Calculate liquidity
             bid_liquidity = sum(float(b['price']) * float(b['size']) for b in bids[:10])
@@ -513,6 +575,18 @@ class TradingTools:
             mid_price = (best_bid + best_ask) / 2
             spread = best_ask - best_bid
 
+            # Tick alignment (money-path correctness): py-clob-client 0.34.6
+            # silently rounds the submitted price to the market tick
+            # (OrderBuilder.get_order_amounts: round_normal). A suggestion
+            # that is not a tick multiple becomes a DIFFERENT order (0.525 ->
+            # 0.52 on a 0.01 book: a mid SELL crosses the book and executes
+            # at the bid; a passive BUY lands ON the bid, losing the intent).
+            # Every computed suggestion is therefore aligned in Decimal FROM
+            # THE WIRE STRINGS. Books without a usable tick_size field keep
+            # the legacy behavior (identity) - the pinned tickless fixtures
+            # of the sibling suites depend on it.
+            tick = parse_tick_size(orderbook.get('tick_size'))
+
             side_upper = side.upper()
             strategy_lower = strategy.lower()
 
@@ -523,12 +597,35 @@ class TradingTools:
                     suggested_price = best_ask
                     reasoning = f"Aggressive buy at best ask {best_ask:.4f} for immediate execution"
                 elif strategy_lower == 'passive':
-                    # Place bid slightly above current best bid
-                    suggested_price = best_bid + (spread * 0.1)
+                    # Place bid slightly above current best bid: the smallest
+                    # tick-aligned price STRICTLY above the best bid.
+                    if tick is not None:
+                        bid_d = Decimal(bids[0]['price'])
+                        ask_d = Decimal(asks[0]['price'])
+                        spread_d = ask_d - bid_d
+                        cand = bid_d + spread_d * Decimal('0.1')
+                        aligned = (cand / tick).to_integral_value(
+                            rounding=ROUND_CEILING
+                        ) * tick
+                        if aligned <= bid_d:
+                            aligned += tick
+                        suggested_price = float(aligned)
+                    else:
+                        suggested_price = best_bid + (spread * 0.1)
                     reasoning = f"Passive buy at {suggested_price:.4f}, above best bid {best_bid:.4f}"
                 else:  # mid
-                    # Place order at mid price
-                    suggested_price = mid_price
+                    # Place order at mid price: ROUND_FLOOR so the BUY never
+                    # crosses the ask (an aligned mid is the identity).
+                    if tick is not None:
+                        bid_d = Decimal(bids[0]['price'])
+                        ask_d = Decimal(asks[0]['price'])
+                        mid_d = (bid_d + ask_d) / 2
+                        aligned = (mid_d / tick).to_integral_value(
+                            rounding=ROUND_FLOOR
+                        ) * tick
+                        suggested_price = float(aligned)
+                    else:
+                        suggested_price = mid_price
                     reasoning = f"Mid-price buy at {suggested_price:.4f} (bid: {best_bid:.4f}, ask: {best_ask:.4f})"
             else:  # SELL
                 if strategy_lower == 'aggressive':
@@ -536,12 +633,35 @@ class TradingTools:
                     suggested_price = best_bid
                     reasoning = f"Aggressive sell at best bid {best_bid:.4f} for immediate execution"
                 elif strategy_lower == 'passive':
-                    # Place ask slightly below current best ask
-                    suggested_price = best_ask - (spread * 0.1)
+                    # Place ask slightly below current best ask: the largest
+                    # tick-aligned price STRICTLY below the best ask.
+                    if tick is not None:
+                        bid_d = Decimal(bids[0]['price'])
+                        ask_d = Decimal(asks[0]['price'])
+                        spread_d = ask_d - bid_d
+                        cand = ask_d - spread_d * Decimal('0.1')
+                        aligned = (cand / tick).to_integral_value(
+                            rounding=ROUND_FLOOR
+                        ) * tick
+                        if aligned >= ask_d:
+                            aligned -= tick
+                        suggested_price = float(aligned)
+                    else:
+                        suggested_price = best_ask - (spread * 0.1)
                     reasoning = f"Passive sell at {suggested_price:.4f}, below best ask {best_ask:.4f}"
                 else:  # mid
-                    # Place order at mid price
-                    suggested_price = mid_price
+                    # Place order at mid price: ROUND_CEILING so the SELL
+                    # never crosses the bid (an aligned mid is the identity).
+                    if tick is not None:
+                        bid_d = Decimal(bids[0]['price'])
+                        ask_d = Decimal(asks[0]['price'])
+                        mid_d = (bid_d + ask_d) / 2
+                        aligned = (mid_d / tick).to_integral_value(
+                            rounding=ROUND_CEILING
+                        ) * tick
+                        suggested_price = float(aligned)
+                    else:
+                        suggested_price = mid_price
                     reasoning = f"Mid-price sell at {suggested_price:.4f} (bid: {best_bid:.4f}, ask: {best_ask:.4f})"
 
             # Calculate estimated fill probability (simplified)
