@@ -106,7 +106,8 @@ def parse_tick_size(tick_raw: Any) -> Optional[Decimal]:
 
     Returns:
         The tick as a Decimal, or None when the field is absent or unusable
-        (non-numeric / non-positive). Callers keep the legacy
+        (non-numeric / non-positive / non-finite - NaN raises on comparison
+        and Infinity has no meaningful tick). Callers keep the legacy
         no-alignment behavior in the None case.
 
     Note:
@@ -118,9 +119,16 @@ def parse_tick_size(tick_raw: Any) -> Optional[Decimal]:
         return None
     try:
         tick = Decimal(str(tick_raw))
+        # The comparison and the finiteness check live INSIDE the try: a NaN
+        # tick raises InvalidOperation on comparison (trapped), and +/-inf
+        # passes the "> 0" test - both are unusable per the docstring, so
+        # they decode to None (legacy no-alignment behavior), never as a
+        # cryptic error envelope from the tools.
+        if tick <= 0:
+            return None
+        if not tick.is_finite():
+            return None
     except (TypeError, ValueError, ArithmeticError):
-        return None
-    if tick <= 0:
         return None
     return tick
 
