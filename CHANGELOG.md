@@ -344,6 +344,24 @@ The first public release of Polymarket MCP Server - a complete AI-powered tradin
 - **Dashboard market envelopes**: /api/markets/trending and
   /api/markets/search now return the {"markets": [...]} envelope the
   dashboard consumes, so panels render real rows instead of empty (PR #150).
+- Rate-limit backoff wired into the order-submission path: a real 429
+  from the CLOB now arms the exponential backoff (or the server's
+  Retry-After) instead of hammering the API with immediate retries
+  (PR #154).
+- `suggest_portfolio_actions` paginates the Data-API positions feed
+  across all pages instead of truncating at the first page (PR #156).
+- Per-market over-sell quantities are counted as short exposure in the
+  per-market cap of `validate_order`, so a sell order larger than the
+  current position is bounded instead of silently accepted (PR #158).
+- Rate-limit backoff wired into the Data-API read surface
+  (positions/trades/activity and the pagination helper via opt-in
+  kwargs), so a real 429 arms the backoff on read paths too (PR #160).
+- The stdio server child process now inherits the OS environment on
+  Windows, fixing `WinError 10106` (WSAStartup) that made the whole
+  stdio test tier fail on `windows-latest` (PR #162).
+- `install.sh` fails loudly with a clear message when the input stream
+  ends before the wallet prompts are answered, instead of dying silently
+  mid-setup (PR #164).
 
 ### Added
 
