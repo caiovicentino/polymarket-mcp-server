@@ -225,11 +225,41 @@ The first public release of Polymarket MCP Server - a complete AI-powered tradin
 - **`test-docker.sh` reliability**: the script now runs the full suite to its
   summary instead of dying at the first failing test, arithmetic footguns are
   fixed, and a trap cleans up `.env.test` and the test image (PR #64).
+- **Makefile backup/restore targets**: both targets resolved a nonexistent
+  data-volume name (silently producing empty backups and restoring into the
+  wrong volume); they now resolve the volume via `docker compose config` and
+  fail loudly when it cannot be determined (PR #69).
+- **Kubernetes manifests aligned with the real config**: configmap/secret now
+  expose all 22 config variables (5 were unreachable, including
+  `POLYMARKET_API_SECRET`), the dead `RATE_LIMIT_ENABLED` key was removed,
+  stale version labels dropped, divergent limit values corrected, and the
+  README namespace instructions fixed (PR #70).
+- **DOCKER.md production deploy**: the documented standalone
+  `docker compose -f docker-compose.prod.yml up -d` started with zero config
+  variables; the doc now uses the base+override pair and the prod example
+  declares `env_file` (PR #72).
+- **Installation and setup docs accuracy**: QUICKSTART_GUIDE and
+  INSTALLATION_COMPARISON no longer teach `pip install tk` (which installs
+  TensorKit, not tkinter) nor the nonexistent `--upgrade-to-full` flag
+  (PR #78); WEB_DASHBOARD now documents the loopback-default host and a
+  no-auth warning (PR #79); SETUP_GUIDE entry name aligned with the installer
+  and author paths removed (PR #80); WEBSOCKET_INTEGRATION testing block uses
+  the offline selection plus explicit live commands (PR #81); author paths
+  removed from four root docs (PR #82); volatile line/count claims removed
+  from DOCKER_INFRASTRUCTURE_COMPLETE and PROJECT_COMPLETE (PR #83).
 
 ### Added
 
+- **`py.typed` marker (PEP 561)**: the wheel now ships typing metadata so type
+  checkers in consuming projects see the package annotations (PR #73).
 - **`server/discover` MCP method**: connection-agnostic capability discovery
   via a pre-handshake stream interceptor (lote PR #49).
+
+### Changed
+
+- **Pre-commit hook hygiene**: the broken `poetry-check` hook (which required
+  a `[tool.poetry]` section this hatchling project never had) was removed and
+  root-script lint debt closed (PR #76).
 
 ### Planned Features
 - Enhanced AI analysis tools
