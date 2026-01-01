@@ -124,6 +124,29 @@ async def load_mcp_config():
         logger.warning("Dashboard running without MCP connection")
 
 
+def _derived_tools_available(has_credentials: bool) -> int:
+    """Derive the exposed tool count from the live tool registries (anti-drift).
+
+    Mirrors ``server.get_tools()``: discovery + analysis + realtime tools are
+    always available; trading + portfolio tools only with API credentials.
+    """
+    from ..tools import realtime
+
+    total = (
+        len(market_discovery.get_tools())
+        + len(market_analysis.get_tools())
+        + len(realtime.get_tools())
+    )
+    if has_credentials:
+        from ..tools import portfolio_integration
+        from ..tools.trading import get_tool_definitions
+
+        total += len(get_tool_definitions()) + len(
+            portfolio_integration.get_portfolio_tool_definitions()
+        )
+    return total
+
+
 @app.middleware("http")
 async def add_security_headers(request, call_next):
     """Add security headers to every response."""
@@ -152,7 +175,9 @@ async def dashboard_home(request: Request):
         "mode": "FULL" if (client and client.has_api_credentials()) else "READ-ONLY",
         "address": config.POLYGON_ADDRESS if config else "Not configured",
         "chain_id": config.POLYMARKET_CHAIN_ID if config else None,
-        "tools_available": 45 if (client and client.has_api_credentials()) else 25,
+        "tools_available": _derived_tools_available(
+            bool(client and client.has_api_credentials())
+        ),
     }
 
     return templates.TemplateResponse(
@@ -260,7 +285,7 @@ async def get_status():
         "chain_id": config.POLYMARKET_CHAIN_ID,
         "has_api_credentials": client.has_api_credentials(),
         "mode": "FULL" if client.has_api_credentials() else "READ-ONLY",
-        "tools_available": 45 if client.has_api_credentials() else 25,
+        "tools_available": _derived_tools_available(client.has_api_credentials()),
         "rate_limits": get_rate_limiter().get_status(),
     })
 
@@ -277,6 +302,21 @@ async def test_connection():
     try:
         # Try to fetch trending markets as connection test
         result = await market_discovery.handle_tool("get_trending_markets", {"limit": 5})
+
+        # handle_tool never raises: failures arrive as an {"error": ...}
+        # envelope. Without this check a network failure reports
+        # "Connection successful" (false positive on a trading dashboard).
+        if result:
+            import json
+
+            payload = json.loads(result[0].text)
+            if isinstance(payload, dict) and "error" in payload:
+                stats["errors"] = cast(int, stats["errors"]) + 1
+                logger.error(f"Connection test failed: {payload['error']}")
+                return JSONResponse(
+                    {"success": False, "error": str(payload["error"])},
+                    status_code=500,
+                )
 
         return JSONResponse({
             "success": True,
