@@ -13,11 +13,15 @@ data:
   LOG_LEVEL: "INFO"
   POLYMARKET_CHAIN_ID: "137"
 
-  # Safety limits
+  # Optional L2 API credentials metadata (secret itself lives in the Secret)
+  POLYMARKET_API_KEY_NAME: ""
+
+  # Safety limits (values match the code defaults in src/polymarket_mcp/config.py
+  # and .env.example — do not introduce divergence between them)
   MAX_ORDER_SIZE_USD: "1000"
-  MAX_TOTAL_EXPOSURE_USD: "10000"
-  REQUIRE_CONFIRMATION_ABOVE_USD: "100"
-  MAX_POSITION_SIZE_PER_MARKET: "0.3"
+  MAX_TOTAL_EXPOSURE_USD: "5000"
+  REQUIRE_CONFIRMATION_ABOVE_USD: "500"
+  MAX_POSITION_SIZE_PER_MARKET: "2000"
   MIN_LIQUIDITY_REQUIRED: "10000"
   MAX_SPREAD_TOLERANCE: "0.05"
 
@@ -29,5 +33,7 @@ data:
   CLOB_API_URL: "https://clob.polymarket.com"
   GAMMA_API_URL: "https://gamma-api.polymarket.com"
 
-  # Rate limiting
-  RATE_LIMIT_ENABLED: "true"
+  # Polymarket contract addresses (public constants)
+  USDC_ADDRESS: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174"
+  CTF_EXCHANGE_ADDRESS: "0x4bFb41d5B3570DeFd03C39a9A4D8dE6Bd8B8982E"
+  CONDITIONAL_TOKEN_ADDRESS: "0x4D97DCd97eC945f40cF65F87097ACe5EA0476045"
