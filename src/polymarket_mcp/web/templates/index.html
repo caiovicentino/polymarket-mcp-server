@@ -112,6 +112,19 @@
             </div>
         </section>
 
+        <!-- Markets Closing Soon -->
+        <section class="section">
+            <h2>Markets Closing Soon</h2>
+            <div class="card">
+                <div class="card-body">
+                    <div id="closing-soon-markets" class="loading">
+                        <div class="spinner"></div>
+                        <p>Loading closing soon markets...</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- System Info -->
         <section class="section">
             <h2>System Information</h2>
@@ -143,6 +156,7 @@
         // Initialize dashboard
         document.addEventListener('DOMContentLoaded', () => {
             loadTrendingMarkets();
+            loadClosingSoon();
             initWebSocket();
         });
 
@@ -191,6 +205,41 @@
                     `;
                 } else {
                     container.innerHTML = '<p class="text-muted">No trending markets available</p>';
+                }
+            } catch (error) {
+                container.innerHTML = `<p class="text-error">Failed to load markets: ${esc(error.message)}</p>`;
+            }
+        }
+
+        async function loadClosingSoon() {
+            const container = document.getElementById('closing-soon-markets');
+            try {
+                const response = await fetch('/api/markets/closing-soon?limit=5&hours=24');
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status);
+                }
+                const data = await response.json();
+                const rows = marketRowsOf(data);
+                if (data.error) {
+                    container.innerHTML = `<p class="text-error">Failed to load markets: ${esc(String(data.error))}</p>`;
+                    return;
+                }
+                if (rows.length > 0) {
+                    container.innerHTML = `
+                        <div class="market-list">
+                            ${rows.map(market => `
+                                <div class="market-item">
+                                    <div class="market-title">${esc(market.question || 'Unknown Market')}</div>
+                                    <div class="market-meta">
+                                        <span>Volume: $${esc(formatNumber(market.volume24hr || 0))}</span>
+                                        <span>Closes: ${esc(market.endDate || market.end_date_iso || 'Unknown')}</span>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = '<p class="text-muted">No closing soon markets</p>';
                 }
             } catch (error) {
                 container.innerHTML = `<p class="text-error">Failed to load markets: ${esc(error.message)}</p>`;
