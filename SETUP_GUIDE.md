@@ -274,8 +274,7 @@ Com o MCP configurado, você pode pedir para Claude:
 ## 📚 DOCUMENTAÇÃO COMPLETA
 
 - **README.md**: Visão geral do projeto
-- **IMPLEMENTATION_SUMMARY.md**: Detalhes técnicos
-- **TOOLS_REFERENCE.md**: Referência de todas as 45 tools
+- **TOOLS_REFERENCE.md**: Referência de todas as tools
 
 ---
 
