@@ -126,8 +126,17 @@ async def test_trending_markets_no_utcnow_deprecation(monkeypatch):
     # order. The naive-ISO dates exercise the str branch (tzinfo stripped, a
     # no-op on naive strings) around the migrated naive ``now``.
     assert [m["id"] for m in result] == ["live"]
+    # FIXED (farm/T-0460): params gain order/ascending (server-side order);
+    # the expired-filter and no-utcnow-deprecation pins are unchanged.
     assert fetch.calls == [
-        {"endpoint": "/markets", "params": {"active": "true", "closed": "false"}, "limit": 100}
+        {
+            "endpoint": "/markets",
+            "params": {
+                "active": "true", "closed": "false",
+                "order": "volume24hr", "ascending": "false",
+            },
+            "limit": 100,
+        }
     ]
 
 
@@ -186,6 +195,9 @@ async def test_closing_soon_no_utcnow_deprecation(monkeypatch):
     # naive cutoff (cutoff_time = migrated naive now + timedelta(hours=hours)).
     # Dates are naive ISO without suffix, so the comparison is naive-vs-naive.
     assert [m["id"] for m in result] == ["near"]
-    assert fetch.calls == [
-        {"endpoint": "/markets", "params": {"active": "true", "closed": "false"}, "limit": 100}
-    ]
+    # FIXED (farm/T-0459): params gain the server-side closing window; the
+    # no-utcnow-deprecation probe and the naive cutoff pin are unchanged.
+    params0 = fetch.calls[0]["params"]
+    assert params0["order"] == "endDate" and params0["ascending"] == "true"
+    assert "end_date_min" in params0 and "end_date_max" in params0
+    assert fetch.calls[0]["limit"] == 100

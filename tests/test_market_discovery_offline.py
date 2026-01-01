@@ -77,7 +77,8 @@ Observed divergences recorded per L-0025/L-0090 (code is the oracle)
 2. Z-suffixed ISO dates: trending strips tzinfo (:212 -> naive -> kept);
    closing_soon does NOT strip (:394 -> tz-aware) and its comparison against
    the naive cutoff raises TypeError -> caught -> market SKIPPED with a
-   warning. Pinned by test_z_suffixed_dates_trending_keeps_closing_soon_skips.
+   warning. Formerly pinned by test_z_suffixed_dates_trending_keeps_closing
+   _soon_skips (flipped to inclusion by farm/T-0460, item 152).
 3. closing_soon includes already-expired markets (:399-400, `<= cutoff`, no
    past floor); trending excludes them (:215-216). Pinned by
    test_closing_soon_includes_already_expired_markets.
@@ -452,7 +453,12 @@ async def test_trending_filters_expired_and_keeps_malformed_dates(monkeypatch):
     # Stable sort with all-zero volumes keeps insertion order (:231-235).
     assert [m["id"] for m in result] == ["future", "malformed", "no-date", "int-future"]
     assert calls[0]["endpoint"] == "/markets"
-    assert calls[0]["params"] == {"active": "true", "closed": "false"}
+    # FIXED (farm/T-0460): the params gain the server-side order key
+    # (farm/T-0455 client sort stays; the wire honors order+ascending=false).
+    assert calls[0]["params"] == {
+        "active": "true", "closed": "false", "order": "volume24hr",
+        "ascending": "false",
+    }
     assert calls[0]["limit"] == 100
 
 
@@ -651,7 +657,16 @@ async def test_closing_soon_includes_within_window_and_excludes_after(monkeypatc
     # silently excluded -- no warning, not appended.
     assert [m["id"] for m in result] == ["iso-only", "within"]
     assert calls[0]["endpoint"] == "/markets"
-    assert calls[0]["params"] == {"active": "true", "closed": "false"}
+    # FIXED (farm/T-0459): the params gain the server-side closing window
+    # (end_date_min/end_date_max bound the wire; order=endDate ascending
+    # returns the soonest-closing first). The window is time-dependent, so
+    # the pin checks structure + the window span instead of exact strings.
+    params = calls[0]["params"]
+    assert params["order"] == "endDate" and params["ascending"] == "true"
+    assert params["active"] == "true" and params["closed"] == "false"
+    floor = datetime.fromisoformat(params["end_date_min"].replace("Z", "+00:00"))
+    ceil = datetime.fromisoformat(params["end_date_max"].replace("Z", "+00:00"))
+    assert abs((ceil - floor).total_seconds() - 24 * 3600) <= 2
     assert calls[0]["limit"] == 100
 
 
@@ -705,7 +720,10 @@ async def test_closing_soon_includes_already_expired_markets(monkeypatch):
     result = await market_discovery.get_closing_soon_markets(hours=24, limit=10)
 
     # <= cutoff (:399-400) with no past floor: expired markets still count as
-    # closing soon (divergence from trending, see header observation 3).
+    # closing soon in the CLIENT filter (divergence from trending, see header
+    # observation 3). On the live path the server-side `end_date_min` floor
+    # (farm/T-0459) already excludes expired markets; this stub-fed pin
+    # exercises the client filter alone.
     assert [m["id"] for m in result] == ["past"]
 
 
@@ -730,7 +748,7 @@ async def test_closing_soon_re_raises_fetch_errors(monkeypatch):
         await market_discovery.get_closing_soon_markets()
 
 
-async def test_z_suffixed_dates_trending_keeps_closing_soon_skips(monkeypatch, caplog):
+async def test_z_suffixed_dates_trending_and_closing_soon_included(monkeypatch):
     z_date = (
         (datetime.utcnow() + timedelta(hours=48)).replace(microsecond=0).isoformat() + "Z"
     )
@@ -740,12 +758,14 @@ async def test_z_suffixed_dates_trending_keeps_closing_soon_skips(monkeypatch, c
     trending = await market_discovery.get_trending_markets()
     assert [m["id"] for m in trending] == ["m"]
 
-    with caplog.at_level(logging.WARNING, logger=MD_LOGGER):
-        closing = await market_discovery.get_closing_soon_markets(hours=24, limit=10)
+    closing = await market_discovery.get_closing_soon_markets(hours=72, limit=10)
 
-    assert closing == []
-    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
-    assert any(z_date in r.getMessage() for r in warnings)
+    # FIXED (farm/T-0460, REQUER-HUMANO item 152): the Z-suffixed endDate is
+    # stripped to naive UTC before the cutoff comparison, so real wire dates
+    # are INCLUDED (the old pin test_z_suffixed_dates_trending_keeps_closing
+    # _soon_skips asserted the [] skip plus the parse warning as OBSERVED;
+    # hours=72 keeps the +48h z_date inside the window).
+    assert [m["id"] for m in closing] == ["m"]
 
 
 async def test_precedence_enddate_iso_vs_enddate_diverges_trending_closing_soon(monkeypatch):
