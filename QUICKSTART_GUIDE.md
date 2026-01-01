@@ -112,9 +112,16 @@ Show me the top trending markets on Polymarket
 ## 🆘 Troubleshooting
 
 ### Wizard won't start
+
+`tkinter` ships with the Python interpreter build; the `tk` package on PyPI is
+an unrelated project (TensorKit) and does not provide it.
+
 ```bash
-# Install tkinter if needed
-pip install tk
+# macOS (Homebrew Python):
+brew install python-tk
+
+# Debian/Ubuntu:
+sudo apt install python3-tk
 
 # Or use automated script instead
 ./install.sh
