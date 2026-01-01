@@ -108,6 +108,28 @@ def parse_tick_size(tick_raw: Any) -> Optional[Decimal]:
     return tick
 
 
+async def _note_clob_429_cat(
+    rate_limiter: Any,
+    exc: BaseException,
+    category: Any,
+) -> None:
+    """Record a CLOB 429 on the rate limiter so the NEXT acquire() waits.
+
+    Companion of the order-submission wiring: py_clob_client raises
+    PolyApiException carrying ``status_code`` from the wire response. The
+    read/management surfaces (suggest_order_price, order status, open
+    orders, order history) and the cancel surfaces funnel through except
+    paths that previously armed NO backoff, so immediate retries hammered
+    the API. The error envelope is returned UNCHANGED, so the offline
+    envelope pins hold. PolyApiException does not expose response headers,
+    so the exponential default is used; ``category`` matches the
+    acquire() that preceded the failing call.
+    """
+    if getattr(exc, "status_code", None) != 429:
+        return
+    await rate_limiter.handle_429_error(category, None)
+
+
 class TradingTools:
     """
     Trading tools for Polymarket.
@@ -699,6 +721,7 @@ class TradingTools:
             }
 
         except Exception as e:
+            await _note_clob_429_cat(self.rate_limiter, e, EndpointCategory.MARKET_DATA)
             logger.error(f"Failed to suggest order price: {e}")
             return {
                 "success": False,
@@ -753,6 +776,7 @@ class TradingTools:
             }
 
         except Exception as e:
+            await _note_clob_429_cat(self.rate_limiter, e, EndpointCategory.CLOB_GENERAL)
             logger.error(f"Failed to get order status: {e}")
             return {
                 "success": False,
@@ -801,6 +825,7 @@ class TradingTools:
             }
 
         except Exception as e:
+            await _note_clob_429_cat(self.rate_limiter, e, EndpointCategory.CLOB_GENERAL)
             logger.error(f"Failed to get open orders: {e}")
             return {
                 "success": False,
@@ -874,6 +899,7 @@ class TradingTools:
             }
 
         except Exception as e:
+            await _note_clob_429_cat(self.rate_limiter, e, EndpointCategory.CLOB_GENERAL)
             logger.error(f"Failed to get order history: {e}")
             return {
                 "success": False,
@@ -907,6 +933,7 @@ class TradingTools:
             }
 
         except Exception as e:
+            await _note_clob_429_cat(self.rate_limiter, e, EndpointCategory.TRADING_BURST)
             logger.error(f"Failed to cancel order {order_id}: {e}")
             return {
                 "success": False,
@@ -967,6 +994,7 @@ class TradingTools:
                     await self.client.cancel_order(order_id)
                     cancelled.append(order_id)
                 except Exception as e:
+                    await _note_clob_429_cat(self.rate_limiter, e, EndpointCategory.TRADING_BURST)
                     logger.error(f"Failed to cancel order {order_id}: {e}")
                     failed.append({"order_id": order_id, "error": str(e)})
 
@@ -980,6 +1008,7 @@ class TradingTools:
             }
 
         except Exception as e:
+            await _note_clob_429_cat(self.rate_limiter, e, EndpointCategory.TRADING_BURST)
             logger.error(f"Failed to cancel market orders: {e}")
             return {
                 "success": False,
@@ -1014,6 +1043,7 @@ class TradingTools:
             }
 
         except Exception as e:
+            await _note_clob_429_cat(self.rate_limiter, e, EndpointCategory.TRADING_BURST)
             logger.error(f"Failed to cancel all orders: {e}")
             return {
                 "success": False,
@@ -1314,6 +1344,7 @@ class TradingTools:
             return rebalance_result
 
         except Exception as e:
+            await _note_clob_429_cat(self.rate_limiter, e, EndpointCategory.MARKET_DATA)
             logger.error(f"Position rebalancing failed: {e}")
             return {
                 "success": False,
