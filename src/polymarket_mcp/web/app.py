@@ -21,7 +21,7 @@ from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconn
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .. import __version__
 from ..auth import PolymarketClient, create_polymarket_client
@@ -84,13 +84,14 @@ stats = {
 
 class ConfigUpdateRequest(BaseModel):
     """Request model for configuration updates"""
-    max_order_size_usd: float
-    max_total_exposure_usd: float
-    max_position_size_per_market: float
-    min_liquidity_required: float
-    max_spread_tolerance: float
+
+    max_order_size_usd: float = Field(gt=0, allow_inf_nan=False)
+    max_total_exposure_usd: float = Field(gt=0, allow_inf_nan=False)
+    max_position_size_per_market: float = Field(gt=0, allow_inf_nan=False)
+    min_liquidity_required: float = Field(gt=0, allow_inf_nan=False)
+    max_spread_tolerance: float = Field(ge=0, le=1, allow_inf_nan=False)
     enable_autonomous_trading: bool
-    require_confirmation_above_usd: float
+    require_confirmation_above_usd: float = Field(ge=0, allow_inf_nan=False)
     auto_cancel_on_large_spread: bool
 
 
@@ -120,6 +121,16 @@ async def load_mcp_config():
     except Exception as e:
         logger.error(f"Failed to load configuration: {e}")
         logger.warning("Dashboard running without MCP connection")
+
+
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    """Add security headers to every response."""
+    response = await call_next(request)
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    return response
 
 
 # ============================================================================
