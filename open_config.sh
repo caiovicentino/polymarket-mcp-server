@@ -10,7 +10,7 @@ if [ -f "$CONFIG_PATH" ]; then
     echo "✅ Arquivo encontrado: $CONFIG_PATH"
     echo ""
     echo "📝 Instruções:"
-    echo "   1. Encontre a seção 'polymarket-trading'"
+    echo "   1. Encontre a seção 'polymarket'"
     echo "   2. Substitua POLYGON_PRIVATE_KEY com sua private key (sem 0x)"
     echo "   3. Substitua POLYGON_ADDRESS com seu endereço"
     echo "   4. Salve o arquivo (Cmd+S)"
