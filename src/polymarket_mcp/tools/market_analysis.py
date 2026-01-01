@@ -164,13 +164,22 @@ async def get_market_details(
         condition_id: Condition ID (alternative identifier)
         slug: Market slug (alternative identifier)
 
+    Identifier semantics:
+        market_id is the numeric gamma market id (e.g. "559651") and is
+        looked up via the path form /markets/{id}; condition_id is the
+        0x-hex condition id and is looked up via the query form
+        /markets?condition_id=; slug is the market slug and is looked up
+        via the query form /markets?slug= (the wire rejects slugs on the
+        path form with HTTP 422 "id is invalid" - only numeric ids are
+        valid there).
+
     Returns:
         Full market object with all metadata
     """
     try:
         # Determine which identifier to use
         if slug:
-            data = await _fetch_gamma_api(f"/markets/{slug}")
+            data = await _fetch_gamma_api("/markets", {"slug": slug})
         elif condition_id:
             data = await _fetch_gamma_api("/markets", {"condition_id": condition_id})
         elif market_id:
