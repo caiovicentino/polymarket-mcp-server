@@ -178,9 +178,25 @@ async def test_get_market_details_slug_resolves_via_query(monkeypatch):
     assert market.get("slug") == MARKET_XI["slug"]
 
 
+def _skip_on_transport(exc, label):
+    """Network guard: infra failures SKIP (never fail the suite for infra)."""
+    pytest.skip(f"{label} unreachable ({type(exc).__name__}: {exc})")
+
+
+def _check_response(response, label):
+    """Fail-closed response check: 5xx is an API-side outage (documented
+    skip); any other non-200 is a live-contract violation (FAIL)."""
+    if response.status_code >= 500:
+        pytest.skip(f"{label}: live API outage (HTTP {response.status_code})")
+    assert response.status_code == 200, f"{label}: expected HTTP 200, got {response.status_code}"
+
+
 async def _derive_listing(client):
-    resp = await client.get(f"{GAMMA}/markets", params={"limit": 8})
-    resp.raise_for_status()
+    try:
+        resp = await client.get(f"{GAMMA}/markets", params={"limit": 8})
+    except (httpx.HTTPError, OSError) as exc:
+        _skip_on_transport(exc, "gamma /markets")
+    _check_response(resp, "gamma /markets")
     return resp.json()
 
 
@@ -198,10 +214,13 @@ async def test_live_prices_history_wire_returns_points():
                 token = ids[0]
                 break
         assert token, "live listing must expose clobTokenIds"
-        resp = await client.get(
-            f"{CLOB}/prices-history", params={"market": token, "interval": "1d"}
-        )
-        assert resp.status_code == 200
+        try:
+            resp = await client.get(
+                f"{CLOB}/prices-history", params={"market": token, "interval": "1d"}
+            )
+        except (httpx.HTTPError, OSError) as exc:
+            _skip_on_transport(exc, "CLOB /prices-history")
+        _check_response(resp, "CLOB /prices-history")
         body = resp.json()
         assert body.get("history"), body
         point = body["history"][0]
@@ -222,7 +241,10 @@ async def test_live_prices_history_requires_time_component():
                 token = ids[0]
                 break
         assert token
-        resp = await client.get(f"{CLOB}/prices-history", params={"market": token})
+        try:
+            resp = await client.get(f"{CLOB}/prices-history", params={"market": token})
+        except (httpx.HTTPError, OSError) as exc:
+            _skip_on_transport(exc, "CLOB /prices-history")
         assert resp.status_code >= 400 or "error" in resp.json()
 
 
@@ -236,10 +258,13 @@ async def test_live_holders_wire_returns_holders():
                 condition_id = entry["conditionId"]
                 break
         assert condition_id, "live listing must expose conditionId"
-        resp = await client.get(
-            f"{DATA_API}/holders", params={"market": condition_id, "limit": 3}
-        )
-        assert resp.status_code == 200
+        try:
+            resp = await client.get(
+                f"{DATA_API}/holders", params={"market": condition_id, "limit": 3}
+            )
+        except (httpx.HTTPError, OSError) as exc:
+            _skip_on_transport(exc, "data-api /holders")
+        _check_response(resp, "data-api /holders")
         body = resp.json()
         assert isinstance(body, list) and body, body
         first = body[0]
@@ -253,11 +278,17 @@ async def test_live_slug_query_works_and_path_rejects():
     async with httpx.AsyncClient(timeout=30.0) as client:
         listing = await _derive_listing(client)
         slug = listing[0]["slug"]
-        ok = await client.get(f"{GAMMA}/markets", params={"slug": slug})
-        assert ok.status_code == 200
+        try:
+            ok = await client.get(f"{GAMMA}/markets", params={"slug": slug})
+        except (httpx.HTTPError, OSError) as exc:
+            _skip_on_transport(exc, "gamma /markets slug")
+        _check_response(ok, "gamma /markets slug")
         body = ok.json()
         assert isinstance(body, list) and body and body[0]["slug"] == slug
-        bad = await client.get(f"{GAMMA}/markets/{slug}")
+        try:
+            bad = await client.get(f"{GAMMA}/markets/{slug}")
+        except (httpx.HTTPError, OSError) as exc:
+            _skip_on_transport(exc, "gamma /markets/{slug} path")
         assert bad.status_code >= 400
 
 
@@ -271,9 +302,66 @@ async def test_live_condition_id_query_works():
                 condition_id = entry["conditionId"]
                 break
         assert condition_id
-        resp = await client.get(
-            f"{GAMMA}/markets", params={"condition_id": condition_id}
-        )
-        assert resp.status_code == 200
+        try:
+            resp = await client.get(
+                f"{GAMMA}/markets", params={"condition_id": condition_id}
+            )
+        except (httpx.HTTPError, OSError) as exc:
+            _skip_on_transport(exc, "gamma /markets condition_id")
+        _check_response(resp, "gamma /markets condition_id")
         body = resp.json()
         assert body and body[0]["conditionId"] == condition_id
+
+
+@pytest.mark.asyncio
+async def test_transport_guard_skips_on_connect_error(monkeypatch):
+    """The network guard is a SKIP, not a FAIL (L-0026): with the transport
+    dead, the live test is skipped for infra reasons, never failed."""
+    async def boom(self, *args, **kwargs):
+        raise httpx.ConnectError("simulated transport failure")
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", boom)
+    name = None
+    try:
+        await test_live_condition_id_query_works()
+    except BaseException as exc:
+        name = type(exc).__name__
+    assert name in ("Skipped", "Skip"), (
+        f"expected the live test to SKIP on transport failure, got {name}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_transport_guard_skips_on_direct_call_site(monkeypatch):
+    """A transport failure at a DIRECT call site (not only the shared
+    helper) also skips: the guard wraps every live call site."""
+    calls = {"n": 0}
+
+    class _FakeResp:
+        status_code = 200
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return [{
+                "clobTokenIds": '["1","2"]',
+                "conditionId": "0xdeadbeef",
+                "slug": "fake-slug",
+            }]
+
+    async def boom(self, *args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] >= 2:
+            raise httpx.ConnectError("simulated transport failure")
+        return _FakeResp()
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", boom)
+    name = None
+    try:
+        await test_live_condition_id_query_works()
+    except BaseException as exc:
+        name = type(exc).__name__
+    assert name in ("Skipped", "Skip"), (
+        f"expected the live test to SKIP on direct-site transport failure, got {name}"
+    )
