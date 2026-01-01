@@ -382,7 +382,7 @@ async def get_closing_soon_markets(
         Markets closing soon
     """
     try:
-        cutoff_time = datetime.utcnow() + timedelta(hours=hours)
+        cutoff_time = datetime.utcnow().replace(tzinfo=None) + timedelta(hours=hours)
 
         markets = await _fetch_clob_markets(params=None, limit=100)
 
@@ -396,7 +396,7 @@ async def get_closing_soon_markets(
                     else:
                         end_dt = datetime.fromtimestamp(int(end_date))
 
-                    if end_dt <= cutoff_time:
+                    if end_dt.replace(tzinfo=None) <= cutoff_time:
                         closing_soon.append(market)
 
                 except Exception as parse_error:
