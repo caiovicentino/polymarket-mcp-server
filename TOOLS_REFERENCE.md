@@ -206,6 +206,8 @@ Get cryptocurrency-related markets. Filter by symbol if specified.
 ```
 Get complete market information with all metadata.
 
+Identifier semantics: market_id is the numeric gamma market id (e.g. 559651); use condition_id for 0x-hex condition ids and slug for the market slug. The slug lookup queries /markets?slug= (the wire rejects slugs on the /markets/{id} path form with HTTP 422 "id is invalid").
+
 **2. get_current_price**
 ```json
 {
