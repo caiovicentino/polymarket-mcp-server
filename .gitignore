@@ -84,3 +84,9 @@ benchmark*.json
 .idea/
 *.swp
 *.swo
+
+# Additional environment directories
+.micromamba-env/
+.final-env/
+*.pyc
+__pycache__/
