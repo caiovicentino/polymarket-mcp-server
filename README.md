@@ -213,6 +213,329 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -e .
 ```
 
+---
+
+## ⚠️ Critical Installation Guide (Read This First!)
+
+### Important Compatibility Notes
+
+This section addresses critical installation issues that users may encounter. Please read carefully to avoid common problems.
+
+### 🚨 Known Issues & Solutions
+
+#### Issue 1: FastAPI/MCP Dependency Conflict
+
+**Error:**
+```
+ERROR: ResolutionImpossible: for help visit https://pip.pypa.io/en/latest/topics/dependency-resolution/#dealing-with-dependency-conflicts
+
+The conflict is caused by:
+    fastapi 0.104.0 depends on anyio<4.0.0 and >=3.7.1
+    mcp 1.25.0 depends on anyio>=4.5
+```
+
+**Solution:** This issue has been fixed in the latest version. Ensure you're using the updated code with FastAPI >=0.109.0.
+
+#### Issue 2: typing_extensions System Package Conflict
+
+**Error:**
+```
+ERROR: Cannot install polymarket-mcp-0.1.0
+- typing-extensions 4.10.0 (system)
+  conflicts with required: typing_extensions>=4.12.2 (package)
+```
+
+**Root Cause:** On WSL2 Ubuntu 24.04 and some Linux distributions, Python 3.12.3 comes with `typing_extensions-4.10.0` bundled in `/usr/lib/python3/dist-packages/`. pip cannot override system packages inside virtualenv.
+
+**Solution:**
+
+```bash
+# Create clean virtualenv with Python 3.12.3
+python3.12 -m venv /home/vic/polymarket-clean-venv
+
+# Activate virtualenv
+source /home/vic/polymarket-clean-venv/bin/activate
+
+# Upgrade typing_extensions
+pip install --upgrade typing_extensions
+
+# Verify version (should be 4.15.0 or higher)
+python -c "import importlib.metadata; print(importlib.metadata.version('typing_extensions'))"
+
+# Install with PYTHONPATH override
+export PYTHONPATH=/home/vic/polymarket-clean-venv/lib/python3.12/site-packages:$PYTHONPATH
+pip install -e .
+```
+
+#### Issue 3: Python Path Priority
+
+**Problem:** System packages are loaded before virtualenv packages, causing version conflicts.
+
+**Solution:** Use the provided helper script `run_with_env.sh` which sets PYTHONPATH correctly.
+
+```bash
+# Create helper script
+cat > /home/vic/polymarket-mcp-server/run_with_env.sh << 'EOF'
+#!/bin/bash
+
+cd /home/vic/polymarket-mcp-server
+source /home/vic/polymarket-clean-venv/bin/activate
+export PYTHONPATH=/home/vic/polymarket-clean-venv/lib/python3.12/site-packages:$PYTHONPATH
+"$@"
+EOF
+
+# Make executable
+chmod +x /home/vic/polymarket-mcp-server/run_with_env.sh
+
+# Use helper script for all commands
+./run_with_env.sh python3 your_script.py
+```
+
+---
+
+## 🔧 Complete Installation Procedure
+
+### Step 1: Create Virtual Environment
+
+```bash
+# Create virtualenv with Python 3.12.3 (recommended)
+python3.12 -m venv /home/vic/polymarket-clean-venv
+
+# Activate virtualenv
+source /home/vic/polymarket-clean-venv/bin/activate
+
+# Verify Python version
+python --version  # Should be 3.12.3
+```
+
+**⚠️ Important:** Always use Python 3.12.3, NOT 3.13.5 or system Python.
+
+### Step 2: Upgrade typing_extensions
+
+```bash
+pip install --upgrade typing_extensions
+
+# Verify version
+python -c "import importlib.metadata; print(importlib.metadata.version('typing_extensions'))"
+# Should be 4.15.0 or higher
+```
+
+### Step 3: Clone Repository
+
+```bash
+cd /home/vic
+git clone https://github.com/caiovicentino/polymarket-mcp-server.git
+cd polymarket-mcp-server
+```
+
+### Step 4: Install Package
+
+```bash
+# Set PYTHONPATH to prioritize virtualenv
+export PYTHONPATH=/home/vic/polymarket-clean-venv/lib/python3.12/site-packages:$PYTHONPATH
+
+# Install package
+pip install -e .
+```
+
+### Step 5: Create Configuration
+
+```bash
+# Copy example configuration
+cp .env.example .env
+
+# Edit configuration (optional - demo mode works out of the box)
+nano .env
+```
+
+### Step 6: Create Helper Script
+
+```bash
+cat > /home/vic/polymarket-mcp-server/run_with_env.sh << 'EOF'
+#!/bin/bash
+
+cd /home/vic/polymarket-mcp-server
+source /home/vic/polymarket-clean-venv/bin/activate
+export PYTHONPATH=/home/vic/polymarket-clean-venv/lib/python3.12/site-packages:$PYTHONPATH
+"$@"
+EOF
+
+# Make executable
+chmod +x /home/vic/polymarket-mcp-server/run_with_env.sh
+```
+
+### Step 7: Validate Installation
+
+```bash
+# Run smoke tests
+/home/vic/polymarket-mcp-server/run_with_env.sh python3 smoke_test.py
+
+# Test server initialization
+/home/vic/polymarket-mcp-server/run_with_env.sh python3 test_server_init.py
+```
+
+---
+
+## 🔌 OpenCode Integration
+
+### Step 1: Update OpenCode Configuration
+
+Edit `~/.config/opencode/opencode.json`:
+
+```json
+{
+  "mcp": {
+    "polymarket": {
+      "type": "local",
+      "enabled": true,
+      "command": [
+        "/home/vic/polymarket-mcp-server/run_with_env.sh",
+        "python3",
+        "/home/vic/polymarket-mcp-server/run_opencode_mcp.py"
+      ],
+      "environment": {
+        "DEMO_MODE": "true"
+      }
+    }
+  }
+}
+```
+
+### Step 2: Restart OpenCode
+
+Restart OpenCode to load the new configuration.
+
+### Step 3: Verify Integration
+
+OpenCode should now show the Polymarket MCP with 25 tools available in demo mode.
+
+---
+
+## 🎯 Quick Start Commands
+
+### Test Server
+
+```bash
+cd /home/vic/polymarket-mcp-server
+./run_with_env.sh python3 test_server_init.py
+```
+
+### Run Smoke Tests
+
+```bash
+./run_with_env.sh python3 smoke_test.py
+```
+
+### Start MCP Server
+
+```bash
+./run_with_env.sh python3 run_opencode_mcp.py
+```
+
+---
+
+## ⚠️ Critical Points - Avoid Common Issues
+
+### 1. **ALWAYS use Python 3.12.3**
+- ❌ NOT Python 3.13.5
+- ❌ NOT system Python
+- ✅ Use: `python3.12 -m venv`
+
+### 2. **ALWAYS use the helper script**
+- ❌ NOT direct python command
+- ❌ NOT system python path
+- ✅ Use: `./run_with_env.sh python3`
+
+### 3. **typing_extensions MUST be 4.12.2+**
+- ❌ NOT 4.10.0 (system)
+- ✅ Upgrade: `pip install --upgrade typing_extensions`
+
+### 4. **PYTHONPATH MUST prioritize virtualenv**
+- ❌ NOT system packages first
+- ✅ Use: `export PYTHONPATH=/path/to/venv/site-packages:$PYTHONPATH`
+
+### 5. **OpenCode config MUST use helper script**
+- ❌ NOT direct Python path
+- ✅ Use: `["run_with_env.sh", "python3", "run_opencode_mcp.py"]`
+
+---
+
+## ❌ What to Avoid
+
+- ❌ Using system Python
+- ❌ Using Python 3.13.5
+- ❌ Installing without virtualenv
+- ❌ Not upgrading typing_extensions
+- ❌ Direct Python path in OpenCode config
+- ❌ Skipping smoke tests
+- ❌ Not setting PYTHONPATH
+- ❌ Not using helper script
+
+---
+
+## ✅ Best Practices
+
+- ✅ Always use `run_with_env.sh`
+- ✅ Always use Python 3.12.3 virtualenv
+- ✅ Always verify installation with smoke tests
+- ✅ Always test server initialization
+- ✅ Always check Python path priority
+- ✅ Always use helper script in OpenCode config
+
+---
+
+## 🧪 Troubleshooting
+
+### Import Errors
+
+**Problem:** `ModuleNotFoundError` or import errors
+
+**Solution:** Always use the helper script:
+```bash
+./run_with_env.sh python3 your_script.py
+```
+
+### typing_extensions Version Conflict
+
+**Problem:** Version mismatch errors
+
+**Solution:**
+```bash
+source /home/vic/polymarket-clean-venv/bin/activate
+pip install --upgrade typing_extensions
+python -c "import importlib.metadata; print(importlib.metadata.version('typing_extensions'))"
+```
+
+### Server Won't Start
+
+**Problem:** Server initialization fails
+
+**Solution:**
+```bash
+./run_with_env.sh python3 test_server_init.py
+```
+
+Check the output for specific error messages.
+
+### OpenCode Not Loading MCP
+
+**Problem:** Polymarket MCP not showing in OpenCode
+
+**Solution:**
+1. Check `~/.config/opencode/opencode.json` is correct
+2. Verify the helper script path is correct
+3. Restart OpenCode
+4. Check OpenCode logs for errors
+
+---
+
+## 📚 Additional Documentation
+
+- **[Complete Installation Guide](COMPLETE_INSTALLATION_GUIDE.md)** - Comprehensive guide with all issues and solutions
+- **[Installation Complete](INSTALLATION_COMPLETE.md)** - Quick reference for successful installation
+- **[FAQ](FAQ.md)** - Frequently asked questions and troubleshooting
+- **[Setup Guide](SETUP_GUIDE.md)** - Detailed configuration instructions
+
 ### Configuration
 
 **Option 1: DEMO Mode** (easiest)
