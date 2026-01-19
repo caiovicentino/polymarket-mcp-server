@@ -30,7 +30,7 @@ Powered by **[Claude Code](https://claude.ai/code)** from Anthropic
 
 <table>
 <tr>
-<td width="20%" align="center"><b>🔍<br/>Market Discovery</b><br/>8 tools</td>
+<td width="20%" align="center"><b>🔍<br/>Market Discovery</b><br/>9 tools</td>
 <td width="20%" align="center"><b>📊<br/>Market Analysis</b><br/>10 tools</td>
 <td width="20%" align="center"><b>💼<br/>Trading</b><br/>12 tools</td>
 <td width="20%" align="center"><b>📈<br/>Portfolio</b><br/>8 tools</td>
@@ -38,8 +38,9 @@ Powered by **[Claude Code](https://claude.ai/code)** from Anthropic
 </tr>
 </table>
 
-#### 🔍 Market Discovery (8 tools)
+#### 🔍 Market Discovery (9 tools)
 - Search and filter markets by keywords, categories, events
+- **Search events** by text query (new!)
 - Trending markets by volume (24h, 7d, 30d)
 - Category-specific markets (Politics, Sports, Crypto)
 - Markets closing soon alerts
@@ -533,8 +534,8 @@ The authors and contributors are not responsible for any financial losses incurr
 
 ## 📈 Roadmap
 
-### Current Version (v0.1.0)
-- ✅ 45 comprehensive tools
+### Current Version (v0.1.1)
+- ✅ 46 comprehensive tools
 - ✅ Real-time WebSocket monitoring
 - ✅ Safety limits and risk management
 - ✅ Complete test suite
