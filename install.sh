@@ -468,7 +468,7 @@ rollback() {
 
     echo ""
     echo "Please check the error message above and try again."
-    echo "For help, visit: https://github.com/caiovicentino/polymarket-mcp-server/issues"
+    echo "For help, visit: https://github.com/joe67-67/polymarket-mcp-server/issues"
     exit 1
 }
 

@@ -146,10 +146,10 @@ See [WEB_DASHBOARD.md](WEB_DASHBOARD.md) for complete documentation.
 **Try DEMO mode first** (no wallet needed):
 ```bash
 # macOS/Linux
-curl -sSL https://raw.githubusercontent.com/caiovicentino/polymarket-mcp-server/main/quickstart.sh | bash
+curl -sSL https://raw.githubusercontent.com/joe67-67/polymarket-mcp-server/main/quickstart.sh | bash
 
 # Or clone and run locally
-git clone https://github.com/caiovicentino/polymarket-mcp-server.git
+git clone https://github.com/joe67-67/polymarket-mcp-server.git
 cd polymarket-mcp-server
 ./quickstart.sh
 ```
@@ -202,7 +202,7 @@ If you prefer manual setup:
 
 ```bash
 # Clone the repository
-git clone https://github.com/caiovicentino/polymarket-mcp-server.git
+git clone https://github.com/joe67-67/polymarket-mcp-server.git
 cd polymarket-mcp-server
 
 # Create virtual environment
@@ -475,8 +475,8 @@ Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on:
 
 ### Get Support
 
-- **GitHub Issues**: [Report bugs or request features](https://github.com/caiovicentino/polymarket-mcp-server/issues)
-- **GitHub Discussions**: [Ask questions and share ideas](https://github.com/caiovicentino/polymarket-mcp-server/discussions)
+- **GitHub Issues**: [Report bugs or request features](https://github.com/joe67-67/polymarket-mcp-server/issues)
+- **GitHub Discussions**: [Ask questions and share ideas](https://github.com/joe67-67/polymarket-mcp-server/discussions)
 - **Telegram Communities**: Get help from the community
 
 ---
@@ -523,7 +523,7 @@ The authors and contributors are not responsible for any financial losses incurr
 
 ## 🔗 Links
 
-- **GitHub Repository**: [github.com/caiovicentino/polymarket-mcp-server](https://github.com/caiovicentino/polymarket-mcp-server)
+- **GitHub Repository**: [github.com/joe67-67/polymarket-mcp-server](https://github.com/joe67-67/polymarket-mcp-server)
 - **Polymarket**: [polymarket.com](https://polymarket.com)
 - **Polymarket Docs**: [docs.polymarket.com](https://docs.polymarket.com)
 - **MCP Protocol**: [modelcontextprotocol.io](https://modelcontextprotocol.io)
@@ -558,6 +558,6 @@ The authors and contributors are not responsible for any financial losses incurr
 
 *Ready to make Claude your personal prediction market trader!* 🚀
 
-[⭐ Star this repo](https://github.com/caiovicentino/polymarket-mcp-server) | [🐛 Report Bug](https://github.com/caiovicentino/polymarket-mcp-server/issues) | [✨ Request Feature](https://github.com/caiovicentino/polymarket-mcp-server/issues)
+[⭐ Star this repo](https://github.com/joe67-67/polymarket-mcp-server) | [🐛 Report Bug](https://github.com/joe67-67/polymarket-mcp-server/issues) | [✨ Request Feature](https://github.com/joe67-67/polymarket-mcp-server/issues)
 
 </div>

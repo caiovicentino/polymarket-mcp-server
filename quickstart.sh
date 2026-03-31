@@ -6,13 +6,13 @@
 # One-liner to get started with Polymarket MCP Server in DEMO mode
 #
 # Usage:
-#   curl -sSL https://raw.githubusercontent.com/caiovicentino/polymarket-mcp-server/main/quickstart.sh | bash
+#   curl -sSL https://raw.githubusercontent.com/joe67-67/polymarket-mcp-server/main/quickstart.sh | bash
 #
 # Or download and run locally:
 #   ./quickstart.sh
 #
 # Author: Caio Vicentino
-# GitHub: https://github.com/caiovicentino/polymarket-mcp-server
+# GitHub: https://github.com/joe67-67/polymarket-mcp-server
 ################################################################################
 
 set -e
@@ -53,7 +53,7 @@ read
 # Check if we're in the repo directory
 if [ ! -f "pyproject.toml" ]; then
     echo "Cloning repository..."
-    REPO_URL="https://github.com/caiovicentino/polymarket-mcp-server.git"
+    REPO_URL="https://github.com/joe67-67/polymarket-mcp-server.git"
     INSTALL_DIR="$HOME/polymarket-mcp-server"
 
     if [ -d "$INSTALL_DIR" ]; then
