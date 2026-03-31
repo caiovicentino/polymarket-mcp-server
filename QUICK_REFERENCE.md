@@ -6,7 +6,7 @@ One-page reference for Polymarket MCP Server installation and usage.
 
 ```bash
 # Fastest: One-command DEMO mode
-curl -sSL https://raw.githubusercontent.com/caiovicentino/polymarket-mcp-server/main/quickstart.sh | bash
+curl -sSL https://raw.githubusercontent.com/joe67-67/polymarket-mcp-server/main/quickstart.sh | bash
 
 # DEMO mode (local)
 ./install.sh --demo
@@ -139,7 +139,7 @@ REQUIRE_CONFIRMATION_ABOVE_USD=500  # Confirm first
 
 ## Support
 
-- Issues: https://github.com/caiovicentino/polymarket-mcp-server/issues
+- Issues: https://github.com/joe67-67/polymarket-mcp-server/issues
 - Docs: [INSTALLATION.md](INSTALLATION.md)
 - Tests: [TEST_INSTALLATION.md](TEST_INSTALLATION.md)
 

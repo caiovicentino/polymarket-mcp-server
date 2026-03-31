@@ -25,7 +25,7 @@ Complete guide for testing the Polymarket MCP Server installation scripts.
 **Steps:**
 ```bash
 # 1. Clone repository (or use existing)
-git clone https://github.com/caiovicentino/polymarket-mcp-server.git
+git clone https://github.com/joe67-67/polymarket-mcp-server.git
 cd polymarket-mcp-server
 
 # 2. Run installer
@@ -115,7 +115,7 @@ cat .env | grep MAX_ORDER_SIZE_USD
 **Steps (on Windows):**
 ```batch
 REM Download repository
-git clone https://github.com/caiovicentino/polymarket-mcp-server.git
+git clone https://github.com/joe67-67/polymarket-mcp-server.git
 cd polymarket-mcp-server
 
 REM Run installer in DEMO mode
@@ -161,7 +161,7 @@ python -c "import polymarket_mcp"
 **Steps:**
 ```bash
 # Method 1: Download and run
-curl -sSL https://raw.githubusercontent.com/caiovicentino/polymarket-mcp-server/main/quickstart.sh | bash
+curl -sSL https://raw.githubusercontent.com/joe67-67/polymarket-mcp-server/main/quickstart.sh | bash
 
 # Method 2: Local run
 ./quickstart.sh
@@ -397,12 +397,12 @@ python3.9 -m venv test_venv
 # Install in multiple directories
 mkdir ~/poly-test-1
 cd ~/poly-test-1
-git clone https://github.com/caiovicentino/polymarket-mcp-server.git .
+git clone https://github.com/joe67-67/polymarket-mcp-server.git .
 ./install.sh --demo
 
 mkdir ~/poly-test-2
 cd ~/poly-test-2
-git clone https://github.com/caiovicentino/polymarket-mcp-server.git .
+git clone https://github.com/joe67-67/polymarket-mcp-server.git .
 ./install.sh --demo
 ```
 
@@ -542,7 +542,7 @@ If tests fail:
 2. Check permissions: `ls -la install.sh`
 3. Check internet connection: `curl -I https://pypi.org`
 4. Check logs: Review terminal output
-5. Report issue: https://github.com/caiovicentino/polymarket-mcp-server/issues
+5. Report issue: https://github.com/joe67-67/polymarket-mcp-server/issues
 
 ---
 

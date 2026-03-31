@@ -37,7 +37,7 @@ Complete installation guide for the Polymarket MCP Server with automated scripts
 
 ```bash
 # One command - installs DEMO mode automatically
-curl -sSL https://raw.githubusercontent.com/caiovicentino/polymarket-mcp-server/main/quickstart.sh | bash
+curl -sSL https://raw.githubusercontent.com/joe67-67/polymarket-mcp-server/main/quickstart.sh | bash
 ```
 
 This will:
@@ -61,7 +61,7 @@ This will:
 
 ```bash
 # Clone repository
-git clone https://github.com/caiovicentino/polymarket-mcp-server.git
+git clone https://github.com/joe67-67/polymarket-mcp-server.git
 cd polymarket-mcp-server
 
 # Run installer
@@ -77,7 +77,7 @@ cd polymarket-mcp-server
 
 ```batch
 REM Clone repository
-git clone https://github.com/caiovicentino/polymarket-mcp-server.git
+git clone https://github.com/joe67-67/polymarket-mcp-server.git
 cd polymarket-mcp-server
 
 REM Run installer
@@ -95,7 +95,7 @@ install.bat
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/caiovicentino/polymarket-mcp-server.git
+git clone https://github.com/joe67-67/polymarket-mcp-server.git
 cd polymarket-mcp-server
 
 # 2. Create virtual environment
@@ -434,7 +434,7 @@ python -c "from polymarket_mcp.config import load_config; print(load_config().DE
 - [TEST_INSTALLATION.md](TEST_INSTALLATION.md) - Testing guide
 
 **Report Issues:**
-- GitHub Issues: https://github.com/caiovicentino/polymarket-mcp-server/issues
+- GitHub Issues: https://github.com/joe67-67/polymarket-mcp-server/issues
 - Include error messages and system info
 
 **Community Support:**

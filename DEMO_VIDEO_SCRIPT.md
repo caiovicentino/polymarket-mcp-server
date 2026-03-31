@@ -33,7 +33,7 @@ Complete script for creating demonstration videos.
 
 **[Show: Terminal commands]**
 ```bash
-git clone https://github.com/caiovicentino/polymarket-mcp-server.git
+git clone https://github.com/joe67-67/polymarket-mcp-server.git
 cd polymarket-mcp-server
 python -m venv venv
 source venv/bin/activate
@@ -250,7 +250,7 @@ Subscribe to price changes for [market_id]
 **[Show: Links and resources]**
 
 **Resources:**
-- GitHub: github.com/caiovicentino/polymarket-mcp-server
+- GitHub: github.com/joe67-67/polymarket-mcp-server
 - Documentation: Full guides in repository
 - Community: Yield Hacker, Renda Cripto, Cultura Builder
 
@@ -279,7 +279,7 @@ Subscribe to price changes for [market_id]
 
 **Method 1: GUI Wizard (60 seconds):**
 ```bash
-git clone https://github.com/caiovicentino/polymarket-mcp-server.git
+git clone https://github.com/joe67-67/polymarket-mcp-server.git
 cd polymarket-mcp-server
 python -m venv venv
 source venv/bin/activate
@@ -291,7 +291,7 @@ python setup_wizard.py
 
 **Method 2: Automated Script (45 seconds):**
 ```bash
-git clone https://github.com/caiovicentino/polymarket-mcp-server.git
+git clone https://github.com/joe67-67/polymarket-mcp-server.git
 cd polymarket-mcp-server
 chmod +x install.sh
 ./install.sh
@@ -301,7 +301,7 @@ chmod +x install.sh
 
 **Method 3: Docker (30 seconds):**
 ```bash
-git clone https://github.com/caiovicentino/polymarket-mcp-server.git
+git clone https://github.com/joe67-67/polymarket-mcp-server.git
 cd polymarket-mcp-server
 cp .env.example .env
 # Edit .env
@@ -560,7 +560,7 @@ Buy $400 of YES tokens in [market]
 
 **Links in Description:**
 ```
-🔗 GitHub Repository: https://github.com/caiovicentino/polymarket-mcp-server
+🔗 GitHub Repository: https://github.com/joe67-67/polymarket-mcp-server
 📖 Documentation: [link to README]
 💬 Discord: [invite link]
 🐦 Twitter: @caiovicentino

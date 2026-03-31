@@ -610,7 +610,7 @@ Successfully transformed Polymarket MCP Server installation from a complex 10+ s
 
 ## Support
 
-**Issues:** https://github.com/caiovicentino/polymarket-mcp-server/issues
+**Issues:** https://github.com/joe67-67/polymarket-mcp-server/issues
 
 **Documentation:**
 - [INSTALLATION.md](INSTALLATION.md)

@@ -290,7 +290,7 @@ We are committed to providing a welcoming and inspiring community for all.
 
 Need help contributing?
 
-- 💬 **[GitHub Discussions](https://github.com/caiovicentino/polymarket-mcp-server/discussions)** - Ask questions
+- 💬 **[GitHub Discussions](https://github.com/joe67-67/polymarket-mcp-server/discussions)** - Ask questions
 - 📱 **[Telegram Communities](#)** - Chat with community members
 - 📧 **Email**: Contact project maintainers
 
@@ -352,8 +352,8 @@ Together, we're building the future of AI-powered prediction market trading! �
 ## 📞 Contact
 
 - **Project Maintainer**: [Caio Vicentino](https://github.com/caiovicentino)
-- **Issues**: [GitHub Issues](https://github.com/caiovicentino/polymarket-mcp-server/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/caiovicentino/polymarket-mcp-server/discussions)
+- **Issues**: [GitHub Issues](https://github.com/joe67-67/polymarket-mcp-server/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/joe67-67/polymarket-mcp-server/discussions)
 
 ---
 

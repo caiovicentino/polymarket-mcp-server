@@ -2,7 +2,7 @@
 
 ## ✅ Status: PRODUCTION READY & TOTALMENTE ACESSÍVEL
 
-**Repositório:** https://github.com/caiovicentino/polymarket-mcp-server
+**Repositório:** https://github.com/joe67-67/polymarket-mcp-server
 **Versão:** v0.1.0 (com melhorias massivas)
 **Data:** 11 de Novembro de 2025
 
@@ -45,7 +45,7 @@
 ### 1️⃣ Quick Start (MAIS RÁPIDO - 30 segundos)
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/caiovicentino/polymarket-mcp-server/main/quickstart.sh | bash
+curl -sSL https://raw.githubusercontent.com/joe67-67/polymarket-mcp-server/main/quickstart.sh | bash
 ```
 
 ✅ **Sem wallet** - Modo DEMO
@@ -55,7 +55,7 @@ curl -sSL https://raw.githubusercontent.com/caiovicentino/polymarket-mcp-server/
 ### 2️⃣ Install Script (RECOMENDADO - 1 minuto)
 
 ```bash
-git clone https://github.com/caiovicentino/polymarket-mcp-server.git
+git clone https://github.com/joe67-67/polymarket-mcp-server.git
 cd polymarket-mcp-server
 ./install.sh
 ```
@@ -306,13 +306,13 @@ polymarket-web
 
 ### **Opção 1: Mais Rápido (30s)**
 ```bash
-curl -sSL https://raw.githubusercontent.com/caiovicentino/polymarket-mcp-server/main/quickstart.sh | bash
+curl -sSL https://raw.githubusercontent.com/joe67-67/polymarket-mcp-server/main/quickstart.sh | bash
 ```
 **Resultado:** DEMO mode instalado, 25 tools disponíveis
 
 ### **Opção 2: Mais Fácil (2min)**
 ```bash
-git clone https://github.com/caiovicentino/polymarket-mcp-server.git
+git clone https://github.com/joe67-67/polymarket-mcp-server.git
 cd polymarket-mcp-server
 python setup_wizard.py
 ```
@@ -320,7 +320,7 @@ python setup_wizard.py
 
 ### **Opção 3: Docker (1min)**
 ```bash
-git clone https://github.com/caiovicentino/polymarket-mcp-server.git
+git clone https://github.com/joe67-67/polymarket-mcp-server.git
 cd polymarket-mcp-server
 cp .env.example .env
 # Editar .env se quiser trading
@@ -364,11 +364,11 @@ docker compose up -d
 
 | Recurso | URL |
 |---------|-----|
-| 📦 **GitHub** | https://github.com/caiovicentino/polymarket-mcp-server |
+| 📦 **GitHub** | https://github.com/joe67-67/polymarket-mcp-server |
 | 📖 **Docs** | Ver arquivos .md no repo |
 | 🎥 **Videos** | Ver DEMO_VIDEO_SCRIPT.md |
-| 💬 **Issues** | https://github.com/caiovicentino/polymarket-mcp-server/issues |
-| 🗣️ **Discussions** | https://github.com/caiovicentino/polymarket-mcp-server/discussions |
+| 💬 **Issues** | https://github.com/joe67-67/polymarket-mcp-server/issues |
+| 🗣️ **Discussions** | https://github.com/joe67-67/polymarket-mcp-server/discussions |
 
 ### **Comunidades**
 - 🌾 **[Yield Hacker](https://opensea.io/collection/yield-hacker-pass-yhp)**
@@ -538,4 +538,4 @@ docker compose up -d
 *Com Yield Hacker, Renda Cripto e Cultura Builder*
 *Powered by Claude Code (Anthropic)*
 
-**⭐ Star o repo:** https://github.com/caiovicentino/polymarket-mcp-server
+**⭐ Star o repo:** https://github.com/joe67-67/polymarket-mcp-server

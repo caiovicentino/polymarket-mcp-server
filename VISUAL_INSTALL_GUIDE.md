@@ -83,7 +83,7 @@ Complete step-by-step installation guide with diagrams and troubleshooting.
 
 ```bash
 # Clone the repository
-git clone https://github.com/caiovicentino/polymarket-mcp-server.git
+git clone https://github.com/joe67-67/polymarket-mcp-server.git
 cd polymarket-mcp-server
 ```
 
@@ -180,7 +180,7 @@ python setup_wizard.py
 
 ```bash
 # Clone repository
-git clone https://github.com/caiovicentino/polymarket-mcp-server.git
+git clone https://github.com/joe67-67/polymarket-mcp-server.git
 cd polymarket-mcp-server
 
 # Run install script
@@ -199,7 +199,7 @@ The script will:
 
 ```powershell
 # Clone repository
-git clone https://github.com/caiovicentino/polymarket-mcp-server.git
+git clone https://github.com/joe67-67/polymarket-mcp-server.git
 cd polymarket-mcp-server
 
 # Run install script
@@ -214,7 +214,7 @@ cd polymarket-mcp-server
 
 ```bash
 # Clone repository
-git clone https://github.com/caiovicentino/polymarket-mcp-server.git
+git clone https://github.com/joe67-67/polymarket-mcp-server.git
 cd polymarket-mcp-server
 
 # Copy environment template
@@ -256,7 +256,7 @@ docker-compose up -d
 ### Step 1: Clone Repository
 
 ```bash
-git clone https://github.com/caiovicentino/polymarket-mcp-server.git
+git clone https://github.com/joe67-67/polymarket-mcp-server.git
 cd polymarket-mcp-server
 ```
 
