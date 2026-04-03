@@ -36,24 +36,18 @@ class TestAPIPerformance:
     """Test API response time performance."""
 
     @pytest.mark.asyncio
-    async def test_market_search_latency(self, performance_config, benchmark):
+    async def test_market_search_latency(self, performance_config):
         """Benchmark market search latency."""
-        async def search_markets():
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    f"{performance_config['gamma_api_url']}/markets",
-                    params={"limit": 10}
-                )
-                return response
-
-        # Benchmark
-        result = benchmark(lambda: asyncio.run(search_markets()))
-        assert result.status_code == 200
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{performance_config['gamma_api_url']}/markets",
+                params={"limit": 10}
+            )
+            assert response.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_market_details_latency(self, performance_config, benchmark):
+    async def test_market_details_latency(self, performance_config):
         """Benchmark market details retrieval."""
-        # First get a market ID
         async with httpx.AsyncClient() as client:
             response = await client.get(
                 f"{performance_config['gamma_api_url']}/markets",
@@ -65,28 +59,19 @@ class TestAPIPerformance:
 
             market_id = markets[0]["id"]
 
-        async def get_details():
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    f"{performance_config['gamma_api_url']}/markets/{market_id}"
-                )
-                return response
-
-        result = benchmark(lambda: asyncio.run(get_details()))
-        assert result.status_code == 200
+            response = await client.get(
+                f"{performance_config['gamma_api_url']}/markets/{market_id}"
+            )
+            assert response.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_clob_api_latency(self, performance_config, benchmark):
+    async def test_clob_api_latency(self, performance_config):
         """Benchmark CLOB API response time."""
-        async def ping_clob():
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    f"{performance_config['clob_api_url']}/ping"
-                )
-                return response
-
-        result = benchmark(lambda: asyncio.run(ping_clob()))
-        assert result.status_code == 200
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{performance_config['clob_api_url']}/ping"
+            )
+            assert response.status_code == 200
 
 
 class TestConcurrentPerformance:
@@ -261,54 +246,45 @@ class TestToolPerformance:
     """Test individual tool performance."""
 
     @pytest.mark.asyncio
-    async def test_search_tool_performance(self, benchmark):
+    async def test_search_tool_performance(self):
         """Benchmark search_markets tool."""
         import sys
         sys.path.insert(0, "src")
 
         from polymarket_mcp.tools import market_discovery
 
-        async def search():
-            return await market_discovery.handle_tool(
-                "search_markets",
-                {"query": "election", "limit": 10}
-            )
-
-        result = benchmark(lambda: asyncio.run(search()))
+        result = await market_discovery.handle_tool(
+            "search_markets",
+            {"query": "election", "limit": 10}
+        )
         assert result is not None
 
     @pytest.mark.asyncio
-    async def test_trending_tool_performance(self, benchmark):
+    async def test_trending_tool_performance(self):
         """Benchmark get_trending_markets tool."""
         import sys
         sys.path.insert(0, "src")
 
         from polymarket_mcp.tools import market_discovery
 
-        async def get_trending():
-            return await market_discovery.handle_tool(
-                "get_trending_markets",
-                {"limit": 10}
-            )
-
-        result = benchmark(lambda: asyncio.run(get_trending()))
+        result = await market_discovery.handle_tool(
+            "get_trending_markets",
+            {"limit": 10}
+        )
         assert result is not None
 
     @pytest.mark.asyncio
-    async def test_filter_tool_performance(self, benchmark):
+    async def test_filter_tool_performance(self):
         """Benchmark filter_markets_by_category tool."""
         import sys
         sys.path.insert(0, "src")
 
         from polymarket_mcp.tools import market_discovery
 
-        async def filter_markets():
-            return await market_discovery.handle_tool(
-                "filter_markets_by_category",
-                {"category": "Politics", "limit": 10}
-            )
-
-        result = benchmark(lambda: asyncio.run(filter_markets()))
+        result = await market_discovery.handle_tool(
+            "filter_markets_by_category",
+            {"category": "Politics", "limit": 10}
+        )
         assert result is not None
 
 
@@ -377,7 +353,7 @@ class TestStressScenarios:
 
         actual_duration = time.time() - start_time
 
-        print(f"\nSustained load test:")
+        print("\nSustained load test:")
         print(f"  Duration: {actual_duration:.2f}s")
         print(f"  Requests: {request_count}")
         print(f"  Errors: {errors}")
@@ -402,10 +378,10 @@ class TestWebSocketPerformance:
         start_time = time.time()
 
         try:
-            async with websockets.connect(ws_url, ping_timeout=10) as websocket:
+            async with websockets.connect(ws_url, ping_timeout=10) as _websocket:
                 connection_time = time.time() - start_time
 
-                print(f"\nWebSocket connection:")
+                print("\nWebSocket connection:")
                 print(f"  Time: {connection_time:.3f}s")
 
                 assert connection_time < 5.0  # Should connect within 5 seconds

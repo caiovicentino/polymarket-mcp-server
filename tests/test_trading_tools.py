@@ -5,7 +5,6 @@ Tests all 12 trading tools with real API integration.
 Uses small amounts for safety.
 """
 import asyncio
-import os
 import sys
 from pathlib import Path
 

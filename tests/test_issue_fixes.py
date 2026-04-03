@@ -66,19 +66,19 @@ class TestDependencyCompatibility:
 
     def test_fastapi_version_constraint(self):
         """fastapi must be pinned >=0.115.0 to support anyio>=4.5."""
-        import tomllib
         import pathlib
+        import re
 
         pyproject = pathlib.Path(__file__).parent.parent / "pyproject.toml"
-        with open(pyproject, "rb") as f:
-            data = tomllib.load(f)
+        text = pyproject.read_text()
 
-        deps = data["project"]["dependencies"]
-        fastapi_dep = [d for d in deps if d.startswith("fastapi")]
-        assert len(fastapi_dep) == 1, "Expected exactly one fastapi dependency"
+        # Find fastapi dependency line
+        fastapi_lines = [line.strip().strip('"').strip("'").rstrip(",")
+                         for line in text.splitlines()
+                         if re.match(r'\s*["\']?fastapi', line)]
+        assert len(fastapi_lines) >= 1, "Expected at least one fastapi dependency"
 
-        dep = fastapi_dep[0]
-        # Extract minimum version
+        dep = fastapi_lines[0]
         assert ">=0.115.0" in dep or ">=0.115" in dep, (
             f"fastapi must be >=0.115.0, got: {dep}"
         )

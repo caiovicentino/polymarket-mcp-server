@@ -4,7 +4,6 @@ Tests for portfolio management tools.
 Tests all 8 portfolio tools with real Polymarket data (no mocks).
 """
 import pytest
-import asyncio
 from unittest.mock import AsyncMock, MagicMock
 from datetime import datetime, timedelta
 
