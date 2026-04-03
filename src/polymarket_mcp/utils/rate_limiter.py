@@ -38,25 +38,39 @@ class RateLimitConfig:
 # Rate limit configurations for each endpoint category
 RATE_LIMITS: Dict[EndpointCategory, RateLimitConfig] = {
     EndpointCategory.CLOB_GENERAL: RateLimitConfig(
-        max_tokens=5000, refill_rate=500.0, window_seconds=10.0  # 5000/10s
+        max_tokens=5000,
+        refill_rate=500.0,
+        window_seconds=10.0,  # 5000/10s
     ),
     EndpointCategory.MARKET_DATA: RateLimitConfig(
-        max_tokens=200, refill_rate=20.0, window_seconds=10.0  # 200/10s
+        max_tokens=200,
+        refill_rate=20.0,
+        window_seconds=10.0,  # 200/10s
     ),
     EndpointCategory.BATCH_OPS: RateLimitConfig(
-        max_tokens=80, refill_rate=8.0, window_seconds=10.0  # 80/10s
+        max_tokens=80,
+        refill_rate=8.0,
+        window_seconds=10.0,  # 80/10s
     ),
     EndpointCategory.TRADING_BURST: RateLimitConfig(
-        max_tokens=2400, refill_rate=240.0, window_seconds=10.0  # 2400/10s
+        max_tokens=2400,
+        refill_rate=240.0,
+        window_seconds=10.0,  # 2400/10s
     ),
     EndpointCategory.TRADING_SUSTAINED: RateLimitConfig(
-        max_tokens=24000, refill_rate=40.0, window_seconds=600.0  # 24000/10min = 40/s
+        max_tokens=24000,
+        refill_rate=40.0,
+        window_seconds=600.0,  # 24000/10min = 40/s
     ),
     EndpointCategory.GAMMA_API: RateLimitConfig(
-        max_tokens=750, refill_rate=75.0, window_seconds=10.0  # 750/10s
+        max_tokens=750,
+        refill_rate=75.0,
+        window_seconds=10.0,  # 750/10s
     ),
     EndpointCategory.DATA_API: RateLimitConfig(
-        max_tokens=200, refill_rate=20.0, window_seconds=10.0  # 200/10s
+        max_tokens=200,
+        refill_rate=20.0,
+        window_seconds=10.0,  # 200/10s
     ),
 }
 
@@ -118,8 +132,7 @@ class TokenBucket:
                 sleep_time = max(sleep_time, 0.01)
 
                 logger.debug(
-                    f"Insufficient tokens ({self.tokens:.2f}/{tokens}). "
-                    f"Waiting {sleep_time:.2f}s"
+                    f"Insufficient tokens ({self.tokens:.2f}/{tokens}). Waiting {sleep_time:.2f}s"
                 )
 
                 await asyncio.sleep(sleep_time)
@@ -181,7 +194,7 @@ class RateLimiter:
                 if backoff_until > now:
                     wait_time = backoff_until - now
                     logger.warning(
-                        f"429 backoff active for {category.value}. " f"Waiting {wait_time:.2f}s"
+                        f"429 backoff active for {category.value}. Waiting {wait_time:.2f}s"
                     )
                     await asyncio.sleep(wait_time)
                     total_wait += wait_time
@@ -223,7 +236,7 @@ class RateLimiter:
             self._429_backoff[category] = backoff_until
 
             logger.warning(
-                f"429 error for {category.value}. " f"Setting backoff for {backoff_time:.2f}s"
+                f"429 error for {category.value}. Setting backoff for {backoff_time:.2f}s"
             )
 
     def get_status(self) -> Dict[str, Dict[str, any]]:

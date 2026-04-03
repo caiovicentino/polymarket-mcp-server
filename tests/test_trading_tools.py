@@ -353,7 +353,9 @@ class TestSmartTradingTools:
 
         # Test rebalancing (will likely show no position to rebalance)
         result = await trading_tools.rebalance_position(
-            market_id=TEST_MARKET_ID, target_size=0.0, max_slippage=0.05  # Close any position
+            market_id=TEST_MARKET_ID,
+            target_size=0.0,
+            max_slippage=0.05,  # Close any position
         )
 
         print(f"Rebalance result: {result}")

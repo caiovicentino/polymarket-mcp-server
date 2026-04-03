@@ -284,7 +284,8 @@ class TestErrorScenarios:
         try:
             # Missing query argument
             result = await market_discovery.handle_tool(
-                "search_markets", {"limit": 5}  # Missing 'query'
+                "search_markets",
+                {"limit": 5},  # Missing 'query'
             )
 
             # Should either error or use default

@@ -56,7 +56,7 @@ class TestCredentialMasking:
             if "logger.info" in stripped:
                 assert (
                     "api_key)" not in stripped and "api_passphrase)" not in stripped
-                ), f"Line {i+1} logs full credential at INFO: {stripped}"
+                ), f"Line {i + 1} logs full credential at INFO: {stripped}"
 
 
 # ---------------------------------------------------------------------------

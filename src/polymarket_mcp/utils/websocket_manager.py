@@ -419,7 +419,7 @@ class WebSocketManager:
         await self._send_subscription(subscription)
 
         logger.info(
-            f"Subscription created: {subscription.id} " f"(type: {event_type}, channel: {channel})"
+            f"Subscription created: {subscription.id} (type: {event_type}, channel: {channel})"
         )
 
         return subscription.id

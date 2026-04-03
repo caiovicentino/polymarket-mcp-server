@@ -117,8 +117,7 @@ class SafetyLimits:
         order_value_usd = order.size * order.price
         if order_value_usd > self.max_order_size_usd:
             return False, (
-                f"Order size ${order_value_usd:.2f} exceeds maximum "
-                f"${self.max_order_size_usd:.2f}"
+                f"Order size ${order_value_usd:.2f} exceeds maximum ${self.max_order_size_usd:.2f}"
             )
 
         # 2. Validate total exposure

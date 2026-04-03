@@ -194,8 +194,7 @@ class TradingTools:
 
             # Post order
             logger.info(
-                f"Posting limit order: {side} {size_in_shares:.2f} shares @ {price} "
-                f"({order_type})"
+                f"Posting limit order: {side} {size_in_shares:.2f} shares @ {price} ({order_type})"
             )
 
             order_response = await self.client.post_order(
@@ -843,7 +842,7 @@ class TradingTools:
                             "type": "limit_order",
                             "price": adjusted_price,
                             "size": size_per_order,
-                            "reasoning": f"Split order {i+1}/{split_count} for better execution",
+                            "reasoning": f"Split order {i + 1}/{split_count} for better execution",
                         }
                     )
 
@@ -972,16 +971,14 @@ class TradingTools:
                 max_price = mid_price * (1 + max_slippage)
                 if expected_price > max_price:
                     raise ValueError(
-                        f"Slippage too high: expected {expected_price:.4f} > "
-                        f"max {max_price:.4f}"
+                        f"Slippage too high: expected {expected_price:.4f} > max {max_price:.4f}"
                     )
             else:
                 expected_price = best_bid
                 min_price = mid_price * (1 - max_slippage)
                 if expected_price < min_price:
                     raise ValueError(
-                        f"Slippage too high: expected {expected_price:.4f} < "
-                        f"min {min_price:.4f}"
+                        f"Slippage too high: expected {expected_price:.4f} < min {min_price:.4f}"
                     )
 
             # Execute rebalancing order

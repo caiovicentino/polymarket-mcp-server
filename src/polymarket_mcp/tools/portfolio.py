@@ -332,7 +332,7 @@ async def get_position_details(
             "-" * 80,
             f"Best Bid: ${best_bid:.4f}",
             f"Best Ask: ${best_ask:.4f}",
-            f"Spread: ${spread:.4f} ({spread*100:.2f}%)",
+            f"Spread: ${spread:.4f} ({spread * 100:.2f}%)",
             f"Liquidity: ${total_liquidity:.2f}",
             "",
             "RECENT TRADES",
@@ -1300,7 +1300,7 @@ async def suggest_portfolio_actions(
                         "market": pos["question"],
                         "outcome": pos["outcome"],
                         "reasoning": f"Reduce concentration - {concentration_pct:.1f}% of portfolio",
-                        "impact": f"Reduce to {thresh['concentration_max']}% max ({thresh['concentration_max']/100 * total_value:.2f} USD)",
+                        "impact": f"Reduce to {thresh['concentration_max']}% max ({thresh['concentration_max'] / 100 * total_value:.2f} USD)",
                         "priority": "MEDIUM",
                     }
                 )
@@ -1327,7 +1327,7 @@ async def suggest_portfolio_actions(
                         "action": "REDUCE",
                         "market": pos["question"],
                         "outcome": pos["outcome"],
-                        "reasoning": f"Wide spread ({pos['spread']*100:.1f}%) - poor exit conditions",
+                        "reasoning": f"Wide spread ({pos['spread'] * 100:.1f}%) - poor exit conditions",
                         "impact": "Reduce exposure until spread improves",
                         "priority": "LOW",
                     }

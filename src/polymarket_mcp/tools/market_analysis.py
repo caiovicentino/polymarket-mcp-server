@@ -396,8 +396,7 @@ async def get_market_holders(market_id: str, limit: int = 10) -> List[Dict[str, 
         # and may not be publicly available for all users
 
         logger.warning(
-            "Position holder data requires authenticated access and "
-            "may not be publicly available"
+            "Position holder data requires authenticated access and may not be publicly available"
         )
 
         return [
@@ -522,8 +521,7 @@ async def analyze_market_opportunity(market_id: str) -> MarketOpportunity:
         )
 
         logger.info(
-            f"Analysis for {market_id}: {recommendation} "
-            f"(confidence: {confidence}%, risk: {risk})"
+            f"Analysis for {market_id}: {recommendation} (confidence: {confidence}%, risk: {risk})"
         )
 
         return opportunity

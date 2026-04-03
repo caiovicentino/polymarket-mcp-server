@@ -96,7 +96,7 @@ class TestConcurrentPerformance:
             print(f"  Requests: {performance_config['concurrent_requests']}")
             print(f"  Duration: {duration:.2f}s")
             print(f"  Success: {success_count}/{len(responses)}")
-            print(f"  Throughput: {len(responses)/duration:.2f} req/s")
+            print(f"  Throughput: {len(responses) / duration:.2f} req/s")
 
             assert success_count >= performance_config["concurrent_requests"] * 0.8
 
@@ -167,7 +167,7 @@ class TestRateLimiterPerformance:
         print("\nRate limiter concurrent performance:")
         print("  Checks: 100")
         print(f"  Duration: {duration:.4f}s")
-        print(f"  Throughput: {100/duration:.0f} checks/s")
+        print(f"  Throughput: {100 / duration:.0f} checks/s")
         print(f"  Success: {success_count}/100")
 
         # Should handle all checks quickly
@@ -313,7 +313,7 @@ class TestStressScenarios:
         print("  Total requests: 50")
         print(f"  Duration: {duration:.2f}s")
         print(f"  Success: {success_count}/50")
-        print(f"  Throughput: {50/duration:.2f} req/s")
+        print(f"  Throughput: {50 / duration:.2f} req/s")
 
         # Should handle at least 80% successfully
         assert success_count >= 40
@@ -351,7 +351,7 @@ class TestStressScenarios:
         print(f"  Duration: {actual_duration:.2f}s")
         print(f"  Requests: {request_count}")
         print(f"  Errors: {errors}")
-        print(f"  Throughput: {request_count/actual_duration:.2f} req/s")
+        print(f"  Throughput: {request_count / actual_duration:.2f} req/s")
 
         # Should handle sustained load
         assert request_count > 50
