@@ -14,7 +14,6 @@ import pytest
 import httpx
 import psutil
 import os
-from typing import List, Dict
 
 
 # Test markers
@@ -96,7 +95,7 @@ class TestConcurrentPerformance:
             # All should succeed
             success_count = sum(1 for r in responses if r.status_code == 200)
 
-            print(f"\nConcurrent performance:")
+            print("\nConcurrent performance:")
             print(f"  Requests: {performance_config['concurrent_requests']}")
             print(f"  Duration: {duration:.2f}s")
             print(f"  Success: {success_count}/{len(responses)}")
@@ -121,7 +120,7 @@ class TestConcurrentPerformance:
 
             success_count = sum(1 for r in responses if r.status_code == 200)
 
-            print(f"\nMixed endpoint performance:")
+            print("\nMixed endpoint performance:")
             print(f"  Requests: {len(tasks)}")
             print(f"  Duration: {duration:.2f}s")
             print(f"  Success: {success_count}/{len(responses)}")
@@ -166,8 +165,8 @@ class TestRateLimiterPerformance:
 
         success_count = sum(1 for r in results if r)
 
-        print(f"\nRate limiter concurrent performance:")
-        print(f"  Checks: 100")
+        print("\nRate limiter concurrent performance:")
+        print("  Checks: 100")
         print(f"  Duration: {duration:.4f}s")
         print(f"  Throughput: {100/duration:.0f} checks/s")
         print(f"  Success: {success_count}/100")
@@ -203,7 +202,7 @@ class TestMemoryUsage:
         final_memory = process.memory_info().rss / 1024 / 1024  # MB
         memory_increase = final_memory - baseline_memory
 
-        print(f"\nMemory usage:")
+        print("\nMemory usage:")
         print(f"  Baseline: {baseline_memory:.2f} MB")
         print(f"  Final: {final_memory:.2f} MB")
         print(f"  Increase: {memory_increase:.2f} MB")
@@ -233,7 +232,7 @@ class TestMemoryUsage:
         final_memory = process.memory_info().rss / 1024 / 1024
         memory_increase = final_memory - baseline_memory
 
-        print(f"\nConcurrent memory usage:")
+        print("\nConcurrent memory usage:")
         print(f"  Baseline: {baseline_memory:.2f} MB")
         print(f"  Final: {final_memory:.2f} MB")
         print(f"  Increase: {memory_increase:.2f} MB")
@@ -313,8 +312,8 @@ class TestStressScenarios:
 
         success_count = sum(1 for r in results if not isinstance(r, Exception))
 
-        print(f"\nStress test results:")
-        print(f"  Total requests: 50")
+        print("\nStress test results:")
+        print("  Total requests: 50")
         print(f"  Duration: {duration:.2f}s")
         print(f"  Success: {success_count}/50")
         print(f"  Throughput: {50/duration:.2f} req/s")
@@ -345,7 +344,7 @@ class TestStressScenarios:
                     {"query": "test", "limit": 1}
                 )
                 request_count += 1
-            except Exception as e:
+            except Exception:
                 errors += 1
 
             # Small delay between requests

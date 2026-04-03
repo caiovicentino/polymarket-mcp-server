@@ -9,19 +9,17 @@ Provides web UI for:
 - Subscription management
 """
 import asyncio
-import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, Optional
-import os
+from typing import Optional
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, Form, HTTPException
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import uvicorn
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 
 from ..config import load_config, PolymarketConfig
 from ..auth import create_polymarket_client, PolymarketClient

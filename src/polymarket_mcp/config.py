@@ -2,7 +2,6 @@
 Configuration management for Polymarket MCP server.
 Loads and validates environment variables with proper defaults.
 """
-import os
 from typing import Optional
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict

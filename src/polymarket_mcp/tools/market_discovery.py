@@ -316,7 +316,7 @@ async def get_closing_soon_markets(
     try:
         # Calculate cutoff time
         cutoff_time = datetime.utcnow() + timedelta(hours=hours)
-        cutoff_timestamp = int(cutoff_time.timestamp())
+        _cutoff_timestamp = int(cutoff_time.timestamp())
 
         # Fetch active, non-closed markets
         markets = await _fetch_gamma_markets("/markets", {"active": "true", "closed": "false"}, limit=100)

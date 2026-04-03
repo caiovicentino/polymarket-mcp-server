@@ -6,9 +6,8 @@ Tests for GitHub issue fixes (#2, #6, #10).
 - Issue #2: Market discovery must filter out closed/expired markets
 """
 import pytest
-import logging
 import importlib
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, patch
 from datetime import datetime, timedelta
 
 
@@ -22,7 +21,7 @@ class TestCredentialMasking:
     def test_server_logs_truncated_key(self):
         """Credentials should be logged at DEBUG with only first 8 chars."""
         import polymarket_mcp.server as server_module
-        source = importlib.util.find_spec("polymarket_mcp.server")
+        _source = importlib.util.find_spec("polymarket_mcp.server")
         import inspect
         source_code = inspect.getsource(server_module)
 

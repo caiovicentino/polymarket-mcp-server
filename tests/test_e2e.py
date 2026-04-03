@@ -8,14 +8,11 @@ Tests the complete MCP server lifecycle:
 4. Response validation
 5. Cleanup
 """
-import asyncio
 import os
 import json
-import subprocess
 import tempfile
 import pytest
 from pathlib import Path
-from typing import Dict, Any
 
 
 @pytest.fixture
@@ -285,7 +282,7 @@ class TestErrorScenarios:
 
             # Should either error or use default
             assert result is not None
-        except (TypeError, KeyError) as e:
+        except (TypeError, KeyError):
             # Expected - missing required argument
             pass
 
@@ -327,7 +324,7 @@ class TestFullWorkflow:
         import sys
         sys.path.insert(0, "src")
 
-        from polymarket_mcp.tools import market_discovery, market_analysis
+        from polymarket_mcp.tools import market_discovery
 
         # 1. Search for markets
         search_result = await market_discovery.handle_tool(
@@ -462,7 +459,7 @@ async def test_complete_e2e_flow():
     os.environ["POLYGON_ADDRESS"] = "0x" + "0" * 40
 
     try:
-        from polymarket_mcp.server import initialize_server, list_tools, call_tool
+        from polymarket_mcp.server import initialize_server, list_tools
         from polymarket_mcp.tools import market_discovery
 
         # 1. Initialize

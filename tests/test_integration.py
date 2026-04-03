@@ -12,7 +12,6 @@ import asyncio
 import os
 import pytest
 import httpx
-from typing import Dict, Any
 
 # Test markers
 pytestmark = pytest.mark.integration
@@ -281,6 +280,7 @@ class TestDemoMode:
         import sys
         sys.path.insert(0, "src")
         from polymarket_mcp import config
+        assert config is not None
 
         # Cleanup
         if "POLYMARKET_DEMO_MODE" in os.environ:

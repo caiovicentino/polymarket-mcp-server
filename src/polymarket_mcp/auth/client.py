@@ -5,8 +5,7 @@ Handles L1 (private key) and L2 (API key) authentication.
 from typing import Dict, Any, List, Optional
 import logging
 from py_clob_client.client import ClobClient
-from py_clob_client.clob_types import ApiCreds, OrderArgs, OrderType
-from py_clob_client.constants import POLYGON
+from py_clob_client.clob_types import ApiCreds, OrderArgs
 
 from .signer import OrderSigner
 

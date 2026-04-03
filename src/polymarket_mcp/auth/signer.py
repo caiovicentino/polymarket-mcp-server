@@ -2,7 +2,7 @@
 Order signing utilities for Polymarket CLOB.
 Handles EIP-712 signatures and order hash generation.
 """
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from eth_account import Account
 from eth_account.messages import encode_typed_data
 from eth_utils import keccak

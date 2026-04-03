@@ -35,6 +35,7 @@ server = Server("polymarket-trading")
 config: Optional[PolymarketConfig] = None
 polymarket_client: Optional[PolymarketClient] = None
 safety_limits: Optional[SafetyLimits] = None
+rate_limiter = None
 trading_tools: Optional[TradingTools] = None
 websocket_manager: Optional[WebSocketManager] = None
 
@@ -286,7 +287,7 @@ async def initialize_server() -> None:
     - Initialize trading tools
     - Initialize WebSocket manager
     """
-    global config, polymarket_client, safety_limits, trading_tools, websocket_manager
+    global config, polymarket_client, safety_limits, rate_limiter, trading_tools, websocket_manager
 
     try:
         # Load configuration

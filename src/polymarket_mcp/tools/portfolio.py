@@ -10,10 +10,8 @@ Implements 8 tools for portfolio management:
 import logging
 from typing import Dict, Any, List, Optional, Tuple, Literal
 from datetime import datetime, timedelta
-from decimal import Decimal
 from collections import defaultdict
 import httpx
-import asyncio
 
 import mcp.types as types
 
@@ -263,7 +261,7 @@ async def get_position_details(
 
         # Fetch market details
         await rate_limiter.acquire(EndpointCategory.CLOB_GENERAL)
-        market = await polymarket_client.get_market(market_id)
+        _market = await polymarket_client.get_market(market_id)
 
         # Fetch current orderbook
         await rate_limiter.acquire(EndpointCategory.MARKET_DATA)

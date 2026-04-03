@@ -2,11 +2,9 @@
 Trading tools for Polymarket MCP server.
 Implements 12 comprehensive tools for order management and smart trading.
 """
-import asyncio
-import json
 import logging
 from datetime import datetime, timezone
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional
 import mcp.types as types
 
 from ..config import PolymarketConfig
@@ -663,7 +661,7 @@ class TradingTools:
                             if end_dt and order_time > end_dt:
                                 continue
                             filtered_orders.append(order)
-                        except:
+                        except Exception:
                             filtered_orders.append(order)
 
                 orders = filtered_orders
@@ -998,12 +996,12 @@ class TradingTools:
             positions_data = await self.client.get_positions()
 
             current_size = 0.0
-            current_position = None
+            _current_position = None
 
             for pos in positions_data:
                 if pos.get('market') == market_id or pos.get('condition_id') == market_id:
                     current_size += float(pos.get('size', 0)) * float(pos.get('price', 0))
-                    current_position = pos
+                    _current_position = pos
 
             if target_size is None:
                 target_size = 0.0

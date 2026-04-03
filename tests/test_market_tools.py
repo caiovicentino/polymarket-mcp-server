@@ -357,7 +357,7 @@ class TestMarketAnalysis:
                 assert analysis.risk_assessment in ["low", "medium", "high"]
                 assert 0 <= analysis.confidence_score <= 100
 
-                print(f"\nMarket Analysis:")
+                print("\nMarket Analysis:")
                 print(f"  Market: {analysis.market_question}")
                 print(f"  Recommendation: {analysis.recommendation}")
                 print(f"  Confidence: {analysis.confidence_score}%")
@@ -379,7 +379,7 @@ class TestMarketAnalysis:
                 assert isinstance(comparison, list)
                 assert len(comparison) == len(market_ids)
 
-                print(f"\nMarket Comparison:")
+                print("\nMarket Comparison:")
                 for comp in comparison:
                     if "error" not in comp:
                         print(f"  - {comp.get('question', 'Unknown')}")
