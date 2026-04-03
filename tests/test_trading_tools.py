@@ -18,7 +18,6 @@ from polymarket_mcp.auth import create_polymarket_client
 from polymarket_mcp.utils import create_safety_limits_from_config
 from polymarket_mcp.tools import TradingTools
 
-
 # Test configuration
 TEST_MARKET_ID = None  # Will be populated from live markets
 TEST_ORDER_SIZE = 1.0  # $1 for safety

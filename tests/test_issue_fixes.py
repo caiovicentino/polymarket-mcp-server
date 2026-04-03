@@ -11,7 +11,6 @@ import importlib
 from unittest.mock import AsyncMock, patch
 from datetime import datetime, timedelta
 
-
 # ---------------------------------------------------------------------------
 # Issue #10 — Credential masking in server.py
 # ---------------------------------------------------------------------------
@@ -30,18 +29,17 @@ class TestCredentialMasking:
         source_code = inspect.getsource(server_module)
 
         # Must NOT contain the old full-logging pattern
-        assert (
-            'logger.info(f"POLYMARKET_API_KEY={' not in source_code
-        ), "Full API key is still logged at INFO level"
-        assert (
-            'logger.info(f"POLYMARKET_PASSPHRASE={' not in source_code
-        ), "Full passphrase is still logged at INFO level"
+        no_api_key_log = 'logger.info(f"POLYMARKET_API_KEY={' not in source_code
+        assert no_api_key_log, "Full API key is still logged at INFO level"
+        no_passphrase_log = 'logger.info(f"POLYMARKET_PASSPHRASE={' not in source_code
+        assert no_passphrase_log, "Full passphrase is still logged at INFO level"
 
         # Must contain truncated debug logging
-        assert (
+        has_debug_log = (
             'logger.debug(f"POLYMARKET_API_KEY={' in source_code
             or 'logger.debug(f"POLYMARKET_API_KEY=' in source_code
-        ), "API key should be logged at DEBUG level"
+        )
+        assert has_debug_log, "API key should be logged at DEBUG level"
         assert "[:8]" in source_code, "Credentials should be truncated to first 8 chars"
 
     def test_no_full_credentials_at_info(self):
@@ -54,9 +52,8 @@ class TestCredentialMasking:
         for i, line in enumerate(lines):
             stripped = line.strip()
             if "logger.info" in stripped:
-                assert (
-                    "api_key)" not in stripped and "api_passphrase)" not in stripped
-                ), f"Line {i + 1} logs full credential at INFO: {stripped}"
+                no_cred = "api_key)" not in stripped and "api_passphrase)" not in stripped
+                assert no_cred, f"Line {i + 1} logs full credential at INFO: {stripped}"
 
 
 # ---------------------------------------------------------------------------
@@ -109,9 +106,8 @@ class TestDependencyCompatibility:
             timeout=120,
         )
         # pip dry-run should not report an error about dependency conflict
-        assert (
-            "ResolutionImpossible" not in result.stderr
-        ), f"Dependency resolution failed:\n{result.stderr}"
+        no_conflict = "ResolutionImpossible" not in result.stderr
+        assert no_conflict, f"Dependency resolution failed:\n{result.stderr}"
 
 
 # ---------------------------------------------------------------------------

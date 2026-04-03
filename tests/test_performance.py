@@ -16,7 +16,6 @@ import httpx
 import psutil
 import os
 
-
 # Test markers
 pytestmark = pytest.mark.performance
 
