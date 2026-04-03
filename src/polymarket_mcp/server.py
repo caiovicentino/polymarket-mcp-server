@@ -207,7 +207,7 @@ async def call_tool(name: str, arguments: Dict[str, Any]) -> list[types.TextCont
                 name,
                 arguments,
                 polymarket_client,
-                safety_limits,
+                rate_limiter,
                 config
             )
 
@@ -352,8 +352,11 @@ async def initialize_server() -> None:
         # Initialize WebSocket manager
         logger.info("Initializing WebSocket manager...")
         websocket_manager = WebSocketManager(config)
-        # Connect WebSocket (non-blocking)
-        asyncio.create_task(websocket_manager.connect())
+        # Connect WebSocket and start background loop (non-blocking)
+        async def _init_websocket():
+            await websocket_manager.connect()
+            await websocket_manager.start_background_task()
+        asyncio.create_task(_init_websocket())
         logger.info("WebSocket manager initialized with 7 real-time tools")
 
         logger.info("Server initialization complete!")

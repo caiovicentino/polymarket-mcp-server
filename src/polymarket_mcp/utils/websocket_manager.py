@@ -260,7 +260,7 @@ class WebSocketManager:
             auth_message = {
                 "auth": {
                     "apiKey": self.config.POLYMARKET_API_KEY,
-                    "secret": self.config.POLYMARKET_PASSPHRASE,
+                    "secret": self.config.POLYMARKET_API_SECRET or self.config.POLYMARKET_PASSPHRASE,
                     "passphrase": self.config.POLYMARKET_PASSPHRASE
                 }
             }
@@ -799,24 +799,24 @@ class WebSocketManager:
                     await self.reconnect()
                     continue
 
-                # Process messages from both WebSockets
+                # Process messages from both WebSockets concurrently
                 tasks = []
 
                 if self.clob_ws and not self.clob_ws.closed:
-                    tasks.append(self._receive_clob_messages())
+                    tasks.append(asyncio.create_task(self._receive_clob_messages()))
 
                 if self.realtime_ws and not self.realtime_ws.closed:
-                    tasks.append(self._receive_realtime_messages())
+                    tasks.append(asyncio.create_task(self._receive_realtime_messages()))
 
                 if tasks:
-                    # Wait for any message or timeout
+                    # Wait for all tasks with timeout to avoid starving either channel
                     done, pending = await asyncio.wait(
                         tasks,
                         timeout=1.0,
-                        return_when=asyncio.FIRST_COMPLETED
+                        return_when=asyncio.ALL_COMPLETED
                     )
 
-                    # Cancel pending tasks
+                    # Cancel any tasks that didn't finish within timeout
                     for task in pending:
                         task.cancel()
                 else:

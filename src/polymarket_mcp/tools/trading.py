@@ -44,6 +44,39 @@ class TradingTools:
         self.config = config
         self.rate_limiter = get_rate_limiter()
 
+    @staticmethod
+    def _select_token(tokens: list, outcome: str = "YES") -> str:
+        """
+        Select the correct token ID based on the desired outcome.
+
+        Polymarket binary markets have two tokens: tokens[0]=YES, tokens[1]=NO.
+        Each token has an 'outcome' field that indicates which side it represents.
+
+        Args:
+            tokens: List of token dicts from the market data
+            outcome: 'YES' or 'NO' (default 'YES')
+
+        Returns:
+            The token_id for the requested outcome
+        """
+        outcome = outcome.upper()
+        if outcome not in ('YES', 'NO'):
+            raise ValueError(f"Outcome must be YES or NO, got {outcome}")
+
+        # Try to match by 'outcome' field in token data
+        for token in tokens:
+            token_outcome = token.get('outcome', '').upper()
+            if token_outcome == outcome:
+                return token['token_id']
+
+        # Fallback: use index convention (tokens[0]=YES, tokens[1]=NO)
+        if outcome == 'YES':
+            return tokens[0]['token_id']
+        elif len(tokens) > 1:
+            return tokens[1]['token_id']
+        else:
+            raise ValueError(f"No {outcome} token found in market (only {len(tokens)} token(s) available)")
+
     # ========== ORDER CREATION TOOLS ==========
 
     async def create_limit_order(
@@ -52,6 +85,7 @@ class TradingTools:
         side: str,
         price: float,
         size: float,
+        outcome: str = "YES",
         order_type: str = "GTC",
         expiration: Optional[int] = None
     ) -> Dict[str, Any]:
@@ -63,6 +97,7 @@ class TradingTools:
             side: 'BUY' or 'SELL'
             price: Limit price (0.00-1.00)
             size: Order size in USD
+            outcome: 'YES' or 'NO' token (default 'YES')
             order_type: 'GTC'|'GTD'|'FOK'|'FAK' (default 'GTC')
             expiration: Unix timestamp for GTD orders (optional)
 
@@ -98,13 +133,11 @@ class TradingTools:
             logger.info(f"Fetching market data for {market_id}")
             market = await self.client.get_market(market_id)
 
-            # Get token ID (YES token for BUY, NO token for SELL on yes side typically)
-            # For simplicity, use first token. In production, implement proper token selection
             tokens = market.get('tokens', [])
             if not tokens:
                 raise ValueError(f"No tokens found for market {market_id}")
 
-            token_id = tokens[0]['token_id']
+            token_id = self._select_token(tokens, outcome)
 
             # Get orderbook for validation
             orderbook = await self.client.get_orderbook(token_id)
@@ -220,7 +253,8 @@ class TradingTools:
         self,
         market_id: str,
         side: str,
-        size: float
+        size: float,
+        outcome: str = "YES"
     ) -> Dict[str, Any]:
         """
         Execute market order at best available price (FOK).
@@ -229,6 +263,7 @@ class TradingTools:
             market_id: Market condition ID
             side: 'BUY' or 'SELL'
             size: Order size in USD
+            outcome: 'YES' or 'NO' token (default 'YES')
 
         Returns:
             Dict with execution details
@@ -240,7 +275,7 @@ class TradingTools:
             if not tokens:
                 raise ValueError(f"No tokens found for market {market_id}")
 
-            token_id = tokens[0]['token_id']
+            token_id = self._select_token(tokens, outcome)
 
             # Get best price from orderbook
             orderbook = await self.client.get_orderbook(token_id)
@@ -269,6 +304,7 @@ class TradingTools:
                 side=side,
                 price=best_price,
                 size=size,
+                outcome=outcome,
                 order_type='FOK'
             )
 
@@ -326,6 +362,7 @@ class TradingTools:
                         side=order['side'],
                         price=order['price'],
                         size=order['size'],
+                        outcome=order.get('outcome', 'YES'),
                         order_type=order.get('order_type', 'GTC'),
                         expiration=order.get('expiration')
                     )
@@ -373,6 +410,7 @@ class TradingTools:
         market_id: str,
         side: str,
         size: float,
+        outcome: str = "YES",
         strategy: str = 'mid'
     ) -> Dict[str, Any]:
         """
@@ -382,6 +420,7 @@ class TradingTools:
             market_id: Market condition ID
             side: 'BUY' or 'SELL'
             size: Order size in USD
+            outcome: 'YES' or 'NO' token (default 'YES')
             strategy: 'aggressive'|'passive'|'mid'
 
         Returns:
@@ -396,7 +435,7 @@ class TradingTools:
             if not tokens:
                 raise ValueError(f"No tokens found for market {market_id}")
 
-            token_id = tokens[0]['token_id']
+            token_id = self._select_token(tokens, outcome)
             orderbook = await self.client.get_orderbook(token_id)
 
             # Parse orderbook
@@ -823,6 +862,12 @@ class TradingTools:
             else:
                 raise ValueError("Cannot determine BUY or SELL from intent")
 
+            # Determine outcome (YES/NO token)
+            if ' no ' in intent_lower or intent_lower.startswith('no ') or intent_lower.endswith(' no'):
+                outcome = 'NO'
+            else:
+                outcome = 'YES'
+
             # Determine strategy
             if any(word in intent_lower for word in ['fast', 'quick', 'now', 'immediately']):
                 strategy = 'aggressive'
@@ -836,6 +881,7 @@ class TradingTools:
                 market_id=market_id,
                 side=side,
                 size=max_budget,
+                outcome=outcome,
                 strategy=strategy
             )
 
@@ -882,7 +928,8 @@ class TradingTools:
                     result = await self.create_market_order(
                         market_id=market_id,
                         side=side,
-                        size=plan['size']
+                        size=plan['size'],
+                        outcome=outcome
                     )
                 else:
                     result = await self.create_limit_order(
@@ -890,6 +937,7 @@ class TradingTools:
                         side=side,
                         price=plan['price'],
                         size=plan['size'],
+                        outcome=outcome,
                         order_type='GTC'
                     )
 
@@ -928,6 +976,7 @@ class TradingTools:
         self,
         market_id: str,
         target_size: Optional[float] = None,
+        outcome: str = "YES",
         max_slippage: float = 0.02
     ) -> Dict[str, Any]:
         """
@@ -936,6 +985,7 @@ class TradingTools:
         Args:
             market_id: Market condition ID
             target_size: Target position size in USD (None to close)
+            outcome: 'YES' or 'NO' token (default 'YES')
             max_slippage: Maximum acceptable slippage (default 2%)
 
         Returns:
@@ -986,7 +1036,7 @@ class TradingTools:
             if not tokens:
                 raise ValueError(f"No tokens found for market {market_id}")
 
-            token_id = tokens[0]['token_id']
+            token_id = self._select_token(tokens, outcome)
             orderbook = await self.client.get_orderbook(token_id)
 
             bids = orderbook.get('bids', [])
@@ -1022,6 +1072,7 @@ class TradingTools:
                 side=side,
                 price=expected_price,
                 size=size,
+                outcome=outcome,
                 order_type='GTC'
             )
 
@@ -1115,6 +1166,12 @@ def get_tool_definitions() -> List[types.Tool]:
                         "minimum": 1,
                         "description": "Order size in USD"
                     },
+                    "outcome": {
+                        "type": "string",
+                        "enum": ["YES", "NO"],
+                        "default": "YES",
+                        "description": "Token outcome side (YES or NO)"
+                    },
                     "order_type": {
                         "type": "string",
                         "enum": ["GTC", "GTD", "FOK", "FAK"],
@@ -1151,6 +1208,12 @@ def get_tool_definitions() -> List[types.Tool]:
                         "type": "number",
                         "minimum": 1,
                         "description": "Order size in USD"
+                    },
+                    "outcome": {
+                        "type": "string",
+                        "enum": ["YES", "NO"],
+                        "default": "YES",
+                        "description": "Token outcome side (YES or NO)"
                     }
                 },
                 "required": ["market_id", "side", "size"]
@@ -1207,6 +1270,12 @@ def get_tool_definitions() -> List[types.Tool]:
                     "size": {
                         "type": "number",
                         "description": "Order size in USD"
+                    },
+                    "outcome": {
+                        "type": "string",
+                        "enum": ["YES", "NO"],
+                        "default": "YES",
+                        "description": "Token outcome side (YES or NO)"
                     },
                     "strategy": {
                         "type": "string",
@@ -1357,6 +1426,12 @@ def get_tool_definitions() -> List[types.Tool]:
                     "target_size": {
                         "type": "number",
                         "description": "Target position size in USD (null to close)"
+                    },
+                    "outcome": {
+                        "type": "string",
+                        "enum": ["YES", "NO"],
+                        "default": "YES",
+                        "description": "Token outcome side (YES or NO)"
                     },
                     "max_slippage": {
                         "type": "number",
