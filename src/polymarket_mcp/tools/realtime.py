@@ -9,16 +9,13 @@ Provides 6 tools for real-time market data subscriptions:
 5. subscribe_market_resolution - Alert on market close
 6. get_realtime_status - Status of all subscriptions
 """
+
 import logging
 from typing import Any, Dict, List, Optional
 
 import mcp.types as types
 
-from ..utils.websocket_manager import (
-    WebSocketManager,
-    EventType,
-    ChannelType
-)
+from ..utils.websocket_manager import WebSocketManager, EventType, ChannelType
 
 logger = logging.getLogger(__name__)
 
@@ -62,17 +59,17 @@ def get_tools() -> List[types.Tool]:
                         "type": "array",
                         "items": {"type": "string"},
                         "description": "List of market condition IDs to monitor",
-                        "minItems": 1
+                        "minItems": 1,
                     },
                     "callback_type": {
                         "type": "string",
                         "enum": ["notification", "log"],
                         "default": "notification",
-                        "description": "How to receive updates: 'notification' (MCP notification) or 'log' (log message)"
-                    }
+                        "description": "How to receive updates: 'notification' (MCP notification) or 'log' (log message)",
+                    },
                 },
-                "required": ["market_ids"]
-            }
+                "required": ["market_ids"],
+            },
         ),
         types.Tool(
             name="subscribe_orderbook_updates",
@@ -88,24 +85,24 @@ def get_tools() -> List[types.Tool]:
                         "type": "array",
                         "items": {"type": "string"},
                         "description": "List of token IDs to monitor orderbooks for",
-                        "minItems": 1
+                        "minItems": 1,
                     },
                     "depth": {
                         "type": "integer",
                         "default": 10,
                         "minimum": 1,
                         "maximum": 100,
-                        "description": "Number of price levels to include (default: 10)"
+                        "description": "Number of price levels to include (default: 10)",
                     },
                     "callback_type": {
                         "type": "string",
                         "enum": ["notification", "log"],
                         "default": "notification",
-                        "description": "How to receive updates"
-                    }
+                        "description": "How to receive updates",
+                    },
                 },
-                "required": ["token_ids"]
-            }
+                "required": ["token_ids"],
+            },
         ),
         types.Tool(
             name="subscribe_user_orders",
@@ -121,17 +118,17 @@ def get_tools() -> List[types.Tool]:
                         "type": "array",
                         "items": {"type": "string"},
                         "description": "Optional list of market IDs to filter. If not provided, monitors all markets.",
-                        "minItems": 1
+                        "minItems": 1,
                     },
                     "callback_type": {
                         "type": "string",
                         "enum": ["notification", "log"],
                         "default": "notification",
-                        "description": "How to receive updates"
-                    }
+                        "description": "How to receive updates",
+                    },
                 },
-                "required": []
-            }
+                "required": [],
+            },
         ),
         types.Tool(
             name="subscribe_user_trades",
@@ -147,17 +144,17 @@ def get_tools() -> List[types.Tool]:
                         "type": "array",
                         "items": {"type": "string"},
                         "description": "Optional list of market IDs to filter. If not provided, monitors all markets.",
-                        "minItems": 1
+                        "minItems": 1,
                     },
                     "callback_type": {
                         "type": "string",
                         "enum": ["notification", "log"],
                         "default": "notification",
-                        "description": "How to receive updates"
-                    }
+                        "description": "How to receive updates",
+                    },
                 },
-                "required": []
-            }
+                "required": [],
+            },
         ),
         types.Tool(
             name="subscribe_market_resolution",
@@ -173,17 +170,17 @@ def get_tools() -> List[types.Tool]:
                         "type": "array",
                         "items": {"type": "string"},
                         "description": "List of market condition IDs to monitor for resolution",
-                        "minItems": 1
+                        "minItems": 1,
                     },
                     "callback_type": {
                         "type": "string",
                         "enum": ["notification", "log"],
                         "default": "notification",
-                        "description": "How to receive updates"
-                    }
+                        "description": "How to receive updates",
+                    },
                 },
-                "required": ["market_ids"]
-            }
+                "required": ["market_ids"],
+            },
         ),
         types.Tool(
             name="get_realtime_status",
@@ -192,11 +189,7 @@ def get_tools() -> List[types.Tool]:
                 "Shows active subscriptions, connection status, event statistics, and errors. "
                 "Use this to monitor the health of real-time data feeds."
             ),
-            inputSchema={
-                "type": "object",
-                "properties": {},
-                "required": []
-            }
+            inputSchema={"type": "object", "properties": {}, "required": []},
         ),
         types.Tool(
             name="unsubscribe_realtime",
@@ -210,12 +203,12 @@ def get_tools() -> List[types.Tool]:
                 "properties": {
                     "subscription_id": {
                         "type": "string",
-                        "description": "Subscription ID to remove"
+                        "description": "Subscription ID to remove",
                     }
                 },
-                "required": ["subscription_id"]
-            }
-        )
+                "required": ["subscription_id"],
+            },
+        ),
     ]
 
 
@@ -231,10 +224,12 @@ async def handle_tool_call(name: str, arguments: Dict[str, Any]) -> List[types.T
         List of TextContent responses
     """
     if not websocket_manager:
-        return [types.TextContent(
-            type="text",
-            text="Error: WebSocket manager not initialized. Real-time features unavailable."
-        )]
+        return [
+            types.TextContent(
+                type="text",
+                text="Error: WebSocket manager not initialized. Real-time features unavailable.",
+            )
+        ]
 
     try:
         if name == "subscribe_market_prices":
@@ -252,17 +247,11 @@ async def handle_tool_call(name: str, arguments: Dict[str, Any]) -> List[types.T
         elif name == "unsubscribe_realtime":
             return await _unsubscribe_realtime(arguments)
         else:
-            return [types.TextContent(
-                type="text",
-                text=f"Error: Unknown tool '{name}'"
-            )]
+            return [types.TextContent(type="text", text=f"Error: Unknown tool '{name}'")]
 
     except Exception as e:
         logger.error(f"Error handling tool call {name}: {e}", exc_info=True)
-        return [types.TextContent(
-            type="text",
-            text=f"Error: {str(e)}"
-        )]
+        return [types.TextContent(type="text", text=f"Error: {str(e)}")]
 
 
 async def _subscribe_market_prices(arguments: Dict[str, Any]) -> List[types.TextContent]:
@@ -279,17 +268,14 @@ async def _subscribe_market_prices(arguments: Dict[str, Any]) -> List[types.Text
     callback_type = arguments.get("callback_type", "notification")
 
     if not market_ids:
-        return [types.TextContent(
-            type="text",
-            text="Error: market_ids required"
-        )]
+        return [types.TextContent(type="text", text="Error: market_ids required")]
 
     try:
         subscription_id = await websocket_manager.subscribe(
             event_type=EventType.PRICE_CHANGE,
             channel=ChannelType.CLOB_MARKET,
             market_ids=market_ids,
-            callback_type=callback_type
+            callback_type=callback_type,
         )
 
         _result = {
@@ -298,25 +284,26 @@ async def _subscribe_market_prices(arguments: Dict[str, Any]) -> List[types.Text
             "type": "price_change",
             "market_ids": market_ids,
             "callback_type": callback_type,
-            "message": f"Subscribed to price changes for {len(market_ids)} market(s)"
+            "message": f"Subscribed to price changes for {len(market_ids)} market(s)",
         }
 
-        return [types.TextContent(
-            type="text",
-            text=f"Price change subscription created:\n\n"
-                 f"Subscription ID: {subscription_id}\n"
-                 f"Markets: {len(market_ids)}\n"
-                 f"Callback: {callback_type}\n\n"
-                 f"You will receive {callback_type}s when prices change for these markets.\n"
-                 f"Use get_realtime_status to monitor events.\n"
-                 f"Use unsubscribe_realtime with ID '{subscription_id}' to stop."
-        )]
+        return [
+            types.TextContent(
+                type="text",
+                text=f"Price change subscription created:\n\n"
+                f"Subscription ID: {subscription_id}\n"
+                f"Markets: {len(market_ids)}\n"
+                f"Callback: {callback_type}\n\n"
+                f"You will receive {callback_type}s when prices change for these markets.\n"
+                f"Use get_realtime_status to monitor events.\n"
+                f"Use unsubscribe_realtime with ID '{subscription_id}' to stop.",
+            )
+        ]
 
     except Exception as e:
-        return [types.TextContent(
-            type="text",
-            text=f"Error subscribing to market prices: {str(e)}"
-        )]
+        return [
+            types.TextContent(type="text", text=f"Error subscribing to market prices: {str(e)}")
+        ]
 
 
 async def _subscribe_orderbook_updates(arguments: Dict[str, Any]) -> List[types.TextContent]:
@@ -334,36 +321,34 @@ async def _subscribe_orderbook_updates(arguments: Dict[str, Any]) -> List[types.
     callback_type = arguments.get("callback_type", "notification")
 
     if not token_ids:
-        return [types.TextContent(
-            type="text",
-            text="Error: token_ids required"
-        )]
+        return [types.TextContent(type="text", text="Error: token_ids required")]
 
     try:
         subscription_id = await websocket_manager.subscribe(
             event_type=EventType.AGG_ORDERBOOK,
             channel=ChannelType.CLOB_MARKET,
             token_ids=token_ids,
-            callback_type=callback_type
+            callback_type=callback_type,
         )
 
-        return [types.TextContent(
-            type="text",
-            text=f"Orderbook subscription created:\n\n"
-                 f"Subscription ID: {subscription_id}\n"
-                 f"Tokens: {len(token_ids)}\n"
-                 f"Depth: {depth} levels\n"
-                 f"Callback: {callback_type}\n\n"
-                 f"You will receive {callback_type}s with aggregated bid/ask updates.\n"
-                 f"Use get_realtime_status to monitor events.\n"
-                 f"Use unsubscribe_realtime with ID '{subscription_id}' to stop."
-        )]
+        return [
+            types.TextContent(
+                type="text",
+                text=f"Orderbook subscription created:\n\n"
+                f"Subscription ID: {subscription_id}\n"
+                f"Tokens: {len(token_ids)}\n"
+                f"Depth: {depth} levels\n"
+                f"Callback: {callback_type}\n\n"
+                f"You will receive {callback_type}s with aggregated bid/ask updates.\n"
+                f"Use get_realtime_status to monitor events.\n"
+                f"Use unsubscribe_realtime with ID '{subscription_id}' to stop.",
+            )
+        ]
 
     except Exception as e:
-        return [types.TextContent(
-            type="text",
-            text=f"Error subscribing to orderbook updates: {str(e)}"
-        )]
+        return [
+            types.TextContent(type="text", text=f"Error subscribing to orderbook updates: {str(e)}")
+        ]
 
 
 async def _subscribe_user_orders(arguments: Dict[str, Any]) -> List[types.TextContent]:
@@ -384,35 +369,36 @@ async def _subscribe_user_orders(arguments: Dict[str, Any]) -> List[types.TextCo
             event_type=EventType.ORDER,
             channel=ChannelType.CLOB_USER,
             market_ids=market_ids,
-            callback_type=callback_type
+            callback_type=callback_type,
         )
 
         market_filter = f"{len(market_ids)} specific markets" if market_ids else "all markets"
 
-        return [types.TextContent(
-            type="text",
-            text=f"User order subscription created:\n\n"
-                 f"Subscription ID: {subscription_id}\n"
-                 f"Scope: {market_filter}\n"
-                 f"Callback: {callback_type}\n\n"
-                 f"You will receive {callback_type}s when your orders are created, filled, or cancelled.\n"
-                 f"Requires CLOB authentication.\n"
-                 f"Use get_realtime_status to monitor events.\n"
-                 f"Use unsubscribe_realtime with ID '{subscription_id}' to stop."
-        )]
+        return [
+            types.TextContent(
+                type="text",
+                text=f"User order subscription created:\n\n"
+                f"Subscription ID: {subscription_id}\n"
+                f"Scope: {market_filter}\n"
+                f"Callback: {callback_type}\n\n"
+                f"You will receive {callback_type}s when your orders are created, filled, or cancelled.\n"
+                f"Requires CLOB authentication.\n"
+                f"Use get_realtime_status to monitor events.\n"
+                f"Use unsubscribe_realtime with ID '{subscription_id}' to stop.",
+            )
+        ]
 
     except RuntimeError as e:
-        return [types.TextContent(
-            type="text",
-            text=f"Authentication required: {str(e)}\n\n"
-                 f"User order subscriptions require CLOB API credentials.\n"
-                 f"Ensure POLYMARKET_API_KEY and POLYMARKET_PASSPHRASE are configured."
-        )]
+        return [
+            types.TextContent(
+                type="text",
+                text=f"Authentication required: {str(e)}\n\n"
+                f"User order subscriptions require CLOB API credentials.\n"
+                f"Ensure POLYMARKET_API_KEY and POLYMARKET_PASSPHRASE are configured.",
+            )
+        ]
     except Exception as e:
-        return [types.TextContent(
-            type="text",
-            text=f"Error subscribing to user orders: {str(e)}"
-        )]
+        return [types.TextContent(type="text", text=f"Error subscribing to user orders: {str(e)}")]
 
 
 async def _subscribe_user_trades(arguments: Dict[str, Any]) -> List[types.TextContent]:
@@ -433,35 +419,36 @@ async def _subscribe_user_trades(arguments: Dict[str, Any]) -> List[types.TextCo
             event_type=EventType.TRADE,
             channel=ChannelType.CLOB_USER,
             market_ids=market_ids,
-            callback_type=callback_type
+            callback_type=callback_type,
         )
 
         market_filter = f"{len(market_ids)} specific markets" if market_ids else "all markets"
 
-        return [types.TextContent(
-            type="text",
-            text=f"User trade subscription created:\n\n"
-                 f"Subscription ID: {subscription_id}\n"
-                 f"Scope: {market_filter}\n"
-                 f"Callback: {callback_type}\n\n"
-                 f"You will receive {callback_type}s when your orders are matched and trades execute.\n"
-                 f"Requires CLOB authentication.\n"
-                 f"Use get_realtime_status to monitor events.\n"
-                 f"Use unsubscribe_realtime with ID '{subscription_id}' to stop."
-        )]
+        return [
+            types.TextContent(
+                type="text",
+                text=f"User trade subscription created:\n\n"
+                f"Subscription ID: {subscription_id}\n"
+                f"Scope: {market_filter}\n"
+                f"Callback: {callback_type}\n\n"
+                f"You will receive {callback_type}s when your orders are matched and trades execute.\n"
+                f"Requires CLOB authentication.\n"
+                f"Use get_realtime_status to monitor events.\n"
+                f"Use unsubscribe_realtime with ID '{subscription_id}' to stop.",
+            )
+        ]
 
     except RuntimeError as e:
-        return [types.TextContent(
-            type="text",
-            text=f"Authentication required: {str(e)}\n\n"
-                 f"User trade subscriptions require CLOB API credentials.\n"
-                 f"Ensure POLYMARKET_API_KEY and POLYMARKET_PASSPHRASE are configured."
-        )]
+        return [
+            types.TextContent(
+                type="text",
+                text=f"Authentication required: {str(e)}\n\n"
+                f"User trade subscriptions require CLOB API credentials.\n"
+                f"Ensure POLYMARKET_API_KEY and POLYMARKET_PASSPHRASE are configured.",
+            )
+        ]
     except Exception as e:
-        return [types.TextContent(
-            type="text",
-            text=f"Error subscribing to user trades: {str(e)}"
-        )]
+        return [types.TextContent(type="text", text=f"Error subscribing to user trades: {str(e)}")]
 
 
 async def _subscribe_market_resolution(arguments: Dict[str, Any]) -> List[types.TextContent]:
@@ -478,36 +465,34 @@ async def _subscribe_market_resolution(arguments: Dict[str, Any]) -> List[types.
     callback_type = arguments.get("callback_type", "notification")
 
     if not market_ids:
-        return [types.TextContent(
-            type="text",
-            text="Error: market_ids required"
-        )]
+        return [types.TextContent(type="text", text="Error: market_ids required")]
 
     try:
         subscription_id = await websocket_manager.subscribe(
             event_type=EventType.MARKET_RESOLVED,
             channel=ChannelType.CLOB_MARKET,
             market_ids=market_ids,
-            callback_type=callback_type
+            callback_type=callback_type,
         )
 
-        return [types.TextContent(
-            type="text",
-            text=f"Market resolution subscription created:\n\n"
-                 f"Subscription ID: {subscription_id}\n"
-                 f"Markets: {len(market_ids)}\n"
-                 f"Callback: {callback_type}\n\n"
-                 f"You will receive {callback_type}s when these markets are resolved.\n"
-                 f"Useful for tracking when positions can be claimed.\n"
-                 f"Use get_realtime_status to monitor events.\n"
-                 f"Use unsubscribe_realtime with ID '{subscription_id}' to stop."
-        )]
+        return [
+            types.TextContent(
+                type="text",
+                text=f"Market resolution subscription created:\n\n"
+                f"Subscription ID: {subscription_id}\n"
+                f"Markets: {len(market_ids)}\n"
+                f"Callback: {callback_type}\n\n"
+                f"You will receive {callback_type}s when these markets are resolved.\n"
+                f"Useful for tracking when positions can be claimed.\n"
+                f"Use get_realtime_status to monitor events.\n"
+                f"Use unsubscribe_realtime with ID '{subscription_id}' to stop.",
+            )
+        ]
 
     except Exception as e:
-        return [types.TextContent(
-            type="text",
-            text=f"Error subscribing to market resolution: {str(e)}"
-        )]
+        return [
+            types.TextContent(type="text", text=f"Error subscribing to market resolution: {str(e)}")
+        ]
 
 
 async def _get_realtime_status(arguments: Dict[str, Any]) -> List[types.TextContent]:
@@ -524,10 +509,18 @@ async def _get_realtime_status(arguments: Dict[str, Any]) -> List[types.TextCont
         status = websocket_manager.get_status()
 
         # Format connection status
-        clob_status = "CONNECTED & AUTHENTICATED" if status["connections"]["clob"]["authenticated"] else (
-            "CONNECTED (no auth)" if status["connections"]["clob"]["connected"] else "DISCONNECTED"
+        clob_status = (
+            "CONNECTED & AUTHENTICATED"
+            if status["connections"]["clob"]["authenticated"]
+            else (
+                "CONNECTED (no auth)"
+                if status["connections"]["clob"]["connected"]
+                else "DISCONNECTED"
+            )
         )
-        realtime_status = "CONNECTED" if status["connections"]["realtime"]["connected"] else "DISCONNECTED"
+        realtime_status = (
+            "CONNECTED" if status["connections"]["realtime"]["connected"] else "DISCONNECTED"
+        )
 
         # Format subscriptions
         subscriptions_text = "\n\nActive Subscriptions:\n"
@@ -539,7 +532,7 @@ async def _get_realtime_status(arguments: Dict[str, Any]) -> List[types.TextCont
                     f"  Events: {sub['events_received']}\n"
                     f"  Created: {sub['created_at']}\n"
                 )
-                if sub['last_event']:
+                if sub["last_event"]:
                     subscriptions_text += f"  Last Event: {sub['last_event']}\n"
         else:
             subscriptions_text += "\nNo active subscriptions"
@@ -553,9 +546,9 @@ async def _get_realtime_status(arguments: Dict[str, Any]) -> List[types.TextCont
             f"• Reconnects: {stats['reconnect_count']}\n"
         )
 
-        if stats['events_by_type']:
+        if stats["events_by_type"]:
             stats_text += "\n• Events by Type:\n"
-            for event_type, count in stats['events_by_type'].items():
+            for event_type, count in stats["events_by_type"].items():
                 if count > 0:
                     stats_text += f"  - {event_type}: {count}\n"
 
@@ -576,10 +569,7 @@ async def _get_realtime_status(arguments: Dict[str, Any]) -> List[types.TextCont
         return [types.TextContent(type="text", text=result_text)]
 
     except Exception as e:
-        return [types.TextContent(
-            type="text",
-            text=f"Error getting status: {str(e)}"
-        )]
+        return [types.TextContent(type="text", text=f"Error getting status: {str(e)}")]
 
 
 async def _unsubscribe_realtime(arguments: Dict[str, Any]) -> List[types.TextContent]:
@@ -595,29 +585,27 @@ async def _unsubscribe_realtime(arguments: Dict[str, Any]) -> List[types.TextCon
     subscription_id = arguments.get("subscription_id")
 
     if not subscription_id:
-        return [types.TextContent(
-            type="text",
-            text="Error: subscription_id required"
-        )]
+        return [types.TextContent(type="text", text="Error: subscription_id required")]
 
     try:
         success = await websocket_manager.unsubscribe(subscription_id)
 
         if success:
-            return [types.TextContent(
-                type="text",
-                text=f"Successfully unsubscribed from: {subscription_id}\n\n"
-                     f"You will no longer receive updates for this subscription."
-            )]
+            return [
+                types.TextContent(
+                    type="text",
+                    text=f"Successfully unsubscribed from: {subscription_id}\n\n"
+                    f"You will no longer receive updates for this subscription.",
+                )
+            ]
         else:
-            return [types.TextContent(
-                type="text",
-                text=f"Subscription not found: {subscription_id}\n\n"
-                     f"Use get_realtime_status to see active subscriptions."
-            )]
+            return [
+                types.TextContent(
+                    type="text",
+                    text=f"Subscription not found: {subscription_id}\n\n"
+                    f"Use get_realtime_status to see active subscriptions.",
+                )
+            ]
 
     except Exception as e:
-        return [types.TextContent(
-            type="text",
-            text=f"Error unsubscribing: {str(e)}"
-        )]
+        return [types.TextContent(type="text", text=f"Error unsubscribing: {str(e)}")]

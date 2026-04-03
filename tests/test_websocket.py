@@ -3,6 +3,7 @@ Tests for WebSocket manager and real-time tools.
 
 Tests real WebSocket connections (NO MOCKS) to Polymarket endpoints.
 """
+
 import asyncio
 import os
 import pytest
@@ -42,9 +43,7 @@ async def websocket_manager(config):
         logs.append(message)
 
     manager = WebSocketManager(
-        config=config,
-        notification_callback=notification_callback,
-        log_callback=log_callback
+        config=config, notification_callback=notification_callback, log_callback=log_callback
     )
 
     # Store callbacks for test assertions
@@ -132,13 +131,15 @@ class TestSubscriptionManagement:
         await websocket_manager.connect()
 
         # Subscribe to a test market
-        test_market_id = "21742633143463906290569050155826241533067272736897614950488156847949938836455"
+        test_market_id = (
+            "21742633143463906290569050155826241533067272736897614950488156847949938836455"
+        )
 
         subscription_id = await websocket_manager.subscribe(
             event_type=EventType.PRICE_CHANGE,
             channel=ChannelType.CLOB_MARKET,
             market_ids=[test_market_id],
-            callback_type="notification"
+            callback_type="notification",
         )
 
         assert subscription_id is not None
@@ -159,13 +160,15 @@ class TestSubscriptionManagement:
         await websocket_manager.connect()
 
         # Subscribe to a test token
-        test_token_id = "71321045679252212594626385532706912750332728571942532289631379312455583992563"
+        test_token_id = (
+            "71321045679252212594626385532706912750332728571942532289631379312455583992563"
+        )
 
         subscription_id = await websocket_manager.subscribe(
             event_type=EventType.AGG_ORDERBOOK,
             channel=ChannelType.CLOB_MARKET,
             token_ids=[test_token_id],
-            callback_type="log"
+            callback_type="log",
         )
 
         assert subscription_id is not None
@@ -189,14 +192,14 @@ class TestSubscriptionManagement:
                 await websocket_manager.subscribe(
                     event_type=EventType.ORDER,
                     channel=ChannelType.CLOB_USER,
-                    callback_type="notification"
+                    callback_type="notification",
                 )
         else:
             # If authenticated, should succeed
             subscription_id = await websocket_manager.subscribe(
                 event_type=EventType.ORDER,
                 channel=ChannelType.CLOB_USER,
-                callback_type="notification"
+                callback_type="notification",
             )
             assert subscription_id is not None
             await websocket_manager.unsubscribe(subscription_id)
@@ -212,7 +215,7 @@ class TestSubscriptionManagement:
             event_type=EventType.PRICE_CHANGE,
             channel=ChannelType.CLOB_MARKET,
             market_ids=["test_market"],
-            callback_type="notification"
+            callback_type="notification",
         )
 
         # Unsubscribe
@@ -240,7 +243,7 @@ class TestMessageHandling:
             "asset_id": "test_asset",
             "price": "0.55",
             "timestamp": datetime.now().isoformat(),
-            "market": "test_market"
+            "market": "test_market",
         }
 
         # Create subscription first
@@ -249,7 +252,7 @@ class TestMessageHandling:
             event_type=EventType.PRICE_CHANGE,
             channel=ChannelType.CLOB_MARKET,
             market_ids=["test_market"],
-            callback_type="notification"
+            callback_type="notification",
         )
 
         # Handle message
@@ -273,7 +276,7 @@ class TestMessageHandling:
             "asset_id": "test_asset",
             "bids": [["0.50", "100"], ["0.49", "200"]],
             "asks": [["0.51", "150"], ["0.52", "250"]],
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
         await websocket_manager.connect()
@@ -281,7 +284,7 @@ class TestMessageHandling:
             event_type=EventType.AGG_ORDERBOOK,
             channel=ChannelType.CLOB_MARKET,
             token_ids=["test_asset"],
-            callback_type="notification"
+            callback_type="notification",
         )
 
         await websocket_manager.handle_message("clob", message)
@@ -325,13 +328,15 @@ class TestBackgroundTask:
         await websocket_manager.connect()
 
         # Subscribe to a real active market
-        test_market_id = "21742633143463906290569050155826241533067272736897614950488156847949938836455"
+        test_market_id = (
+            "21742633143463906290569050155826241533067272736897614950488156847949938836455"
+        )
 
         _subscription_id = await websocket_manager.subscribe(
             event_type=EventType.PRICE_CHANGE,
             channel=ChannelType.CLOB_MARKET,
             market_ids=[test_market_id],
-            callback_type="notification"
+            callback_type="notification",
         )
 
         # Start background task
@@ -382,7 +387,7 @@ class TestReconnection:
             event_type=EventType.PRICE_CHANGE,
             channel=ChannelType.CLOB_MARKET,
             market_ids=["test_market"],
-            callback_type="notification"
+            callback_type="notification",
         )
 
         # Reconnect
@@ -462,7 +467,7 @@ class TestEventStatistics:
                 "asset_id": "test_asset",
                 "price": f"0.{50 + i}",
                 "timestamp": datetime.now().isoformat(),
-                "market": "test_market"
+                "market": "test_market",
             }
             await websocket_manager.handle_message("clob", message)
 
@@ -490,13 +495,15 @@ class TestRealDataIntegration:
 
         # Subscribe to a known active market
         # This is a real market ID from Polymarket
-        active_market_id = "21742633143463906290569050155826241533067272736897614950488156847949938836455"
+        active_market_id = (
+            "21742633143463906290569050155826241533067272736897614950488156847949938836455"
+        )
 
         subscription_id = await websocket_manager.subscribe(
             event_type=EventType.PRICE_CHANGE,
             channel=ChannelType.CLOB_MARKET,
             market_ids=[active_market_id],
-            callback_type="notification"
+            callback_type="notification",
         )
 
         # Start background task

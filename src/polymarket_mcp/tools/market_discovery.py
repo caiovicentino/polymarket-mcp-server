@@ -11,6 +11,7 @@ Provides 8 tools for discovering and filtering markets:
 - get_sports_markets: Sports betting markets
 - get_crypto_markets: Cryptocurrency markets
 """
+
 import json
 import logging
 from typing import Dict, Any, List, Optional
@@ -27,9 +28,7 @@ GAMMA_API_URL = "https://gamma-api.polymarket.com"
 
 
 async def _fetch_gamma_markets(
-    endpoint: str = "/markets",
-    params: Optional[Dict[str, Any]] = None,
-    limit: Optional[int] = None
+    endpoint: str = "/markets", params: Optional[Dict[str, Any]] = None, limit: Optional[int] = None
 ) -> List[Dict[str, Any]]:
     """
     Fetch markets from Gamma API with rate limiting.
@@ -86,9 +85,7 @@ async def _fetch_gamma_markets(
 
 
 async def search_markets(
-    query: str,
-    limit: int = 20,
-    filters: Optional[Dict[str, Any]] = None
+    query: str, limit: int = 20, filters: Optional[Dict[str, Any]] = None
 ) -> List[Dict[str, Any]]:
     """
     Search markets by text query, slug, or keywords.
@@ -118,10 +115,7 @@ async def search_markets(
         raise
 
 
-async def get_trending_markets(
-    timeframe: str = "24h",
-    limit: int = 10
-) -> List[Dict[str, Any]]:
+async def get_trending_markets(timeframe: str = "24h", limit: int = 10) -> List[Dict[str, Any]]:
     """
     Get markets with highest trading volume.
 
@@ -146,7 +140,9 @@ async def get_trending_markets(
             if end_date:
                 try:
                     if isinstance(end_date, str):
-                        end_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00")).replace(tzinfo=None)
+                        end_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00")).replace(
+                            tzinfo=None
+                        )
                     else:
                         end_dt = datetime.fromtimestamp(int(end_date))
                     if end_dt <= now:
@@ -156,19 +152,13 @@ async def get_trending_markets(
             current_markets.append(m)
 
         # Sort by volume based on timeframe
-        volume_key_map = {
-            "24h": "volume24hr",
-            "7d": "volume7d",
-            "30d": "volume30d"
-        }
+        volume_key_map = {"24h": "volume24hr", "7d": "volume7d", "30d": "volume30d"}
 
         volume_key = volume_key_map.get(timeframe, "volume24hr")
 
         # Sort by volume (descending)
         sorted_markets = sorted(
-            current_markets,
-            key=lambda m: float(m.get(volume_key, 0) or 0),
-            reverse=True
+            current_markets, key=lambda m: float(m.get(volume_key, 0) or 0), reverse=True
         )
 
         result = sorted_markets[:limit]
@@ -182,9 +172,7 @@ async def get_trending_markets(
 
 
 async def filter_markets_by_category(
-    category: str,
-    active_only: bool = True,
-    limit: int = 20
+    category: str, active_only: bool = True, limit: int = 20
 ) -> List[Dict[str, Any]]:
     """
     Filter markets by category or tag.
@@ -214,8 +202,7 @@ async def filter_markets_by_category(
 
 
 async def get_event_markets(
-    event_slug: Optional[str] = None,
-    event_id: Optional[str] = None
+    event_slug: Optional[str] = None, event_id: Optional[str] = None
 ) -> List[Dict[str, Any]]:
     """
     Get all markets for a specific event.
@@ -276,7 +263,9 @@ async def get_featured_markets(limit: int = 10) -> List[Dict[str, Any]]:
             if end_date:
                 try:
                     if isinstance(end_date, str):
-                        end_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00")).replace(tzinfo=None)
+                        end_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00")).replace(
+                            tzinfo=None
+                        )
                     else:
                         end_dt = datetime.fromtimestamp(int(end_date))
                     if end_dt <= now:
@@ -299,10 +288,7 @@ async def get_featured_markets(limit: int = 10) -> List[Dict[str, Any]]:
         raise
 
 
-async def get_closing_soon_markets(
-    hours: int = 24,
-    limit: int = 20
-) -> List[Dict[str, Any]]:
+async def get_closing_soon_markets(hours: int = 24, limit: int = 20) -> List[Dict[str, Any]]:
     """
     Get markets closing within specified timeframe.
 
@@ -319,7 +305,9 @@ async def get_closing_soon_markets(
         _cutoff_timestamp = int(cutoff_time.timestamp())
 
         # Fetch active, non-closed markets
-        markets = await _fetch_gamma_markets("/markets", {"active": "true", "closed": "false"}, limit=100)
+        markets = await _fetch_gamma_markets(
+            "/markets", {"active": "true", "closed": "false"}, limit=100
+        )
 
         # Filter markets closing within timeframe
         closing_soon = []
@@ -355,8 +343,7 @@ async def get_closing_soon_markets(
 
 
 async def get_sports_markets(
-    sport_type: Optional[str] = None,
-    limit: int = 20
+    sport_type: Optional[str] = None, limit: int = 20
 ) -> List[Dict[str, Any]]:
     """
     Get sports betting markets.
@@ -377,10 +364,11 @@ async def get_sports_markets(
         if sport_type:
             sport_type_lower = sport_type.lower()
             markets = [
-                m for m in markets
-                if sport_type_lower in m.get("question", "").lower() or
-                   sport_type_lower in m.get("title", "").lower() or
-                   any(sport_type_lower in tag.lower() for tag in m.get("tags", []))
+                m
+                for m in markets
+                if sport_type_lower in m.get("question", "").lower()
+                or sport_type_lower in m.get("title", "").lower()
+                or any(sport_type_lower in tag.lower() for tag in m.get("tags", []))
             ]
 
         result = markets[:limit]
@@ -393,10 +381,7 @@ async def get_sports_markets(
         raise
 
 
-async def get_crypto_markets(
-    symbol: Optional[str] = None,
-    limit: int = 20
-) -> List[Dict[str, Any]]:
+async def get_crypto_markets(symbol: Optional[str] = None, limit: int = 20) -> List[Dict[str, Any]]:
     """
     Get cryptocurrency-related markets.
 
@@ -416,10 +401,11 @@ async def get_crypto_markets(
         if symbol:
             symbol_upper = symbol.upper()
             markets = [
-                m for m in markets
-                if symbol_upper in m.get("question", "").upper() or
-                   symbol_upper in m.get("title", "").upper() or
-                   any(symbol_upper in tag.upper() for tag in m.get("tags", []))
+                m
+                for m in markets
+                if symbol_upper in m.get("question", "").upper()
+                or symbol_upper in m.get("title", "").upper()
+                or any(symbol_upper in tag.upper() for tag in m.get("tags", []))
             ]
 
         result = markets[:limit]
@@ -444,12 +430,12 @@ def get_tools() -> List[types.Tool]:
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "Search query (market title, slug, or keywords)"
+                        "description": "Search query (market title, slug, or keywords)",
                     },
                     "limit": {
                         "type": "integer",
                         "description": "Maximum number of results (default 20)",
-                        "default": 20
+                        "default": 20,
                     },
                     "filters": {
                         "type": "object",
@@ -457,12 +443,12 @@ def get_tools() -> List[types.Tool]:
                         "properties": {
                             "active": {"type": "string"},
                             "closed": {"type": "string"},
-                            "tag": {"type": "string"}
-                        }
-                    }
+                            "tag": {"type": "string"},
+                        },
+                    },
                 },
-                "required": ["query"]
-            }
+                "required": ["query"],
+            },
         ),
         types.Tool(
             name="get_trending_markets",
@@ -474,16 +460,16 @@ def get_tools() -> List[types.Tool]:
                         "type": "string",
                         "enum": ["24h", "7d", "30d"],
                         "description": "Time period for volume calculation",
-                        "default": "24h"
+                        "default": "24h",
                     },
                     "limit": {
                         "type": "integer",
                         "description": "Number of markets to return (default 10)",
-                        "default": 10
-                    }
+                        "default": 10,
+                    },
                 },
-                "required": []
-            }
+                "required": [],
+            },
         ),
         types.Tool(
             name="filter_markets_by_category",
@@ -491,23 +477,20 @@ def get_tools() -> List[types.Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "category": {
-                        "type": "string",
-                        "description": "Category/tag to filter by"
-                    },
+                    "category": {"type": "string", "description": "Category/tag to filter by"},
                     "active_only": {
                         "type": "boolean",
                         "description": "Only return active markets (default True)",
-                        "default": True
+                        "default": True,
                     },
                     "limit": {
                         "type": "integer",
                         "description": "Maximum number of results (default 20)",
-                        "default": 20
-                    }
+                        "default": 20,
+                    },
                 },
-                "required": ["category"]
-            }
+                "required": ["category"],
+            },
         ),
         types.Tool(
             name="get_event_markets",
@@ -517,15 +500,12 @@ def get_tools() -> List[types.Tool]:
                 "properties": {
                     "event_slug": {
                         "type": "string",
-                        "description": "Event slug (e.g., 'presidential-election-2024')"
+                        "description": "Event slug (e.g., 'presidential-election-2024')",
                     },
-                    "event_id": {
-                        "type": "string",
-                        "description": "Event ID (alternative to slug)"
-                    }
+                    "event_id": {"type": "string", "description": "Event ID (alternative to slug)"},
                 },
-                "required": []
-            }
+                "required": [],
+            },
         ),
         types.Tool(
             name="get_featured_markets",
@@ -536,11 +516,11 @@ def get_tools() -> List[types.Tool]:
                     "limit": {
                         "type": "integer",
                         "description": "Number of markets to return (default 10)",
-                        "default": 10
+                        "default": 10,
                     }
                 },
-                "required": []
-            }
+                "required": [],
+            },
         ),
         types.Tool(
             name="get_closing_soon_markets",
@@ -551,16 +531,16 @@ def get_tools() -> List[types.Tool]:
                     "hours": {
                         "type": "integer",
                         "description": "Number of hours to look ahead (default 24)",
-                        "default": 24
+                        "default": 24,
                     },
                     "limit": {
                         "type": "integer",
                         "description": "Maximum number of results (default 20)",
-                        "default": 20
-                    }
+                        "default": 20,
+                    },
                 },
-                "required": []
-            }
+                "required": [],
+            },
         ),
         types.Tool(
             name="get_sports_markets",
@@ -570,16 +550,16 @@ def get_tools() -> List[types.Tool]:
                 "properties": {
                     "sport_type": {
                         "type": "string",
-                        "description": "Specific sport (e.g., 'NFL', 'NBA', 'Soccer') or None for all"
+                        "description": "Specific sport (e.g., 'NFL', 'NBA', 'Soccer') or None for all",
                     },
                     "limit": {
                         "type": "integer",
                         "description": "Maximum number of results (default 20)",
-                        "default": 20
-                    }
+                        "default": 20,
+                    },
                 },
-                "required": []
-            }
+                "required": [],
+            },
         ),
         types.Tool(
             name="get_crypto_markets",
@@ -589,17 +569,17 @@ def get_tools() -> List[types.Tool]:
                 "properties": {
                     "symbol": {
                         "type": "string",
-                        "description": "Specific crypto symbol (e.g., 'BTC', 'ETH') or None for all"
+                        "description": "Specific crypto symbol (e.g., 'BTC', 'ETH') or None for all",
                     },
                     "limit": {
                         "type": "integer",
                         "description": "Maximum number of results (default 20)",
-                        "default": 20
-                    }
+                        "default": 20,
+                    },
                 },
-                "required": []
-            }
-        )
+                "required": [],
+            },
+        ),
     ]
 
 
@@ -635,14 +615,8 @@ async def handle_tool(name: str, arguments: Dict[str, Any]) -> List[types.TextCo
         else:
             raise ValueError(f"Unknown tool: {name}")
 
-        return [types.TextContent(
-            type="text",
-            text=json.dumps(result, indent=2)
-        )]
+        return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
 
     except Exception as e:
         logger.error(f"Tool execution failed for {name}: {e}")
-        return [types.TextContent(
-            type="text",
-            text=json.dumps({"error": str(e)}, indent=2)
-        )]
+        return [types.TextContent(type="text", text=json.dumps({"error": str(e)}, indent=2))]

@@ -4,6 +4,7 @@ Comprehensive tests for trading tools.
 Tests all 12 trading tools with real API integration.
 Uses small amounts for safety.
 """
+
 import asyncio
 import sys
 from pathlib import Path
@@ -56,11 +57,7 @@ async def setup():
     print(f"Safety limits: max order ${safety_limits.max_order_size_usd}")
 
     # Initialize trading tools
-    trading_tools = TradingTools(
-        client=client,
-        safety_limits=safety_limits,
-        config=config
-    )
+    trading_tools = TradingTools(client=client, safety_limits=safety_limits, config=config)
     print("Trading tools initialized")
 
     # Get a test market
@@ -69,8 +66,8 @@ async def setup():
     if markets and len(markets) > 0:
         # Get first active market with good liquidity
         for market in markets:
-            if market.get('active') and float(market.get('volume', 0)) > 10000:
-                TEST_MARKET_ID = market.get('condition_id')
+            if market.get("active") and float(market.get("volume", 0)) > 10000:
+                TEST_MARKET_ID = market.get("condition_id")
                 print(f"Using test market: {TEST_MARKET_ID}")
                 print(f"Market: {market.get('question', 'Unknown')}")
                 break
@@ -82,7 +79,7 @@ async def setup():
         "client": client,
         "trading_tools": trading_tools,
         "config": config,
-        "safety_limits": safety_limits
+        "safety_limits": safety_limits,
     }
 
 
@@ -98,10 +95,7 @@ class TestOrderCreationTools:
 
         # Test aggressive buy
         result = await trading_tools.suggest_order_price(
-            market_id=TEST_MARKET_ID,
-            side="BUY",
-            size=TEST_ORDER_SIZE,
-            strategy="aggressive"
+            market_id=TEST_MARKET_ID, side="BUY", size=TEST_ORDER_SIZE, strategy="aggressive"
         )
 
         print(f"Aggressive buy suggestion: {result}")
@@ -112,10 +106,7 @@ class TestOrderCreationTools:
 
         # Test passive sell
         result = await trading_tools.suggest_order_price(
-            market_id=TEST_MARKET_ID,
-            side="SELL",
-            size=TEST_ORDER_SIZE,
-            strategy="passive"
+            market_id=TEST_MARKET_ID, side="SELL", size=TEST_ORDER_SIZE, strategy="passive"
         )
 
         print(f"Passive sell suggestion: {result}")
@@ -124,10 +115,7 @@ class TestOrderCreationTools:
 
         # Test mid strategy
         result = await trading_tools.suggest_order_price(
-            market_id=TEST_MARKET_ID,
-            side="BUY",
-            size=TEST_ORDER_SIZE,
-            strategy="mid"
+            market_id=TEST_MARKET_ID, side="BUY", size=TEST_ORDER_SIZE, strategy="mid"
         )
 
         print(f"Mid strategy suggestion: {result}")
@@ -148,7 +136,7 @@ class TestOrderCreationTools:
             side="BUY",
             price=0.01,  # Very low price, unlikely to fill
             size=TEST_ORDER_SIZE,
-            order_type="GTC"
+            order_type="GTC",
         )
 
         print(f"Limit order result: {result}")
@@ -175,10 +163,7 @@ class TestOrderCreationTools:
 
         # Get current market price
         suggestion = await trading_tools.suggest_order_price(
-            market_id=TEST_MARKET_ID,
-            side="BUY",
-            size=TEST_ORDER_SIZE,
-            strategy="aggressive"
+            market_id=TEST_MARKET_ID, side="BUY", size=TEST_ORDER_SIZE, strategy="aggressive"
         )
 
         print(f"Market price for BUY: {suggestion['suggested_price']:.4f}")
@@ -200,15 +185,15 @@ class TestOrderCreationTools:
                 "side": "BUY",
                 "price": 0.01,
                 "size": TEST_ORDER_SIZE,
-                "order_type": "GTC"
+                "order_type": "GTC",
             },
             {
                 "market_id": TEST_MARKET_ID,
                 "side": "BUY",
                 "price": 0.02,
                 "size": TEST_ORDER_SIZE,
-                "order_type": "GTC"
-            }
+                "order_type": "GTC",
+            },
         ]
 
         result = await trading_tools.create_batch_orders(orders)
@@ -267,11 +252,7 @@ class TestOrderManagementTools:
 
         # 1. Create order
         create_result = await trading_tools.create_limit_order(
-            market_id=TEST_MARKET_ID,
-            side="BUY",
-            price=0.01,
-            size=TEST_ORDER_SIZE,
-            order_type="GTC"
+            market_id=TEST_MARKET_ID, side="BUY", price=0.01, size=TEST_ORDER_SIZE, order_type="GTC"
         )
 
         assert create_result["success"] is True
@@ -305,20 +286,14 @@ class TestOrderManagementTools:
 
         # Create a test order first
         create_result = await trading_tools.create_limit_order(
-            market_id=TEST_MARKET_ID,
-            side="BUY",
-            price=0.01,
-            size=TEST_ORDER_SIZE,
-            order_type="GTC"
+            market_id=TEST_MARKET_ID, side="BUY", price=0.01, size=TEST_ORDER_SIZE, order_type="GTC"
         )
 
         if create_result["success"]:
             await asyncio.sleep(1)
 
             # Cancel all orders in this market
-            result = await trading_tools.cancel_market_orders(
-                market_id=TEST_MARKET_ID
-            )
+            result = await trading_tools.cancel_market_orders(market_id=TEST_MARKET_ID)
 
             print(f"Cancelled market orders: {result}")
             assert result["success"] is True
@@ -356,7 +331,7 @@ class TestSmartTradingTools:
         result = await trading_tools.execute_smart_trade(
             market_id=TEST_MARKET_ID,
             intent="Buy YES at a good price, be patient",
-            max_budget=TEST_ORDER_SIZE * 2
+            max_budget=TEST_ORDER_SIZE * 2,
         )
 
         print(f"Smart trade result: {result}")
@@ -378,9 +353,7 @@ class TestSmartTradingTools:
 
         # Test rebalancing (will likely show no position to rebalance)
         result = await trading_tools.rebalance_position(
-            market_id=TEST_MARKET_ID,
-            target_size=0.0,  # Close any position
-            max_slippage=0.05
+            market_id=TEST_MARKET_ID, target_size=0.0, max_slippage=0.05  # Close any position
         )
 
         print(f"Rebalance result: {result}")
@@ -406,7 +379,7 @@ class TestSafetyValidation:
             side="BUY",
             price=0.50,
             size=999999.0,  # Way over limit
-            order_type="GTC"
+            order_type="GTC",
         )
 
         print(f"Over-limit order result: {result}")
@@ -428,7 +401,7 @@ class TestSafetyValidation:
             side="BUY",
             price=1.5,  # Invalid: > 1.0
             size=TEST_ORDER_SIZE,
-            order_type="GTC"
+            order_type="GTC",
         )
 
         assert result["success"] is False
@@ -440,7 +413,7 @@ class TestSafetyValidation:
             side="INVALID",
             price=0.5,
             size=TEST_ORDER_SIZE,
-            order_type="GTC"
+            order_type="GTC",
         )
 
         assert result["success"] is False
@@ -451,17 +424,19 @@ class TestSafetyValidation:
 
 def run_tests():
     """Run all tests"""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("POLYMARKET TRADING TOOLS TEST SUITE")
-    print("="*80)
+    print("=" * 80)
 
     # Run pytest
-    pytest.main([
-        __file__,
-        "-v",
-        "-s",  # Show print statements
-        "--tb=short",  # Short traceback format
-    ])
+    pytest.main(
+        [
+            __file__,
+            "-v",
+            "-s",  # Show print statements
+            "--tb=short",  # Short traceback format
+        ]
+    )
 
 
 if __name__ == "__main__":

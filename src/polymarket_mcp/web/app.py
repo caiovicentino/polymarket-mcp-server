@@ -8,6 +8,7 @@ Provides web UI for:
 - Connection testing
 - Subscription management
 """
+
 import asyncio
 import logging
 from datetime import datetime
@@ -34,7 +35,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="Polymarket MCP Dashboard",
     description="Web dashboard for Polymarket MCP Server",
-    version="0.1.0"
+    version="0.1.0",
 )
 
 # Template and static file directories
@@ -64,6 +65,7 @@ stats = {
 
 class ConfigUpdateRequest(BaseModel):
     """Request model for configuration updates"""
+
     max_order_size_usd: float
     max_total_exposure_usd: float
     max_position_size_per_market: float
@@ -122,6 +124,7 @@ async def shutdown_event():
 # HTML Pages
 # ============================================================================
 
+
 @app.get("/", response_class=HTMLResponse)
 async def dashboard_home(request: Request):
     """Dashboard home page"""
@@ -139,12 +142,15 @@ async def dashboard_home(request: Request):
         "tools_available": 45 if (client and client.has_api_credentials()) else 25,
     }
 
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "mcp_status": mcp_status,
-        "stats": stats,
-        "uptime": str(uptime).split('.')[0],  # Remove microseconds
-    })
+    return templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request,
+            "mcp_status": mcp_status,
+            "stats": stats,
+            "uptime": str(uptime).split(".")[0],  # Remove microseconds
+        },
+    )
 
 
 @app.get("/config", response_class=HTMLResponse)
@@ -174,10 +180,13 @@ async def config_page(request: Request):
             "has_api_credentials": client.has_api_credentials() if client else False,
         }
 
-    return templates.TemplateResponse("config.html", {
-        "request": request,
-        "config": current_config,
-    })
+    return templates.TemplateResponse(
+        "config.html",
+        {
+            "request": request,
+            "config": current_config,
+        },
+    )
 
 
 @app.get("/markets", response_class=HTMLResponse)
@@ -185,9 +194,12 @@ async def markets_page(request: Request):
     """Markets discovery and analysis page"""
     stats["requests_total"] += 1
 
-    return templates.TemplateResponse("markets.html", {
-        "request": request,
-    })
+    return templates.TemplateResponse(
+        "markets.html",
+        {
+            "request": request,
+        },
+    )
 
 
 @app.get("/monitoring", response_class=HTMLResponse)
@@ -207,20 +219,24 @@ async def monitoring_page(request: Request):
         "python_version": sys.version.split()[0],
         "platform": platform.platform(),
         "mcp_version": "0.1.0",
-        "uptime": str(datetime.now() - stats["uptime_start"]).split('.')[0],
+        "uptime": str(datetime.now() - stats["uptime_start"]).split(".")[0],
     }
 
-    return templates.TemplateResponse("monitoring.html", {
-        "request": request,
-        "stats": stats,
-        "rate_status": rate_status,
-        "system_info": system_info,
-    })
+    return templates.TemplateResponse(
+        "monitoring.html",
+        {
+            "request": request,
+            "stats": stats,
+            "rate_status": rate_status,
+            "system_info": system_info,
+        },
+    )
 
 
 # ============================================================================
 # API Endpoints
 # ============================================================================
+
 
 @app.get("/api/status")
 async def get_status():
@@ -228,20 +244,19 @@ async def get_status():
     stats["api_calls"] += 1
 
     if not config or not client:
-        return JSONResponse({
-            "connected": False,
-            "error": "MCP not configured"
-        })
+        return JSONResponse({"connected": False, "error": "MCP not configured"})
 
-    return JSONResponse({
-        "connected": True,
-        "address": config.POLYGON_ADDRESS,
-        "chain_id": config.POLYMARKET_CHAIN_ID,
-        "has_api_credentials": client.has_api_credentials(),
-        "mode": "FULL" if client.has_api_credentials() else "READ-ONLY",
-        "tools_available": 45 if client.has_api_credentials() else 25,
-        "rate_limits": get_rate_limiter().get_status(),
-    })
+    return JSONResponse(
+        {
+            "connected": True,
+            "address": config.POLYGON_ADDRESS,
+            "chain_id": config.POLYMARKET_CHAIN_ID,
+            "has_api_credentials": client.has_api_credentials(),
+            "mode": "FULL" if client.has_api_credentials() else "READ-ONLY",
+            "tools_available": 45 if client.has_api_credentials() else 25,
+            "rate_limits": get_rate_limiter().get_status(),
+        }
+    )
 
 
 @app.get("/api/test-connection")
@@ -257,18 +272,17 @@ async def test_connection():
         # Try to fetch trending markets as connection test
         result = await market_discovery.handle_tool("get_trending_markets", {"limit": 5})
 
-        return JSONResponse({
-            "success": True,
-            "message": "Connection successful",
-            "markets_found": len(result),
-        })
+        return JSONResponse(
+            {
+                "success": True,
+                "message": "Connection successful",
+                "markets_found": len(result),
+            }
+        )
     except Exception as e:
         stats["errors"] += 1
         logger.error(f"Connection test failed: {e}")
-        return JSONResponse({
-            "success": False,
-            "error": str(e)
-        }, status_code=500)
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 
 @app.get("/api/markets/trending")
@@ -283,6 +297,7 @@ async def get_trending_markets(limit: int = 10):
         # Extract text content from MCP response
         if result and len(result) > 0:
             import json
+
             data = json.loads(result[0].text)
             return JSONResponse(data)
 
@@ -300,14 +315,12 @@ async def search_markets(q: str, limit: int = 20):
     stats["api_calls"] += 1
 
     try:
-        result = await market_discovery.handle_tool("search_markets", {
-            "query": q,
-            "limit": limit
-        })
+        result = await market_discovery.handle_tool("search_markets", {"query": q, "limit": limit})
         stats["markets_viewed"] += 1
 
         if result and len(result) > 0:
             import json
+
             data = json.loads(result[0].text)
             return JSONResponse(data)
 
@@ -325,12 +338,11 @@ async def get_market_details(market_id: str):
     stats["api_calls"] += 1
 
     try:
-        result = await market_analysis.handle_tool("get_market_details", {
-            "market_id": market_id
-        })
+        result = await market_analysis.handle_tool("get_market_details", {"market_id": market_id})
 
         if result and len(result) > 0:
             import json
+
             data = json.loads(result[0].text)
             return JSONResponse(data)
 
@@ -348,12 +360,13 @@ async def analyze_market(market_id: str):
     stats["api_calls"] += 1
 
     try:
-        result = await market_analysis.handle_tool("analyze_market_opportunity", {
-            "market_id": market_id
-        })
+        result = await market_analysis.handle_tool(
+            "analyze_market_opportunity", {"market_id": market_id}
+        )
 
         if result and len(result) > 0:
             import json
+
             data = json.loads(result[0].text)
             return JSONResponse(data)
 
@@ -379,7 +392,7 @@ async def update_config(config_update: ConfigUpdateRequest):
             raise HTTPException(status_code=404, detail=".env file not found")
 
         # Read current .env
-        env_lines = env_file.read_text().split('\n')
+        env_lines = env_file.read_text().split("\n")
         updated_lines = []
 
         # Update values
@@ -405,15 +418,17 @@ async def update_config(config_update: ConfigUpdateRequest):
                 updated_lines.append(line)
 
         # Write back
-        env_file.write_text('\n'.join(updated_lines))
+        env_file.write_text("\n".join(updated_lines))
 
         # Reload config
         await load_mcp_config()
 
-        return JSONResponse({
-            "success": True,
-            "message": "Configuration updated successfully. Restart MCP server for changes to take effect."
-        })
+        return JSONResponse(
+            {
+                "success": True,
+                "message": "Configuration updated successfully. Restart MCP server for changes to take effect.",
+            }
+        )
 
     except Exception as e:
         stats["errors"] += 1
@@ -424,16 +439,19 @@ async def update_config(config_update: ConfigUpdateRequest):
 @app.get("/api/stats")
 async def get_stats():
     """Get dashboard statistics"""
-    return JSONResponse({
-        **stats,
-        "uptime": str(datetime.now() - stats["uptime_start"]).split('.')[0],
-        "uptime_seconds": (datetime.now() - stats["uptime_start"]).total_seconds(),
-    })
+    return JSONResponse(
+        {
+            **stats,
+            "uptime": str(datetime.now() - stats["uptime_start"]).split(".")[0],
+            "uptime_seconds": (datetime.now() - stats["uptime_start"]).total_seconds(),
+        }
+    )
 
 
 # ============================================================================
 # WebSocket for Real-time Updates
 # ============================================================================
+
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -443,26 +461,30 @@ async def websocket_endpoint(websocket: WebSocket):
 
     try:
         # Send initial status
-        await websocket.send_json({
-            "type": "status",
-            "data": {
-                "connected": config is not None,
-                "stats": stats,
+        await websocket.send_json(
+            {
+                "type": "status",
+                "data": {
+                    "connected": config is not None,
+                    "stats": stats,
+                },
             }
-        })
+        )
 
         # Keep connection alive and send periodic updates
         while True:
             await asyncio.sleep(5)  # Update every 5 seconds
 
             # Send stats update
-            await websocket.send_json({
-                "type": "stats_update",
-                "data": {
-                    "stats": stats,
-                    "timestamp": datetime.now().isoformat(),
+            await websocket.send_json(
+                {
+                    "type": "stats_update",
+                    "data": {
+                        "stats": stats,
+                        "timestamp": datetime.now().isoformat(),
+                    },
                 }
-            })
+            )
 
     except WebSocketDisconnect:
         active_websockets.remove(websocket)
@@ -491,6 +513,7 @@ async def broadcast_update(message: dict):
 # ============================================================================
 # Server Startup
 # ============================================================================
+
 
 def start(host: str = "0.0.0.0", port: int = 8080):
     """Start the web dashboard server"""

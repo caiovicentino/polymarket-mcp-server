@@ -8,6 +8,7 @@ Benchmarks:
 - Concurrent request handling
 - WebSocket message throughput
 """
+
 import asyncio
 import time
 import pytest
@@ -39,8 +40,7 @@ class TestAPIPerformance:
         """Benchmark market search latency."""
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"{performance_config['gamma_api_url']}/markets",
-                params={"limit": 10}
+                f"{performance_config['gamma_api_url']}/markets", params={"limit": 10}
             )
             assert response.status_code == 200
 
@@ -49,8 +49,7 @@ class TestAPIPerformance:
         """Benchmark market details retrieval."""
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"{performance_config['gamma_api_url']}/markets",
-                params={"limit": 1}
+                f"{performance_config['gamma_api_url']}/markets", params={"limit": 1}
             )
             markets = response.json()
             if len(markets) == 0:
@@ -67,9 +66,7 @@ class TestAPIPerformance:
     async def test_clob_api_latency(self, performance_config):
         """Benchmark CLOB API response time."""
         async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{performance_config['clob_api_url']}/ping"
-            )
+            response = await client.get(f"{performance_config['clob_api_url']}/ping")
             assert response.status_code == 200
 
 
@@ -86,7 +83,7 @@ class TestConcurrentPerformance:
             start_time = time.time()
             tasks = [
                 client.get(url, params={"limit": 5})
-                for _ in range(performance_config['concurrent_requests'])
+                for _ in range(performance_config["concurrent_requests"])
             ]
 
             responses = await asyncio.gather(*tasks)
@@ -101,7 +98,7 @@ class TestConcurrentPerformance:
             print(f"  Success: {success_count}/{len(responses)}")
             print(f"  Throughput: {len(responses)/duration:.2f} req/s")
 
-            assert success_count >= performance_config['concurrent_requests'] * 0.8
+            assert success_count >= performance_config["concurrent_requests"] * 0.8
 
     @pytest.mark.asyncio
     async def test_concurrent_different_endpoints(self, performance_config):
@@ -134,6 +131,7 @@ class TestRateLimiterPerformance:
     def test_rate_limiter_overhead(self, benchmark):
         """Benchmark rate limiter overhead."""
         import sys
+
         sys.path.insert(0, "src")
 
         from polymarket_mcp.utils import RateLimiter
@@ -150,6 +148,7 @@ class TestRateLimiterPerformance:
     async def test_rate_limiter_concurrent(self):
         """Test rate limiter with concurrent requests."""
         import sys
+
         sys.path.insert(0, "src")
 
         from polymarket_mcp.utils import RateLimiter
@@ -182,6 +181,7 @@ class TestMemoryUsage:
     async def test_tool_execution_memory(self):
         """Test memory usage during tool execution."""
         import sys
+
         sys.path.insert(0, "src")
 
         from polymarket_mcp.tools import market_discovery
@@ -193,10 +193,7 @@ class TestMemoryUsage:
 
         # Execute tool multiple times
         for _ in range(10):
-            await market_discovery.handle_tool(
-                "search_markets",
-                {"query": "test", "limit": 5}
-            )
+            await market_discovery.handle_tool("search_markets", {"query": "test", "limit": 5})
 
         # Get final memory
         final_memory = process.memory_info().rss / 1024 / 1024  # MB
@@ -214,6 +211,7 @@ class TestMemoryUsage:
     async def test_concurrent_execution_memory(self):
         """Test memory usage with concurrent execution."""
         import sys
+
         sys.path.insert(0, "src")
 
         from polymarket_mcp.tools import market_discovery
@@ -248,13 +246,13 @@ class TestToolPerformance:
     async def test_search_tool_performance(self):
         """Benchmark search_markets tool."""
         import sys
+
         sys.path.insert(0, "src")
 
         from polymarket_mcp.tools import market_discovery
 
         result = await market_discovery.handle_tool(
-            "search_markets",
-            {"query": "election", "limit": 10}
+            "search_markets", {"query": "election", "limit": 10}
         )
         assert result is not None
 
@@ -262,27 +260,25 @@ class TestToolPerformance:
     async def test_trending_tool_performance(self):
         """Benchmark get_trending_markets tool."""
         import sys
+
         sys.path.insert(0, "src")
 
         from polymarket_mcp.tools import market_discovery
 
-        result = await market_discovery.handle_tool(
-            "get_trending_markets",
-            {"limit": 10}
-        )
+        result = await market_discovery.handle_tool("get_trending_markets", {"limit": 10})
         assert result is not None
 
     @pytest.mark.asyncio
     async def test_filter_tool_performance(self):
         """Benchmark filter_markets_by_category tool."""
         import sys
+
         sys.path.insert(0, "src")
 
         from polymarket_mcp.tools import market_discovery
 
         result = await market_discovery.handle_tool(
-            "filter_markets_by_category",
-            {"category": "Politics", "limit": 10}
+            "filter_markets_by_category", {"category": "Politics", "limit": 10}
         )
         assert result is not None
 
@@ -295,6 +291,7 @@ class TestStressScenarios:
     async def test_rapid_tool_execution(self):
         """Test rapid tool execution."""
         import sys
+
         sys.path.insert(0, "src")
 
         from polymarket_mcp.tools import market_discovery
@@ -326,6 +323,7 @@ class TestStressScenarios:
     async def test_sustained_load(self):
         """Test sustained load over time."""
         import sys
+
         sys.path.insert(0, "src")
 
         from polymarket_mcp.tools import market_discovery
@@ -339,10 +337,7 @@ class TestStressScenarios:
 
         while time.time() < end_time:
             try:
-                await market_discovery.handle_tool(
-                    "search_markets",
-                    {"query": "test", "limit": 1}
-                )
+                await market_discovery.handle_tool("search_markets", {"query": "test", "limit": 1})
                 request_count += 1
             except Exception:
                 errors += 1
@@ -396,9 +391,4 @@ def test_benchmark_summary(benchmark):
 
 if __name__ == "__main__":
     # Run performance tests with benchmarking
-    pytest.main([
-        __file__,
-        "-v",
-        "--benchmark-only",
-        "--benchmark-json=benchmark_results.json"
-    ])
+    pytest.main([__file__, "-v", "--benchmark-only", "--benchmark-json=benchmark_results.json"])

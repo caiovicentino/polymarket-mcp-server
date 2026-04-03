@@ -6,24 +6,17 @@ This file is automatically loaded by pytest and provides:
 - Shared fixtures
 - Test configuration
 """
+
 import pytest
 import os
 
 
 def pytest_configure(config):
     """Configure custom markers."""
-    config.addinivalue_line(
-        "markers", "integration: Integration tests with real API"
-    )
-    config.addinivalue_line(
-        "markers", "slow: Slow tests (>5 seconds)"
-    )
-    config.addinivalue_line(
-        "markers", "real_api: Tests requiring real API access"
-    )
-    config.addinivalue_line(
-        "markers", "performance: Performance benchmarks"
-    )
+    config.addinivalue_line("markers", "integration: Integration tests with real API")
+    config.addinivalue_line("markers", "slow: Slow tests (>5 seconds)")
+    config.addinivalue_line("markers", "real_api: Tests requiring real API access")
+    config.addinivalue_line("markers", "performance: Performance benchmarks")
 
 
 @pytest.fixture(scope="session")
@@ -65,6 +58,7 @@ def clean_env():
 
     # Add src to path
     import pathlib
+
     src_path = str(pathlib.Path(__file__).parent.parent / "src")
     if src_path not in sys.path:
         sys.path.insert(0, src_path)
@@ -91,6 +85,7 @@ async def async_cleanup():
     yield
     # Cleanup code here
     import asyncio
+
     # Cancel any remaining tasks
     tasks = [t for t in asyncio.all_tasks() if not t.done()]
     for task in tasks:

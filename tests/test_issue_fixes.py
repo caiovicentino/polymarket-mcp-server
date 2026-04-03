@@ -5,6 +5,7 @@ Tests for GitHub issue fixes (#2, #6, #10).
 - Issue #6: fastapi dependency must be compatible with mcp's anyio requirement
 - Issue #2: Market discovery must filter out closed/expired markets
 """
+
 import pytest
 import importlib
 from unittest.mock import AsyncMock, patch
@@ -15,50 +16,53 @@ from datetime import datetime, timedelta
 # Issue #10 — Credential masking in server.py
 # ---------------------------------------------------------------------------
 
+
 class TestCredentialMasking:
     """Verify that API credentials are never logged in full."""
 
     def test_server_logs_truncated_key(self):
         """Credentials should be logged at DEBUG with only first 8 chars."""
         import polymarket_mcp.server as server_module
+
         _source = importlib.util.find_spec("polymarket_mcp.server")
         import inspect
+
         source_code = inspect.getsource(server_module)
 
         # Must NOT contain the old full-logging pattern
-        assert "logger.info(f\"POLYMARKET_API_KEY={" not in source_code, (
-            "Full API key is still logged at INFO level"
-        )
-        assert "logger.info(f\"POLYMARKET_PASSPHRASE={" not in source_code, (
-            "Full passphrase is still logged at INFO level"
-        )
+        assert (
+            'logger.info(f"POLYMARKET_API_KEY={' not in source_code
+        ), "Full API key is still logged at INFO level"
+        assert (
+            'logger.info(f"POLYMARKET_PASSPHRASE={' not in source_code
+        ), "Full passphrase is still logged at INFO level"
 
         # Must contain truncated debug logging
-        assert "logger.debug(f\"POLYMARKET_API_KEY={" in source_code or \
-               "logger.debug(f\"POLYMARKET_API_KEY=" in source_code, (
-            "API key should be logged at DEBUG level"
-        )
-        assert "[:8]" in source_code, (
-            "Credentials should be truncated to first 8 chars"
-        )
+        assert (
+            'logger.debug(f"POLYMARKET_API_KEY={' in source_code
+            or 'logger.debug(f"POLYMARKET_API_KEY=' in source_code
+        ), "API key should be logged at DEBUG level"
+        assert "[:8]" in source_code, "Credentials should be truncated to first 8 chars"
 
     def test_no_full_credentials_at_info(self):
         """Ensure no line logs full credential values at INFO."""
         import polymarket_mcp.server as server_module
         import inspect
+
         lines = inspect.getsource(server_module).splitlines()
 
         for i, line in enumerate(lines):
             stripped = line.strip()
             if "logger.info" in stripped:
-                assert "api_key)" not in stripped and "api_passphrase)" not in stripped, (
-                    f"Line {i+1} logs full credential at INFO: {stripped}"
-                )
+                assert (
+                    "api_key)" not in stripped and "api_passphrase)" not in stripped
+                ), f"Line {i+1} logs full credential at INFO: {stripped}"
 
 
 # ---------------------------------------------------------------------------
 # Issue #6 — fastapi dependency compatibility
 # ---------------------------------------------------------------------------
+
 
 class TestDependencyCompatibility:
     """Verify fastapi version constraint is compatible with mcp/anyio."""
@@ -72,15 +76,15 @@ class TestDependencyCompatibility:
         text = pyproject.read_text()
 
         # Find fastapi dependency line
-        fastapi_lines = [line.strip().strip('"').strip("'").rstrip(",")
-                         for line in text.splitlines()
-                         if re.match(r'\s*["\']?fastapi', line)]
+        fastapi_lines = [
+            line.strip().strip('"').strip("'").rstrip(",")
+            for line in text.splitlines()
+            if re.match(r'\s*["\']?fastapi', line)
+        ]
         assert len(fastapi_lines) >= 1, "Expected at least one fastapi dependency"
 
         dep = fastapi_lines[0]
-        assert ">=0.115.0" in dep or ">=0.115" in dep, (
-            f"fastapi must be >=0.115.0, got: {dep}"
-        )
+        assert ">=0.115.0" in dep or ">=0.115" in dep, f"fastapi must be >=0.115.0, got: {dep}"
 
     def test_no_old_fastapi_constraint(self):
         """Ensure old >=0.104.0 constraint is gone."""
@@ -88,9 +92,7 @@ class TestDependencyCompatibility:
 
         pyproject = pathlib.Path(__file__).parent.parent / "pyproject.toml"
         content = pyproject.read_text()
-        assert "fastapi>=0.104.0" not in content, (
-            "Old fastapi>=0.104.0 constraint still present"
-        )
+        assert "fastapi>=0.104.0" not in content, "Old fastapi>=0.104.0 constraint still present"
 
     def test_pip_dry_run_install(self):
         """Verify pip can resolve dependencies without conflict."""
@@ -107,14 +109,15 @@ class TestDependencyCompatibility:
             timeout=120,
         )
         # pip dry-run should not report an error about dependency conflict
-        assert "ResolutionImpossible" not in result.stderr, (
-            f"Dependency resolution failed:\n{result.stderr}"
-        )
+        assert (
+            "ResolutionImpossible" not in result.stderr
+        ), f"Dependency resolution failed:\n{result.stderr}"
 
 
 # ---------------------------------------------------------------------------
 # Issue #2 — Stale / closed market filtering
 # ---------------------------------------------------------------------------
+
 
 class TestMarketFiltering:
     """Verify that market discovery functions filter out old/closed markets."""
@@ -124,7 +127,9 @@ class TestMarketFiltering:
         """search_markets must include active=true and closed=false."""
         from polymarket_mcp.tools import market_discovery
 
-        with patch.object(market_discovery, "_fetch_gamma_markets", new_callable=AsyncMock) as mock_fetch:
+        with patch.object(
+            market_discovery, "_fetch_gamma_markets", new_callable=AsyncMock
+        ) as mock_fetch:
             mock_fetch.return_value = []
             await market_discovery.search_markets("test", limit=5)
 
@@ -139,7 +144,9 @@ class TestMarketFiltering:
         """get_trending_markets must include active=true and closed=false."""
         from polymarket_mcp.tools import market_discovery
 
-        with patch.object(market_discovery, "_fetch_gamma_markets", new_callable=AsyncMock) as mock_fetch:
+        with patch.object(
+            market_discovery, "_fetch_gamma_markets", new_callable=AsyncMock
+        ) as mock_fetch:
             mock_fetch.return_value = []
             await market_discovery.get_trending_markets(limit=5)
 
@@ -163,7 +170,9 @@ class TestMarketFiltering:
             {"question": "No end date", "volume24hr": "200"},
         ]
 
-        with patch.object(market_discovery, "_fetch_gamma_markets", new_callable=AsyncMock) as mock_fetch:
+        with patch.object(
+            market_discovery, "_fetch_gamma_markets", new_callable=AsyncMock
+        ) as mock_fetch:
             mock_fetch.return_value = mock_markets
             results = await market_discovery.get_trending_markets(limit=10)
 
@@ -186,7 +195,9 @@ class TestMarketFiltering:
             {"question": "Active featured", "end_date_iso": future_date, "volume24hr": "500"},
         ]
 
-        with patch.object(market_discovery, "_fetch_gamma_markets", new_callable=AsyncMock) as mock_fetch:
+        with patch.object(
+            market_discovery, "_fetch_gamma_markets", new_callable=AsyncMock
+        ) as mock_fetch:
             mock_fetch.return_value = mock_markets
             results = await market_discovery.get_featured_markets(limit=10)
 
@@ -199,7 +210,9 @@ class TestMarketFiltering:
         """filter_markets_by_category must include closed=false."""
         from polymarket_mcp.tools import market_discovery
 
-        with patch.object(market_discovery, "_fetch_gamma_markets", new_callable=AsyncMock) as mock_fetch:
+        with patch.object(
+            market_discovery, "_fetch_gamma_markets", new_callable=AsyncMock
+        ) as mock_fetch:
             mock_fetch.return_value = []
             await market_discovery.filter_markets_by_category("Politics", active_only=True, limit=5)
 
@@ -213,7 +226,9 @@ class TestMarketFiltering:
         """get_closing_soon_markets must include closed=false."""
         from polymarket_mcp.tools import market_discovery
 
-        with patch.object(market_discovery, "_fetch_gamma_markets", new_callable=AsyncMock) as mock_fetch:
+        with patch.object(
+            market_discovery, "_fetch_gamma_markets", new_callable=AsyncMock
+        ) as mock_fetch:
             mock_fetch.return_value = []
             await market_discovery.get_closing_soon_markets(hours=24, limit=5)
 
@@ -226,7 +241,9 @@ class TestMarketFiltering:
         """get_sports_markets must include closed=false."""
         from polymarket_mcp.tools import market_discovery
 
-        with patch.object(market_discovery, "_fetch_gamma_markets", new_callable=AsyncMock) as mock_fetch:
+        with patch.object(
+            market_discovery, "_fetch_gamma_markets", new_callable=AsyncMock
+        ) as mock_fetch:
             mock_fetch.return_value = []
             await market_discovery.get_sports_markets(limit=5)
 
@@ -239,7 +256,9 @@ class TestMarketFiltering:
         """get_crypto_markets must include closed=false."""
         from polymarket_mcp.tools import market_discovery
 
-        with patch.object(market_discovery, "_fetch_gamma_markets", new_callable=AsyncMock) as mock_fetch:
+        with patch.object(
+            market_discovery, "_fetch_gamma_markets", new_callable=AsyncMock
+        ) as mock_fetch:
             mock_fetch.return_value = []
             await market_discovery.get_crypto_markets(limit=5)
 
@@ -252,9 +271,16 @@ class TestMarketFiltering:
         """get_featured_markets must include closed=false in params."""
         from polymarket_mcp.tools import market_discovery
 
-        with patch.object(market_discovery, "_fetch_gamma_markets", new_callable=AsyncMock) as mock_fetch:
+        with patch.object(
+            market_discovery, "_fetch_gamma_markets", new_callable=AsyncMock
+        ) as mock_fetch:
             # Return a market so fallback to trending isn't triggered
-            mock_fetch.return_value = [{"question": "test", "end_date_iso": (datetime.utcnow() + timedelta(days=30)).isoformat() + "Z"}]
+            mock_fetch.return_value = [
+                {
+                    "question": "test",
+                    "end_date_iso": (datetime.utcnow() + timedelta(days=30)).isoformat() + "Z",
+                }
+            ]
             await market_discovery.get_featured_markets(limit=5)
 
             call_args = mock_fetch.call_args

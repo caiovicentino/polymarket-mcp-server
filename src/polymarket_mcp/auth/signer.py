@@ -2,6 +2,7 @@
 Order signing utilities for Polymarket CLOB.
 Handles EIP-712 signatures and order hash generation.
 """
+
 from typing import Dict, Any
 from eth_account import Account
 from eth_account.messages import encode_typed_data
@@ -13,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 class SignatureType:
     """Signature types supported by Polymarket"""
+
     EOA = 0  # Externally Owned Account
     POLY_PROXY = 1  # Polymarket Proxy
     GNOSIS_SAFE = 2  # Gnosis Safe Multisig
@@ -54,11 +56,7 @@ class OrderSigner:
 
         logger.info(f"OrderSigner initialized for address: {self.address}")
 
-    def sign_order(
-        self,
-        order: Dict[str, Any],
-        signature_type: int = SignatureType.EOA
-    ) -> str:
+    def sign_order(self, order: Dict[str, Any], signature_type: int = SignatureType.EOA) -> str:
         """
         Sign an order using EIP-712.
 
@@ -95,17 +93,11 @@ class OrderSigner:
         message = f"This message attests that I control the given wallet\n{nonce}"
 
         # Sign the message
-        signed_message = self.account.sign_message(
-            text=message
-        )
+        signed_message = self.account.sign_message(text=message)
 
         return signed_message.signature.hex()
 
-    def sign_cancel_order(
-        self,
-        order_id: str,
-        asset_id: str
-    ) -> str:
+    def sign_cancel_order(self, order_id: str, asset_id: str) -> str:
         """
         Sign order cancellation request.
 
@@ -116,10 +108,7 @@ class OrderSigner:
         Returns:
             Signature as hex string
         """
-        cancel_data = {
-            "orderId": order_id,
-            "assetId": asset_id
-        }
+        cancel_data = {"orderId": order_id, "assetId": asset_id}
 
         typed_data = {
             "types": {
@@ -131,14 +120,11 @@ class OrderSigner:
                 "CancelOrder": [
                     {"name": "orderId", "type": "string"},
                     {"name": "assetId", "type": "string"},
-                ]
+                ],
             },
             "primaryType": "CancelOrder",
-            "domain": {
-                **EIP712_DOMAIN,
-                "chainId": self.chain_id
-            },
-            "message": cancel_data
+            "domain": {**EIP712_DOMAIN, "chainId": self.chain_id},
+            "message": cancel_data,
         }
 
         encoded_data = encode_typed_data(typed_data)
@@ -176,14 +162,11 @@ class OrderSigner:
                     {"name": "feeRateBps", "type": "uint256"},
                     {"name": "side", "type": "uint8"},
                     {"name": "signatureType", "type": "uint8"},
-                ]
+                ],
             },
             "primaryType": "Order",
-            "domain": {
-                **EIP712_DOMAIN,
-                "chainId": self.chain_id
-            },
-            "message": order
+            "domain": {**EIP712_DOMAIN, "chainId": self.chain_id},
+            "message": order,
         }
 
     def _get_order_hash(self, order: Dict[str, Any]) -> str:
@@ -203,11 +186,7 @@ class OrderSigner:
         order_hash = keccak(encoded_data.body)
         return order_hash.hex()
 
-    def verify_signature(
-        self,
-        order: Dict[str, Any],
-        signature: str
-    ) -> bool:
+    def verify_signature(self, order: Dict[str, Any], signature: str) -> bool:
         """
         Verify an order signature.
 
@@ -223,10 +202,7 @@ class OrderSigner:
             encoded_data = encode_typed_data(typed_data)
 
             # Recover signer address from signature
-            recovered_address = Account.recover_message(
-                encoded_data,
-                signature=signature
-            )
+            recovered_address = Account.recover_message(encoded_data, signature=signature)
 
             # Check if recovered address matches signer
             is_valid = recovered_address.lower() == self.address.lower()

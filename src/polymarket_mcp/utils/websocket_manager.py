@@ -7,6 +7,7 @@ Manages connections to:
 
 Handles authentication, subscriptions, and event routing.
 """
+
 import asyncio
 import json
 import logging
@@ -26,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 class ChannelType(str, Enum):
     """WebSocket channel types"""
+
     CLOB_USER = "user"  # User-specific orders/trades
     CLOB_MARKET = "market"  # Market data (prices, orderbook)
     ACTIVITY = "activity"  # Trade/order activity
@@ -34,6 +36,7 @@ class ChannelType(str, Enum):
 
 class EventType(str, Enum):
     """WebSocket event types"""
+
     # CLOB User events (requires auth)
     ORDER = "order"
     TRADE = "trade"
@@ -56,6 +59,7 @@ class EventType(str, Enum):
 
 class PriceChangeEvent(BaseModel):
     """Price change event data"""
+
     asset_id: str
     price: Decimal
     timestamp: datetime
@@ -64,6 +68,7 @@ class PriceChangeEvent(BaseModel):
 
 class OrderbookUpdate(BaseModel):
     """Orderbook update event data"""
+
     asset_id: str
     bids: List[Tuple[Decimal, Decimal]]  # [(price, size), ...]
     asks: List[Tuple[Decimal, Decimal]]
@@ -72,6 +77,7 @@ class OrderbookUpdate(BaseModel):
 
 class OrderUpdate(BaseModel):
     """Order update event data"""
+
     order_id: str
     status: str
     filled_size: Decimal
@@ -84,6 +90,7 @@ class OrderUpdate(BaseModel):
 
 class TradeUpdate(BaseModel):
     """Trade update event data"""
+
     trade_id: str
     order_id: str
     market_id: str
@@ -95,6 +102,7 @@ class TradeUpdate(BaseModel):
 
 class MarketResolutionEvent(BaseModel):
     """Market resolution event data"""
+
     market_id: str
     outcome: str
     timestamp: datetime
@@ -102,6 +110,7 @@ class MarketResolutionEvent(BaseModel):
 
 class Subscription(BaseModel):
     """Active subscription tracking"""
+
     id: str
     type: EventType
     channel: ChannelType
@@ -139,7 +148,7 @@ class WebSocketManager:
         self,
         config,
         notification_callback: Optional[Callable] = None,
-        log_callback: Optional[Callable] = None
+        log_callback: Optional[Callable] = None,
     ):
         """
         Initialize WebSocket manager.
@@ -164,8 +173,12 @@ class WebSocketManager:
 
         # Subscriptions
         self.subscriptions: Dict[str, Subscription] = {}
-        self.market_subscriptions: Dict[str, Set[str]] = defaultdict(set)  # market_id -> subscription_ids
-        self.token_subscriptions: Dict[str, Set[str]] = defaultdict(set)  # token_id -> subscription_ids
+        self.market_subscriptions: Dict[str, Set[str]] = defaultdict(
+            set
+        )  # market_id -> subscription_ids
+        self.token_subscriptions: Dict[str, Set[str]] = defaultdict(
+            set
+        )  # token_id -> subscription_ids
 
         # Background tasks
         self.background_task: Optional[asyncio.Task] = None
@@ -215,9 +228,7 @@ class WebSocketManager:
         try:
             logger.info(f"Connecting to CLOB WebSocket: {self.CLOB_WS_URL}")
             self.clob_ws = await websockets.connect(
-                self.CLOB_WS_URL,
-                ping_interval=20,
-                ping_timeout=10
+                self.CLOB_WS_URL, ping_interval=20, ping_timeout=10
             )
             self.clob_connected = True
             logger.info("CLOB WebSocket connected")
@@ -238,9 +249,7 @@ class WebSocketManager:
         try:
             logger.info(f"Connecting to real-time WebSocket: {self.REALTIME_WS_URL}")
             self.realtime_ws = await websockets.connect(
-                self.REALTIME_WS_URL,
-                ping_interval=20,
-                ping_timeout=10
+                self.REALTIME_WS_URL, ping_interval=20, ping_timeout=10
             )
             self.realtime_connected = True
             logger.info("Real-time WebSocket connected")
@@ -260,8 +269,9 @@ class WebSocketManager:
             auth_message = {
                 "auth": {
                     "apiKey": self.config.POLYMARKET_API_KEY,
-                    "secret": self.config.POLYMARKET_API_SECRET or self.config.POLYMARKET_PASSPHRASE,
-                    "passphrase": self.config.POLYMARKET_PASSPHRASE
+                    "secret": self.config.POLYMARKET_API_SECRET
+                    or self.config.POLYMARKET_PASSPHRASE,
+                    "passphrase": self.config.POLYMARKET_PASSPHRASE,
                 }
             }
 
@@ -317,8 +327,8 @@ class WebSocketManager:
 
         # Calculate backoff delay
         delay = min(
-            self.INITIAL_RECONNECT_DELAY * (self.RECONNECT_MULTIPLIER ** self.reconnect_attempts),
-            self.MAX_RECONNECT_DELAY
+            self.INITIAL_RECONNECT_DELAY * (self.RECONNECT_MULTIPLIER**self.reconnect_attempts),
+            self.MAX_RECONNECT_DELAY,
         )
 
         logger.info(f"Reconnecting in {delay}s (attempt {self.reconnect_attempts + 1})...")
@@ -360,7 +370,7 @@ class WebSocketManager:
         channel: ChannelType,
         market_ids: Optional[List[str]] = None,
         token_ids: Optional[List[str]] = None,
-        callback_type: str = "notification"
+        callback_type: str = "notification",
     ) -> str:
         """
         Add a new subscription.
@@ -391,7 +401,7 @@ class WebSocketManager:
             token_ids=token_ids,
             callback_type=callback_type,
             created_at=datetime.now(),
-            events_received=0
+            events_received=0,
         )
 
         # Store subscription
@@ -409,8 +419,7 @@ class WebSocketManager:
         await self._send_subscription(subscription)
 
         logger.info(
-            f"Subscription created: {subscription.id} "
-            f"(type: {event_type}, channel: {channel})"
+            f"Subscription created: {subscription.id} " f"(type: {event_type}, channel: {channel})"
         )
 
         return subscription.id
@@ -432,7 +441,7 @@ class WebSocketManager:
         message = {
             "type": "subscribe",
             "channel": subscription.channel.value,
-            "event": subscription.type.value
+            "event": subscription.type.value,
         }
 
         if subscription.market_ids:
@@ -493,7 +502,7 @@ class WebSocketManager:
         message = {
             "type": "unsubscribe",
             "channel": subscription.channel.value,
-            "event": subscription.type.value
+            "event": subscription.type.value,
         }
 
         await ws.send(json.dumps(message))
@@ -541,14 +550,12 @@ class WebSocketManager:
                 asset_id=data.get("asset_id", ""),
                 price=Decimal(str(data.get("price", 0))),
                 timestamp=datetime.fromisoformat(data.get("timestamp", datetime.now().isoformat())),
-                market=data.get("market")
+                market=data.get("market"),
             )
 
             # Find matching subscriptions
             matching_subs = self._find_matching_subscriptions(
-                EventType.PRICE_CHANGE,
-                event.market,
-                event.asset_id
+                EventType.PRICE_CHANGE, event.market, event.asset_id
             )
 
             # Notify each subscription
@@ -557,14 +564,16 @@ class WebSocketManager:
                 sub.last_event_at = datetime.now()
 
                 if sub.callback_type == "notification" and self.notification_callback:
-                    await self.notification_callback({
-                        "type": "price_change",
-                        "subscription_id": sub.id,
-                        "asset_id": event.asset_id,
-                        "price": float(event.price),
-                        "market": event.market,
-                        "timestamp": event.timestamp.isoformat()
-                    })
+                    await self.notification_callback(
+                        {
+                            "type": "price_change",
+                            "subscription_id": sub.id,
+                            "asset_id": event.asset_id,
+                            "price": float(event.price),
+                            "market": event.market,
+                            "timestamp": event.timestamp.isoformat(),
+                        }
+                    )
                 elif sub.callback_type == "log" and self.log_callback:
                     await self.log_callback(
                         f"Price change: {event.market or event.asset_id} -> {event.price}"
@@ -584,13 +593,11 @@ class WebSocketManager:
                 asset_id=data.get("asset_id", ""),
                 bids=bids,
                 asks=asks,
-                timestamp=datetime.fromisoformat(data.get("timestamp", datetime.now().isoformat()))
+                timestamp=datetime.fromisoformat(data.get("timestamp", datetime.now().isoformat())),
             )
 
             matching_subs = self._find_matching_subscriptions(
-                EventType.AGG_ORDERBOOK,
-                None,
-                event.asset_id
+                EventType.AGG_ORDERBOOK, None, event.asset_id
             )
 
             for sub in matching_subs:
@@ -598,16 +605,18 @@ class WebSocketManager:
                 sub.last_event_at = datetime.now()
 
                 if sub.callback_type == "notification" and self.notification_callback:
-                    await self.notification_callback({
-                        "type": "orderbook_update",
-                        "subscription_id": sub.id,
-                        "asset_id": event.asset_id,
-                        "best_bid": float(bids[0][0]) if bids else None,
-                        "best_ask": float(asks[0][0]) if asks else None,
-                        "bid_depth": len(bids),
-                        "ask_depth": len(asks),
-                        "timestamp": event.timestamp.isoformat()
-                    })
+                    await self.notification_callback(
+                        {
+                            "type": "orderbook_update",
+                            "subscription_id": sub.id,
+                            "asset_id": event.asset_id,
+                            "best_bid": float(bids[0][0]) if bids else None,
+                            "best_ask": float(asks[0][0]) if asks else None,
+                            "bid_depth": len(bids),
+                            "ask_depth": len(asks),
+                            "timestamp": event.timestamp.isoformat(),
+                        }
+                    )
 
         except Exception as e:
             logger.error(f"Error handling orderbook update: {e}")
@@ -623,31 +632,30 @@ class WebSocketManager:
                 price=Decimal(str(data.get("price", 0))),
                 side=data.get("side", ""),
                 timestamp=datetime.fromisoformat(data.get("timestamp", datetime.now().isoformat())),
-                market_id=data.get("market_id")
+                market_id=data.get("market_id"),
             )
 
-            matching_subs = self._find_matching_subscriptions(
-                EventType.ORDER,
-                event.market_id
-            )
+            matching_subs = self._find_matching_subscriptions(EventType.ORDER, event.market_id)
 
             for sub in matching_subs:
                 sub.events_received += 1
                 sub.last_event_at = datetime.now()
 
                 if sub.callback_type == "notification" and self.notification_callback:
-                    await self.notification_callback({
-                        "type": "order_update",
-                        "subscription_id": sub.id,
-                        "order_id": event.order_id,
-                        "status": event.status,
-                        "filled_size": float(event.filled_size),
-                        "remaining_size": float(event.remaining_size),
-                        "price": float(event.price),
-                        "side": event.side,
-                        "market_id": event.market_id,
-                        "timestamp": event.timestamp.isoformat()
-                    })
+                    await self.notification_callback(
+                        {
+                            "type": "order_update",
+                            "subscription_id": sub.id,
+                            "order_id": event.order_id,
+                            "status": event.status,
+                            "filled_size": float(event.filled_size),
+                            "remaining_size": float(event.remaining_size),
+                            "price": float(event.price),
+                            "side": event.side,
+                            "market_id": event.market_id,
+                            "timestamp": event.timestamp.isoformat(),
+                        }
+                    )
 
         except Exception as e:
             logger.error(f"Error handling order update: {e}")
@@ -662,30 +670,29 @@ class WebSocketManager:
                 price=Decimal(str(data.get("price", 0))),
                 size=Decimal(str(data.get("size", 0))),
                 side=data.get("side", ""),
-                timestamp=datetime.fromisoformat(data.get("timestamp", datetime.now().isoformat()))
+                timestamp=datetime.fromisoformat(data.get("timestamp", datetime.now().isoformat())),
             )
 
-            matching_subs = self._find_matching_subscriptions(
-                EventType.TRADE,
-                event.market_id
-            )
+            matching_subs = self._find_matching_subscriptions(EventType.TRADE, event.market_id)
 
             for sub in matching_subs:
                 sub.events_received += 1
                 sub.last_event_at = datetime.now()
 
                 if sub.callback_type == "notification" and self.notification_callback:
-                    await self.notification_callback({
-                        "type": "trade_update",
-                        "subscription_id": sub.id,
-                        "trade_id": event.trade_id,
-                        "order_id": event.order_id,
-                        "market_id": event.market_id,
-                        "price": float(event.price),
-                        "size": float(event.size),
-                        "side": event.side,
-                        "timestamp": event.timestamp.isoformat()
-                    })
+                    await self.notification_callback(
+                        {
+                            "type": "trade_update",
+                            "subscription_id": sub.id,
+                            "trade_id": event.trade_id,
+                            "order_id": event.order_id,
+                            "market_id": event.market_id,
+                            "price": float(event.price),
+                            "size": float(event.size),
+                            "side": event.side,
+                            "timestamp": event.timestamp.isoformat(),
+                        }
+                    )
 
         except Exception as e:
             logger.error(f"Error handling trade update: {e}")
@@ -696,12 +703,11 @@ class WebSocketManager:
             event = MarketResolutionEvent(
                 market_id=data.get("market_id", ""),
                 outcome=data.get("outcome", ""),
-                timestamp=datetime.fromisoformat(data.get("timestamp", datetime.now().isoformat()))
+                timestamp=datetime.fromisoformat(data.get("timestamp", datetime.now().isoformat())),
             )
 
             matching_subs = self._find_matching_subscriptions(
-                EventType.MARKET_RESOLVED,
-                event.market_id
+                EventType.MARKET_RESOLVED, event.market_id
             )
 
             for sub in matching_subs:
@@ -709,13 +715,15 @@ class WebSocketManager:
                 sub.last_event_at = datetime.now()
 
                 if sub.callback_type == "notification" and self.notification_callback:
-                    await self.notification_callback({
-                        "type": "market_resolved",
-                        "subscription_id": sub.id,
-                        "market_id": event.market_id,
-                        "outcome": event.outcome,
-                        "timestamp": event.timestamp.isoformat()
-                    })
+                    await self.notification_callback(
+                        {
+                            "type": "market_resolved",
+                            "subscription_id": sub.id,
+                            "market_id": event.market_id,
+                            "outcome": event.outcome,
+                            "timestamp": event.timestamp.isoformat(),
+                        }
+                    )
 
         except Exception as e:
             logger.error(f"Error handling market resolution: {e}")
@@ -725,10 +733,7 @@ class WebSocketManager:
         logger.debug(f"Generic event received: {event_type} - {data}")
 
     def _find_matching_subscriptions(
-        self,
-        event_type: EventType,
-        market_id: Optional[str] = None,
-        token_id: Optional[str] = None
+        self, event_type: EventType, market_id: Optional[str] = None, token_id: Optional[str] = None
     ) -> List[Subscription]:
         """Find subscriptions matching the event criteria"""
         matching = []
@@ -811,9 +816,7 @@ class WebSocketManager:
                 if tasks:
                     # Wait for all tasks with timeout to avoid starving either channel
                     done, pending = await asyncio.wait(
-                        tasks,
-                        timeout=1.0,
-                        return_when=asyncio.ALL_COMPLETED
+                        tasks, timeout=1.0, return_when=asyncio.ALL_COMPLETED
                     )
 
                     # Cancel any tasks that didn't finish within timeout
@@ -873,17 +876,16 @@ class WebSocketManager:
                 "clob": {
                     "connected": self.clob_connected,
                     "authenticated": self.authenticated,
-                    "url": self.CLOB_WS_URL
+                    "url": self.CLOB_WS_URL,
                 },
-                "realtime": {
-                    "connected": self.realtime_connected,
-                    "url": self.REALTIME_WS_URL
-                }
+                "realtime": {"connected": self.realtime_connected, "url": self.REALTIME_WS_URL},
             },
             "subscriptions": {
                 "total": len(self.subscriptions),
                 "by_type": {
-                    event_type: len([s for s in self.subscriptions.values() if s.type == event_type])
+                    event_type: len(
+                        [s for s in self.subscriptions.values() if s.type == event_type]
+                    )
                     for event_type in EventType
                 },
                 "active": [
@@ -893,20 +895,20 @@ class WebSocketManager:
                         "channel": sub.channel.value,
                         "created_at": sub.created_at.isoformat(),
                         "events_received": sub.events_received,
-                        "last_event": sub.last_event_at.isoformat() if sub.last_event_at else None
+                        "last_event": sub.last_event_at.isoformat() if sub.last_event_at else None,
                     }
                     for sub in self.subscriptions.values()
-                ]
+                ],
             },
             "statistics": {
                 "total_events": self.total_events_received,
                 "events_by_type": dict(self.events_by_type),
                 "connection_errors": self.connection_errors,
                 "reconnect_count": self.reconnect_count,
-                "last_reconnect": self.last_reconnect_time
+                "last_reconnect": self.last_reconnect_time,
             },
             "background_task": {
                 "running": self.should_run,
-                "task_exists": self.background_task is not None
-            }
+                "task_exists": self.background_task is not None,
+            },
         }

@@ -8,6 +8,7 @@ Tests the complete MCP server lifecycle:
 4. Response validation
 5. Cleanup
 """
+
 import os
 import json
 import tempfile
@@ -18,8 +19,10 @@ from pathlib import Path
 @pytest.fixture
 def temp_env_file():
     """Create temporary .env file for testing."""
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.env', delete=False) as f:
-        f.write("POLYGON_PRIVATE_KEY=0000000000000000000000000000000000000000000000000000000000000001\n")
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
+        f.write(
+            "POLYGON_PRIVATE_KEY=0000000000000000000000000000000000000000000000000000000000000001\n"
+        )
         f.write("POLYGON_ADDRESS=0x0000000000000000000000000000000000000001\n")
         f.write("POLYMARKET_CHAIN_ID=137\n")
         yield f.name
@@ -40,10 +43,12 @@ class TestServerInitialization:
     def test_package_import(self):
         """Test that package can be imported."""
         import sys
+
         sys.path.insert(0, "src")
 
         try:
             from polymarket_mcp import server
+
             assert server is not None
         except ImportError as e:
             pytest.fail(f"Failed to import package: {e}")
@@ -51,6 +56,7 @@ class TestServerInitialization:
     def test_config_loading(self):
         """Test configuration loading."""
         import sys
+
         sys.path.insert(0, "src")
 
         os.environ["POLYGON_PRIVATE_KEY"] = "0" * 64
@@ -58,6 +64,7 @@ class TestServerInitialization:
 
         try:
             from polymarket_mcp.config import load_config
+
             config = load_config()
             assert config is not None
             assert config.POLYGON_ADDRESS is not None
@@ -70,13 +77,10 @@ class TestServerInitialization:
     def test_tools_available(self):
         """Test that all tool modules are available."""
         import sys
+
         sys.path.insert(0, "src")
 
-        from polymarket_mcp.tools import (
-            market_discovery,
-            market_analysis,
-            realtime
-        )
+        from polymarket_mcp.tools import market_discovery, market_analysis, realtime
 
         # Check market discovery tools
         discovery_tools = market_discovery.get_tools()
@@ -98,14 +102,14 @@ class TestToolExecution:
     async def test_search_markets_tool(self):
         """Test search_markets tool execution."""
         import sys
+
         sys.path.insert(0, "src")
 
         from polymarket_mcp.tools import market_discovery
 
         # Execute tool
         result = await market_discovery.handle_tool(
-            "search_markets",
-            {"query": "election", "limit": 5}
+            "search_markets", {"query": "election", "limit": 5}
         )
 
         assert result is not None
@@ -121,13 +125,13 @@ class TestToolExecution:
     async def test_get_trending_markets_tool(self):
         """Test get_trending_markets tool execution."""
         import sys
+
         sys.path.insert(0, "src")
 
         from polymarket_mcp.tools import market_discovery
 
         result = await market_discovery.handle_tool(
-            "get_trending_markets",
-            {"limit": 5, "timeframe": "24h"}
+            "get_trending_markets", {"limit": 5, "timeframe": "24h"}
         )
 
         assert result is not None
@@ -140,13 +144,13 @@ class TestToolExecution:
     async def test_filter_markets_by_category_tool(self):
         """Test filter_markets_by_category tool."""
         import sys
+
         sys.path.insert(0, "src")
 
         from polymarket_mcp.tools import market_discovery
 
         result = await market_discovery.handle_tool(
-            "filter_markets_by_category",
-            {"category": "Politics", "limit": 5}
+            "filter_markets_by_category", {"category": "Politics", "limit": 5}
         )
 
         assert result is not None
@@ -159,25 +163,26 @@ class TestToolExecution:
     async def test_get_market_details_tool(self):
         """Test get_market_details tool."""
         import sys
+
         sys.path.insert(0, "src")
 
         from polymarket_mcp.tools import market_discovery, market_analysis
 
         # First get a market
         markets_result = await market_discovery.handle_tool(
-            "search_markets",
-            {"query": "trump", "limit": 1}
+            "search_markets", {"query": "trump", "limit": 1}
         )
 
         markets_data = json.loads(markets_result[0].text)
 
         if "markets" in markets_data and len(markets_data["markets"]) > 0:
-            market_id = markets_data["markets"][0].get("id") or markets_data["markets"][0].get("market_id")
+            market_id = markets_data["markets"][0].get("id") or markets_data["markets"][0].get(
+                "market_id"
+            )
 
             # Get details
             details_result = await market_analysis.handle_tool(
-                "get_market_details",
-                {"market_id": market_id}
+                "get_market_details", {"market_id": market_id}
             )
 
             assert details_result is not None
@@ -192,6 +197,7 @@ class TestResourceAccess:
     async def test_status_resource(self):
         """Test reading status resource."""
         import sys
+
         sys.path.insert(0, "src")
 
         os.environ["POLYGON_PRIVATE_KEY"] = "0" * 64
@@ -220,6 +226,7 @@ class TestResourceAccess:
     async def test_config_resource(self):
         """Test reading config resource."""
         import sys
+
         sys.path.insert(0, "src")
 
         os.environ["POLYGON_PRIVATE_KEY"] = "0" * 64
@@ -249,14 +256,14 @@ class TestErrorScenarios:
     async def test_tool_with_invalid_arguments(self):
         """Test tool execution with invalid arguments."""
         import sys
+
         sys.path.insert(0, "src")
 
         from polymarket_mcp.tools import market_discovery
 
         # Invalid limit (negative)
         result = await market_discovery.handle_tool(
-            "search_markets",
-            {"query": "test", "limit": -1}
+            "search_markets", {"query": "test", "limit": -1}
         )
 
         result_text = result[0].text
@@ -269,6 +276,7 @@ class TestErrorScenarios:
     async def test_tool_missing_required_arg(self):
         """Test tool execution with missing required arguments."""
         import sys
+
         sys.path.insert(0, "src")
 
         from polymarket_mcp.tools import market_discovery
@@ -276,8 +284,7 @@ class TestErrorScenarios:
         try:
             # Missing query argument
             result = await market_discovery.handle_tool(
-                "search_markets",
-                {"limit": 5}  # Missing 'query'
+                "search_markets", {"limit": 5}  # Missing 'query'
             )
 
             # Should either error or use default
@@ -290,6 +297,7 @@ class TestErrorScenarios:
     async def test_unknown_tool(self):
         """Test calling unknown tool."""
         import sys
+
         sys.path.insert(0, "src")
 
         from polymarket_mcp.server import call_tool
@@ -299,6 +307,7 @@ class TestErrorScenarios:
 
         try:
             from polymarket_mcp.server import initialize_server
+
             await initialize_server()
 
             result = await call_tool("unknown_tool_xyz", {})
@@ -322,14 +331,14 @@ class TestFullWorkflow:
     async def test_market_discovery_workflow(self):
         """Test complete market discovery workflow."""
         import sys
+
         sys.path.insert(0, "src")
 
         from polymarket_mcp.tools import market_discovery
 
         # 1. Search for markets
         search_result = await market_discovery.handle_tool(
-            "search_markets",
-            {"query": "election", "limit": 3}
+            "search_markets", {"query": "election", "limit": 3}
         )
 
         assert search_result is not None
@@ -337,8 +346,7 @@ class TestFullWorkflow:
 
         # 2. Get trending markets
         trending_result = await market_discovery.handle_tool(
-            "get_trending_markets",
-            {"limit": 3, "timeframe": "24h"}
+            "get_trending_markets", {"limit": 3, "timeframe": "24h"}
         )
 
         assert trending_result is not None
@@ -346,8 +354,7 @@ class TestFullWorkflow:
 
         # 3. Filter by category
         category_result = await market_discovery.handle_tool(
-            "filter_markets_by_category",
-            {"category": "Politics", "limit": 3}
+            "filter_markets_by_category", {"category": "Politics", "limit": 3}
         )
 
         assert category_result is not None
@@ -364,15 +371,13 @@ class TestFullWorkflow:
     async def test_market_analysis_workflow(self):
         """Test market analysis workflow."""
         import sys
+
         sys.path.insert(0, "src")
 
         from polymarket_mcp.tools import market_discovery, market_analysis
 
         # 1. Get a market
-        markets_result = await market_discovery.handle_tool(
-            "get_trending_markets",
-            {"limit": 1}
-        )
+        markets_result = await market_discovery.handle_tool("get_trending_markets", {"limit": 1})
 
         markets_data = json.loads(markets_result[0].text)
 
@@ -382,8 +387,7 @@ class TestFullWorkflow:
 
             # 2. Get market details
             details_result = await market_analysis.handle_tool(
-                "get_market_details",
-                {"market_id": market_id}
+                "get_market_details", {"market_id": market_id}
             )
 
             assert details_result is not None
@@ -397,8 +401,7 @@ class TestFullWorkflow:
 
                     if token_id:
                         price_result = await market_analysis.handle_tool(
-                            "get_current_price",
-                            {"token_id": token_id}
+                            "get_current_price", {"token_id": token_id}
                         )
 
                         assert price_result is not None
@@ -431,7 +434,7 @@ class TestInstallationFlow:
         except ImportError:
             tomllib = None
         if tomllib:
-            with open(pyproject, 'rb') as f:
+            with open(pyproject, "rb") as f:
                 data = tomllib.load(f)
                 assert "project" in data
                 assert "name" in data["project"]
@@ -453,6 +456,7 @@ async def test_complete_e2e_flow():
     4. Clean up
     """
     import sys
+
     sys.path.insert(0, "src")
 
     os.environ["POLYGON_PRIVATE_KEY"] = "0" * 64
@@ -471,8 +475,7 @@ async def test_complete_e2e_flow():
 
         # 3. Execute market discovery
         result = await market_discovery.handle_tool(
-            "search_markets",
-            {"query": "bitcoin", "limit": 2}
+            "search_markets", {"query": "bitcoin", "limit": 2}
         )
 
         assert result is not None
@@ -480,10 +483,7 @@ async def test_complete_e2e_flow():
         assert "markets" in data or "error" in data
 
         # 4. Get trending
-        result = await market_discovery.handle_tool(
-            "get_trending_markets",
-            {"limit": 2}
-        )
+        result = await market_discovery.handle_tool("get_trending_markets", {"limit": 2})
 
         assert result is not None
         data = json.loads(result[0].text)

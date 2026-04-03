@@ -2,6 +2,7 @@
 Safety limits and risk management for Polymarket trading.
 Validates orders against configured limits before execution.
 """
+
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 import logging
@@ -12,6 +13,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class OrderRequest:
     """Represents an order request to validate"""
+
     token_id: str
     price: float
     size: float  # In shares
@@ -22,6 +24,7 @@ class OrderRequest:
 @dataclass
 class Position:
     """Represents a user's position in a market"""
+
     token_id: str
     market_id: str
     size: float  # In shares
@@ -38,6 +41,7 @@ class Position:
 @dataclass
 class MarketData:
     """Market data for validation"""
+
     market_id: str
     token_id: str
     best_bid: float
@@ -84,7 +88,7 @@ class SafetyLimits:
         min_liquidity_required: float,
         max_spread_tolerance: float,
         require_confirmation_above_usd: float,
-        auto_cancel_on_large_spread: bool = True
+        auto_cancel_on_large_spread: bool = True,
     ):
         self.max_order_size_usd = max_order_size_usd
         self.max_total_exposure_usd = max_total_exposure_usd
@@ -95,10 +99,7 @@ class SafetyLimits:
         self.auto_cancel_on_large_spread = auto_cancel_on_large_spread
 
     def validate_order(
-        self,
-        order: OrderRequest,
-        current_positions: List[Position],
-        market_data: MarketData
+        self, order: OrderRequest, current_positions: List[Position], market_data: MarketData
     ) -> Tuple[bool, Optional[str]]:
         """
         Validate an order against all safety limits.
@@ -144,10 +145,7 @@ class SafetyLimits:
 
         # 3. Validate position size per market
         if order.market_id:
-            market_positions = [
-                p for p in current_positions
-                if p.market_id == order.market_id
-            ]
+            market_positions = [p for p in current_positions if p.market_id == order.market_id]
             market_exposure = self._calculate_total_exposure(market_positions)
 
             if order.side.upper() == "BUY":
@@ -188,10 +186,7 @@ class SafetyLimits:
         # All validations passed
         return True, None
 
-    def check_exposure(
-        self,
-        current_positions: List[Position]
-    ) -> Tuple[float, bool]:
+    def check_exposure(self, current_positions: List[Position]) -> Tuple[float, bool]:
         """
         Check total exposure across all positions.
 
@@ -213,9 +208,7 @@ class SafetyLimits:
         return total_exposure, is_within_limits
 
     def should_require_confirmation(
-        self,
-        order: OrderRequest,
-        autonomous_trading_enabled: bool = True
+        self, order: OrderRequest, autonomous_trading_enabled: bool = True
     ) -> bool:
         """
         Determine if order requires user confirmation.
@@ -235,10 +228,7 @@ class SafetyLimits:
         order_value_usd = order.size * order.price
         return order_value_usd > self.require_confirmation_above_usd
 
-    def get_position_summary(
-        self,
-        current_positions: List[Position]
-    ) -> Dict[str, any]:
+    def get_position_summary(self, current_positions: List[Position]) -> Dict[str, any]:
         """
         Get summary of current positions and exposure.
 
@@ -274,21 +264,17 @@ class SafetyLimits:
                     "exposure_usd": exposure,
                     "position_count": len(markets[market_id]),
                     "limit_usd": self.max_position_size_per_market,
-                    "utilization": exposure / self.max_position_size_per_market
+                    "utilization": exposure / self.max_position_size_per_market,
                 }
                 for market_id, exposure in market_exposures.items()
-            }
+            },
         }
 
     def _calculate_total_exposure(self, positions: List[Position]) -> float:
         """Calculate total exposure from positions"""
         return sum(abs(p.value_usd) for p in positions)
 
-    def _get_position(
-        self,
-        positions: List[Position],
-        token_id: str
-    ) -> Optional[Position]:
+    def _get_position(self, positions: List[Position], token_id: str) -> Optional[Position]:
         """Get position for a specific token"""
         for position in positions:
             if position.token_id == token_id:
@@ -313,5 +299,5 @@ def create_safety_limits_from_config(config) -> SafetyLimits:
         min_liquidity_required=config.MIN_LIQUIDITY_REQUIRED,
         max_spread_tolerance=config.MAX_SPREAD_TOLERANCE,
         require_confirmation_above_usd=config.REQUIRE_CONFIRMATION_ABOVE_USD,
-        auto_cancel_on_large_spread=config.AUTO_CANCEL_ON_LARGE_SPREAD
+        auto_cancel_on_large_spread=config.AUTO_CANCEL_ON_LARGE_SPREAD,
     )

@@ -7,6 +7,7 @@ Implements 8 tools for portfolio management:
 - Activity monitoring (2 tools)
 - Risk analysis (2 tools)
 """
+
 import logging
 from typing import Dict, Any, List, Optional, Tuple, Literal
 from datetime import datetime, timedelta
@@ -20,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 class PortfolioDataCache:
     """Simple cache for portfolio data to reduce API calls"""
+
     def __init__(self, ttl_seconds: int = 30):
         self.ttl_seconds = ttl_seconds
         self._cache: Dict[str, Tuple[Any, float]] = {}
@@ -53,7 +55,7 @@ async def get_all_positions(
     config,
     include_closed: bool = False,
     min_value: float = 1.0,
-    sort_by: Literal['value', 'pnl', 'size'] = 'value'
+    sort_by: Literal["value", "pnl", "size"] = "value",
 ) -> List[types.TextContent]:
     """
     Get all user positions with filtering and sorting.
@@ -84,14 +86,10 @@ async def get_all_positions(
         else:
             # Fetch positions using direct HTTP call to Data API
             async with httpx.AsyncClient() as client:
-                params = {
-                    "user": config.POLYGON_ADDRESS.lower()
-                }
+                params = {"user": config.POLYGON_ADDRESS.lower()}
 
                 response = await client.get(
-                    "https://data-api.polymarket.com/positions",
-                    params=params,
-                    timeout=10.0
+                    "https://data-api.polymarket.com/positions", params=params, timeout=10.0
                 )
                 response.raise_for_status()
                 positions_data = response.json()
@@ -100,25 +98,22 @@ async def get_all_positions(
                 _portfolio_cache.set(cache_key, positions_data)
 
         if not positions_data:
-            return [types.TextContent(
-                type="text",
-                text="No positions found."
-            )]
+            return [types.TextContent(type="text", text="No positions found.")]
 
         # Filter positions
         filtered_positions = []
         for pos in positions_data:
             # Parse position data
-            size = float(pos.get('size', 0))
-            avg_price = float(pos.get('average_price', 0))
+            size = float(pos.get("size", 0))
+            avg_price = float(pos.get("average_price", 0))
 
             # Skip zero or very small positions
             if size <= 0:
                 continue
 
             # Get current market price
-            token_id = pos.get('asset_id')
-            market = pos.get('market')
+            token_id = pos.get("asset_id")
+            market = pos.get("market")
 
             # Fetch current price from orderbook
             try:
@@ -126,8 +121,16 @@ async def get_all_positions(
                 orderbook = await polymarket_client.get_orderbook(token_id)
 
                 # Calculate mid price
-                best_bid = float(orderbook.get('bids', [{}])[0].get('price', 0)) if orderbook.get('bids') else 0
-                best_ask = float(orderbook.get('asks', [{}])[0].get('price', 0)) if orderbook.get('asks') else 0
+                best_bid = (
+                    float(orderbook.get("bids", [{}])[0].get("price", 0))
+                    if orderbook.get("bids")
+                    else 0
+                )
+                best_ask = (
+                    float(orderbook.get("asks", [{}])[0].get("price", 0))
+                    if orderbook.get("asks")
+                    else 0
+                )
                 current_price = (best_bid + best_ask) / 2 if (best_bid and best_ask) else avg_price
             except Exception as e:
                 logger.warning(f"Failed to fetch current price for {token_id}: {e}")
@@ -145,79 +148,72 @@ async def get_all_positions(
             if current_value < min_value:
                 continue
 
-            filtered_positions.append({
-                'market_id': market,
-                'market_question': pos.get('market_question', 'Unknown'),
-                'token_id': token_id,
-                'outcome': pos.get('outcome', 'Unknown'),
-                'size': size,
-                'avg_price': avg_price,
-                'current_price': current_price,
-                'cost_basis': cost_basis,
-                'current_value': current_value,
-                'unrealized_pnl': unrealized_pnl,
-                'pnl_pct': pnl_pct
-            })
+            filtered_positions.append(
+                {
+                    "market_id": market,
+                    "market_question": pos.get("market_question", "Unknown"),
+                    "token_id": token_id,
+                    "outcome": pos.get("outcome", "Unknown"),
+                    "size": size,
+                    "avg_price": avg_price,
+                    "current_price": current_price,
+                    "cost_basis": cost_basis,
+                    "current_value": current_value,
+                    "unrealized_pnl": unrealized_pnl,
+                    "pnl_pct": pnl_pct,
+                }
+            )
 
         # Sort positions
         sort_keys = {
-            'value': lambda p: p['current_value'],
-            'pnl': lambda p: p['unrealized_pnl'],
-            'size': lambda p: p['size']
+            "value": lambda p: p["current_value"],
+            "pnl": lambda p: p["unrealized_pnl"],
+            "size": lambda p: p["size"],
         }
-        filtered_positions.sort(key=sort_keys.get(sort_by, sort_keys['value']), reverse=True)
+        filtered_positions.sort(key=sort_keys.get(sort_by, sort_keys["value"]), reverse=True)
 
         # Format output
-        output_lines = [
-            f"Portfolio Positions ({len(filtered_positions)} total)",
-            "=" * 80,
-            ""
-        ]
+        output_lines = [f"Portfolio Positions ({len(filtered_positions)} total)", "=" * 80, ""]
 
         total_value = 0
         total_pnl = 0
 
         for i, pos in enumerate(filtered_positions, 1):
-            output_lines.extend([
-                f"{i}. {pos['market_question']}",
-                f"   Outcome: {pos['outcome']}",
-                f"   Position: {pos['size']:.2f} shares @ ${pos['avg_price']:.4f} avg",
-                f"   Current: ${pos['current_price']:.4f} | Value: ${pos['current_value']:.2f}",
-                f"   P&L: ${pos['unrealized_pnl']:+.2f} ({pos['pnl_pct']:+.2f}%)",
-                f"   Market ID: {pos['market_id']}",
-                f"   Token ID: {pos['token_id']}",
-                ""
-            ])
+            output_lines.extend(
+                [
+                    f"{i}. {pos['market_question']}",
+                    f"   Outcome: {pos['outcome']}",
+                    f"   Position: {pos['size']:.2f} shares @ ${pos['avg_price']:.4f} avg",
+                    f"   Current: ${pos['current_price']:.4f} | Value: ${pos['current_value']:.2f}",
+                    f"   P&L: ${pos['unrealized_pnl']:+.2f} ({pos['pnl_pct']:+.2f}%)",
+                    f"   Market ID: {pos['market_id']}",
+                    f"   Token ID: {pos['token_id']}",
+                    "",
+                ]
+            )
 
-            total_value += pos['current_value']
-            total_pnl += pos['unrealized_pnl']
+            total_value += pos["current_value"]
+            total_pnl += pos["unrealized_pnl"]
 
         # Summary
-        output_lines.extend([
-            "=" * 80,
-            f"Total Portfolio Value: ${total_value:.2f}",
-            f"Total Unrealized P&L: ${total_pnl:+.2f}",
-            ""
-        ])
+        output_lines.extend(
+            [
+                "=" * 80,
+                f"Total Portfolio Value: ${total_value:.2f}",
+                f"Total Unrealized P&L: ${total_pnl:+.2f}",
+                "",
+            ]
+        )
 
-        return [types.TextContent(
-            type="text",
-            text="\n".join(output_lines)
-        )]
+        return [types.TextContent(type="text", text="\n".join(output_lines))]
 
     except Exception as e:
         logger.error(f"Error fetching positions: {e}")
-        return [types.TextContent(
-            type="text",
-            text=f"Error fetching positions: {str(e)}"
-        )]
+        return [types.TextContent(type="text", text=f"Error fetching positions: {str(e)}")]
 
 
 async def get_position_details(
-    polymarket_client,
-    rate_limiter,
-    config,
-    market_id: str
+    polymarket_client, rate_limiter, config, market_id: str
 ) -> List[types.TextContent]:
     """
     Get detailed view of a specific position including recent trades and suggestions.
@@ -237,27 +233,21 @@ async def get_position_details(
         # Fetch position data
         await rate_limiter.acquire(EndpointCategory.DATA_API)
         async with httpx.AsyncClient() as client:
-            params = {
-                "user": config.POLYGON_ADDRESS.lower(),
-                "market": market_id
-            }
+            params = {"user": config.POLYGON_ADDRESS.lower(), "market": market_id}
 
             response = await client.get(
-                "https://data-api.polymarket.com/positions",
-                params=params,
-                timeout=10.0
+                "https://data-api.polymarket.com/positions", params=params, timeout=10.0
             )
             response.raise_for_status()
             positions = response.json()
 
         if not positions:
-            return [types.TextContent(
-                type="text",
-                text=f"No position found for market {market_id}"
-            )]
+            return [
+                types.TextContent(type="text", text=f"No position found for market {market_id}")
+            ]
 
         position = positions[0]
-        token_id = position.get('asset_id')
+        token_id = position.get("asset_id")
 
         # Fetch market details
         await rate_limiter.acquire(EndpointCategory.CLOB_GENERAL)
@@ -272,25 +262,21 @@ async def get_position_details(
         async with httpx.AsyncClient() as client:
             trade_response = await client.get(
                 "https://data-api.polymarket.com/trades",
-                params={
-                    "user": config.POLYGON_ADDRESS.lower(),
-                    "market": market_id,
-                    "limit": 10
-                },
-                timeout=10.0
+                params={"user": config.POLYGON_ADDRESS.lower(), "market": market_id, "limit": 10},
+                timeout=10.0,
             )
             trade_response.raise_for_status()
             recent_trades = trade_response.json()
 
         # Calculate position metrics
-        size = float(position.get('size', 0))
-        avg_price = float(position.get('average_price', 0))
+        size = float(position.get("size", 0))
+        avg_price = float(position.get("average_price", 0))
 
         # Current market prices
-        bids = orderbook.get('bids', [])
-        asks = orderbook.get('asks', [])
-        best_bid = float(bids[0]['price']) if bids else 0
-        best_ask = float(asks[0]['price']) if asks else 0
+        bids = orderbook.get("bids", [])
+        asks = orderbook.get("asks", [])
+        best_bid = float(bids[0]["price"]) if bids else 0
+        best_ask = float(asks[0]["price"]) if asks else 0
         mid_price = (best_bid + best_ask) / 2 if (best_bid and best_ask) else avg_price
         spread = best_ask - best_bid if (best_bid and best_ask) else 0
 
@@ -308,16 +294,20 @@ async def get_position_details(
             suggestions.append("Position down >15% - consider cutting losses or averaging down")
 
         if spread > 0.05:
-            suggestions.append(f"Wide spread ({spread:.4f}) - may be difficult to exit at fair price")
+            suggestions.append(
+                f"Wide spread ({spread:.4f}) - may be difficult to exit at fair price"
+            )
 
         if best_bid > 0.90:
-            suggestions.append("Market highly confident - consider closing position if you disagree")
+            suggestions.append(
+                "Market highly confident - consider closing position if you disagree"
+            )
         elif best_bid < 0.10:
             suggestions.append("Market lowly valued - high upside if outcome occurs")
 
         # Liquidity check
-        bid_liquidity = sum(float(b['price']) * float(b['size']) for b in bids[:5]) if bids else 0
-        ask_liquidity = sum(float(a['price']) * float(a['size']) for a in asks[:5]) if asks else 0
+        bid_liquidity = sum(float(b["price"]) * float(b["size"]) for b in bids[:5]) if bids else 0
+        ask_liquidity = sum(float(a["price"]) * float(a["size"]) for a in asks[:5]) if asks else 0
         total_liquidity = bid_liquidity + ask_liquidity
 
         if total_liquidity < 1000:
@@ -346,26 +336,24 @@ async def get_position_details(
             f"Liquidity: ${total_liquidity:.2f}",
             "",
             "RECENT TRADES",
-            "-" * 80
+            "-" * 80,
         ]
 
         if recent_trades:
             for trade in recent_trades[:5]:
-                trade_time = datetime.fromtimestamp(int(trade.get('timestamp', 0))).strftime('%Y-%m-%d %H:%M:%S')
-                trade_side = trade.get('side', 'UNKNOWN')
-                trade_price = float(trade.get('price', 0))
-                trade_size = float(trade.get('size', 0))
+                trade_time = datetime.fromtimestamp(int(trade.get("timestamp", 0))).strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
+                trade_side = trade.get("side", "UNKNOWN")
+                trade_price = float(trade.get("price", 0))
+                trade_size = float(trade.get("size", 0))
                 output_lines.append(
                     f"  {trade_time} | {trade_side:4s} | {trade_size:6.2f} @ ${trade_price:.4f}"
                 )
         else:
             output_lines.append("  No recent trades")
 
-        output_lines.extend([
-            "",
-            "SUGGESTED ACTIONS",
-            "-" * 80
-        ])
+        output_lines.extend(["", "SUGGESTED ACTIONS", "-" * 80])
 
         if suggestions:
             for suggestion in suggestions:
@@ -373,29 +361,17 @@ async def get_position_details(
         else:
             output_lines.append("  • HOLD - Position within normal parameters")
 
-        output_lines.extend([
-            "",
-            "=" * 80
-        ])
+        output_lines.extend(["", "=" * 80])
 
-        return [types.TextContent(
-            type="text",
-            text="\n".join(output_lines)
-        )]
+        return [types.TextContent(type="text", text="\n".join(output_lines))]
 
     except Exception as e:
         logger.error(f"Error fetching position details: {e}")
-        return [types.TextContent(
-            type="text",
-            text=f"Error fetching position details: {str(e)}"
-        )]
+        return [types.TextContent(type="text", text=f"Error fetching position details: {str(e)}")]
 
 
 async def get_portfolio_value(
-    polymarket_client,
-    rate_limiter,
-    config,
-    include_breakdown: bool = True
+    polymarket_client, rate_limiter, config, include_breakdown: bool = True
 ) -> List[types.TextContent]:
     """
     Get total portfolio value with optional breakdown by market.
@@ -415,7 +391,7 @@ async def get_portfolio_value(
         # Get balance
         await rate_limiter.acquire(EndpointCategory.CLOB_GENERAL)
         balance_data = await polymarket_client.get_balance()
-        cash_balance = float(balance_data.get('balance', 0))
+        cash_balance = float(balance_data.get("balance", 0))
 
         # Get all positions
         await rate_limiter.acquire(EndpointCategory.DATA_API)
@@ -423,7 +399,7 @@ async def get_portfolio_value(
             response = await client.get(
                 "https://data-api.polymarket.com/positions",
                 params={"user": config.POLYGON_ADDRESS.lower()},
-                timeout=10.0
+                timeout=10.0,
             )
             response.raise_for_status()
             positions = response.json()
@@ -438,42 +414,52 @@ async def get_portfolio_value(
 
         # Calculate position values
         position_value = 0
-        market_breakdown = defaultdict(lambda: {'value': 0, 'positions': []})
+        market_breakdown = defaultdict(lambda: {"value": 0, "positions": []})
 
         for pos in positions:
-            size = float(pos.get('size', 0))
+            size = float(pos.get("size", 0))
             if size <= 0:
                 continue
 
-            token_id = pos.get('asset_id')
-            market_id = pos.get('market')
+            token_id = pos.get("asset_id")
+            market_id = pos.get("market")
 
             # Get current price
             try:
                 await rate_limiter.acquire(EndpointCategory.MARKET_DATA)
                 orderbook = await polymarket_client.get_orderbook(token_id)
-                best_bid = float(orderbook.get('bids', [{}])[0].get('price', 0)) if orderbook.get('bids') else 0
-                best_ask = float(orderbook.get('asks', [{}])[0].get('price', 0)) if orderbook.get('asks') else 0
-                mid_price = (best_bid + best_ask) / 2 if (best_bid and best_ask) else float(pos.get('average_price', 0))
+                best_bid = (
+                    float(orderbook.get("bids", [{}])[0].get("price", 0))
+                    if orderbook.get("bids")
+                    else 0
+                )
+                best_ask = (
+                    float(orderbook.get("asks", [{}])[0].get("price", 0))
+                    if orderbook.get("asks")
+                    else 0
+                )
+                mid_price = (
+                    (best_bid + best_ask) / 2
+                    if (best_bid and best_ask)
+                    else float(pos.get("average_price", 0))
+                )
             except Exception as e:
                 logger.warning(f"Failed to fetch price for {token_id}: {e}")
-                mid_price = float(pos.get('average_price', 0))
+                mid_price = float(pos.get("average_price", 0))
 
             value = size * mid_price
             position_value += value
 
-            market_breakdown[market_id]['value'] += value
-            market_breakdown[market_id]['positions'].append({
-                'outcome': pos.get('outcome', 'Unknown'),
-                'size': size,
-                'value': value
-            })
+            market_breakdown[market_id]["value"] += value
+            market_breakdown[market_id]["positions"].append(
+                {"outcome": pos.get("outcome", "Unknown"), "size": size, "value": value}
+            )
 
         # Calculate pending order value
         pending_value = 0
         for order in orders:
-            order_size = float(order.get('size', 0))
-            order_price = float(order.get('price', 0))
+            order_size = float(order.get("size", 0))
+            order_price = float(order.get("price", 0))
             pending_value += order_size * order_price
 
         # Total value
@@ -489,29 +475,26 @@ async def get_portfolio_value(
             f"Pending Orders Value: ${pending_value:.2f}",
             "-" * 80,
             f"TOTAL PORTFOLIO VALUE: ${total_value:.2f}",
-            ""
+            "",
         ]
 
         if include_breakdown and market_breakdown:
-            output_lines.extend([
-                "Market Breakdown",
-                "-" * 80
-            ])
+            output_lines.extend(["Market Breakdown", "-" * 80])
 
             sorted_markets = sorted(
-                market_breakdown.items(),
-                key=lambda x: x[1]['value'],
-                reverse=True
+                market_breakdown.items(), key=lambda x: x[1]["value"], reverse=True
             )
 
             for market_id, data in sorted_markets:
-                pct = (data['value'] / position_value * 100) if position_value > 0 else 0
-                output_lines.extend([
-                    f"Market: {market_id}",
-                    f"  Value: ${data['value']:.2f} ({pct:.1f}% of positions)",
-                    f"  Positions: {len(data['positions'])}"
-                ])
-                for pos in data['positions']:
+                pct = (data["value"] / position_value * 100) if position_value > 0 else 0
+                output_lines.extend(
+                    [
+                        f"Market: {market_id}",
+                        f"  Value: ${data['value']:.2f} ({pct:.1f}% of positions)",
+                        f"  Positions: {len(data['positions'])}",
+                    ]
+                )
+                for pos in data["positions"]:
                     output_lines.append(
                         f"    - {pos['outcome']}: {pos['size']:.2f} shares (${pos['value']:.2f})"
                     )
@@ -519,24 +502,15 @@ async def get_portfolio_value(
 
         output_lines.append("=" * 80)
 
-        return [types.TextContent(
-            type="text",
-            text="\n".join(output_lines)
-        )]
+        return [types.TextContent(type="text", text="\n".join(output_lines))]
 
     except Exception as e:
         logger.error(f"Error calculating portfolio value: {e}")
-        return [types.TextContent(
-            type="text",
-            text=f"Error calculating portfolio value: {str(e)}"
-        )]
+        return [types.TextContent(type="text", text=f"Error calculating portfolio value: {str(e)}")]
 
 
 async def get_pnl_summary(
-    polymarket_client,
-    rate_limiter,
-    config,
-    timeframe: Literal['24h', '7d', '30d', 'all'] = 'all'
+    polymarket_client, rate_limiter, config, timeframe: Literal["24h", "7d", "30d", "all"] = "all"
 ) -> List[types.TextContent]:
     """
     Get profit/loss summary for specified timeframe.
@@ -556,28 +530,25 @@ async def get_pnl_summary(
         # Calculate time range
         now = datetime.now()
         timeframe_map = {
-            '24h': timedelta(hours=24),
-            '7d': timedelta(days=7),
-            '30d': timedelta(days=30),
-            'all': None
+            "24h": timedelta(hours=24),
+            "7d": timedelta(days=7),
+            "30d": timedelta(days=30),
+            "all": None,
         }
 
-        start_time = None if timeframe == 'all' else int((now - timeframe_map[timeframe]).timestamp())
+        start_time = (
+            None if timeframe == "all" else int((now - timeframe_map[timeframe]).timestamp())
+        )
 
         # Fetch trades
         await rate_limiter.acquire(EndpointCategory.DATA_API)
         async with httpx.AsyncClient() as client:
-            params = {
-                "user": config.POLYGON_ADDRESS.lower(),
-                "limit": 500
-            }
+            params = {"user": config.POLYGON_ADDRESS.lower(), "limit": 500}
             if start_time:
-                params['start_time'] = start_time
+                params["start_time"] = start_time
 
             response = await client.get(
-                "https://data-api.polymarket.com/trades",
-                params=params,
-                timeout=10.0
+                "https://data-api.polymarket.com/trades", params=params, timeout=10.0
             )
             response.raise_for_status()
             trades = response.json()
@@ -588,7 +559,7 @@ async def get_pnl_summary(
             response = await client.get(
                 "https://data-api.polymarket.com/positions",
                 params={"user": config.POLYGON_ADDRESS.lower()},
-                timeout=10.0
+                timeout=10.0,
             )
             response.raise_for_status()
             positions = response.json()
@@ -597,8 +568,8 @@ async def get_pnl_summary(
         # Group trades by market and outcome to match buys with sells
         market_trades = defaultdict(lambda: defaultdict(list))
         for trade in trades:
-            market_id = trade.get('market')
-            outcome = trade.get('outcome')
+            market_id = trade.get("market")
+            outcome = trade.get("outcome")
             market_trades[market_id][outcome].append(trade)
 
         realized_pnl = 0
@@ -608,19 +579,19 @@ async def get_pnl_summary(
         for market_id, outcomes in market_trades.items():
             for outcome, outcome_trades in outcomes.items():
                 # Sort by timestamp
-                outcome_trades.sort(key=lambda t: int(t.get('timestamp', 0)))
+                outcome_trades.sort(key=lambda t: int(t.get("timestamp", 0)))
 
                 # Track position using FIFO
                 position_queue = []  # [(price, size), ...]
 
                 for trade in outcome_trades:
-                    side = trade.get('side', '')
-                    price = float(trade.get('price', 0))
-                    size = float(trade.get('size', 0))
+                    side = trade.get("side", "")
+                    price = float(trade.get("price", 0))
+                    size = float(trade.get("size", 0))
 
-                    if side == 'BUY':
+                    if side == "BUY":
                         position_queue.append((price, size))
-                    elif side == 'SELL':
+                    elif side == "SELL":
                         # Match sells with buys
                         remaining_size = size
                         while remaining_size > 0 and position_queue:
@@ -653,19 +624,27 @@ async def get_pnl_summary(
         worst_performer = None
 
         for pos in positions:
-            size = float(pos.get('size', 0))
+            size = float(pos.get("size", 0))
             if size <= 0:
                 continue
 
-            avg_price = float(pos.get('average_price', 0))
-            token_id = pos.get('asset_id')
+            avg_price = float(pos.get("average_price", 0))
+            token_id = pos.get("asset_id")
 
             # Get current price
             try:
                 await rate_limiter.acquire(EndpointCategory.MARKET_DATA)
                 orderbook = await polymarket_client.get_orderbook(token_id)
-                best_bid = float(orderbook.get('bids', [{}])[0].get('price', 0)) if orderbook.get('bids') else 0
-                best_ask = float(orderbook.get('asks', [{}])[0].get('price', 0)) if orderbook.get('asks') else 0
+                best_bid = (
+                    float(orderbook.get("bids", [{}])[0].get("price", 0))
+                    if orderbook.get("bids")
+                    else 0
+                )
+                best_ask = (
+                    float(orderbook.get("asks", [{}])[0].get("price", 0))
+                    if orderbook.get("asks")
+                    else 0
+                )
                 mid_price = (best_bid + best_ask) / 2 if (best_bid and best_ask) else avg_price
             except Exception as e:
                 logger.warning(f"Failed to fetch price for {token_id}: {e}")
@@ -675,18 +654,18 @@ async def get_pnl_summary(
             unrealized_pnl += pnl
 
             # Track best/worst
-            if best_performer is None or pnl > best_performer['pnl']:
+            if best_performer is None or pnl > best_performer["pnl"]:
                 best_performer = {
-                    'question': pos.get('market_question', 'Unknown'),
-                    'outcome': pos.get('outcome', 'Unknown'),
-                    'pnl': pnl
+                    "question": pos.get("market_question", "Unknown"),
+                    "outcome": pos.get("outcome", "Unknown"),
+                    "pnl": pnl,
                 }
 
-            if worst_performer is None or pnl < worst_performer['pnl']:
+            if worst_performer is None or pnl < worst_performer["pnl"]:
                 worst_performer = {
-                    'question': pos.get('market_question', 'Unknown'),
-                    'outcome': pos.get('outcome', 'Unknown'),
-                    'pnl': pnl
+                    "question": pos.get("market_question", "Unknown"),
+                    "outcome": pos.get("outcome", "Unknown"),
+                    "pnl": pnl,
                 }
 
         # Calculate metrics
@@ -711,42 +690,40 @@ async def get_pnl_summary(
             f"Winning Trades: {wins}",
             f"Losing Trades: {losses}",
             f"Win Rate: {win_rate:.1f}%",
-            ""
+            "",
         ]
 
         if best_performer:
-            output_lines.extend([
-                "BEST PERFORMER",
-                "-" * 80,
-                f"{best_performer['question']}",
-                f"Outcome: {best_performer['outcome']}",
-                f"P&L: ${best_performer['pnl']:+.2f}",
-                ""
-            ])
+            output_lines.extend(
+                [
+                    "BEST PERFORMER",
+                    "-" * 80,
+                    f"{best_performer['question']}",
+                    f"Outcome: {best_performer['outcome']}",
+                    f"P&L: ${best_performer['pnl']:+.2f}",
+                    "",
+                ]
+            )
 
         if worst_performer:
-            output_lines.extend([
-                "WORST PERFORMER",
-                "-" * 80,
-                f"{worst_performer['question']}",
-                f"Outcome: {worst_performer['outcome']}",
-                f"P&L: ${worst_performer['pnl']:+.2f}",
-                ""
-            ])
+            output_lines.extend(
+                [
+                    "WORST PERFORMER",
+                    "-" * 80,
+                    f"{worst_performer['question']}",
+                    f"Outcome: {worst_performer['outcome']}",
+                    f"P&L: ${worst_performer['pnl']:+.2f}",
+                    "",
+                ]
+            )
 
         output_lines.append("=" * 80)
 
-        return [types.TextContent(
-            type="text",
-            text="\n".join(output_lines)
-        )]
+        return [types.TextContent(type="text", text="\n".join(output_lines))]
 
     except Exception as e:
         logger.error(f"Error calculating P&L summary: {e}")
-        return [types.TextContent(
-            type="text",
-            text=f"Error calculating P&L summary: {str(e)}"
-        )]
+        return [types.TextContent(type="text", text=f"Error calculating P&L summary: {str(e)}")]
 
 
 async def get_trade_history(
@@ -757,7 +734,7 @@ async def get_trade_history(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     limit: int = 100,
-    side: Literal['BUY', 'SELL', 'BOTH'] = 'BOTH'
+    side: Literal["BUY", "SELL", "BOTH"] = "BOTH",
 ) -> List[types.TextContent]:
     """
     Get historical trades with filtering.
@@ -779,102 +756,82 @@ async def get_trade_history(
         from ..utils.rate_limiter import EndpointCategory
 
         # Build query parameters
-        params = {
-            "user": config.POLYGON_ADDRESS.lower(),
-            "limit": min(limit, 500)
-        }
+        params = {"user": config.POLYGON_ADDRESS.lower(), "limit": min(limit, 500)}
 
         if market_id:
-            params['market'] = market_id
+            params["market"] = market_id
 
         if start_date:
-            start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-            params['start_time'] = int(start_dt.timestamp())
+            start_dt = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+            params["start_time"] = int(start_dt.timestamp())
 
         if end_date:
-            end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-            params['end_time'] = int(end_dt.timestamp())
+            end_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+            params["end_time"] = int(end_dt.timestamp())
 
         # Fetch trades
         await rate_limiter.acquire(EndpointCategory.DATA_API)
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                "https://data-api.polymarket.com/trades",
-                params=params,
-                timeout=10.0
+                "https://data-api.polymarket.com/trades", params=params, timeout=10.0
             )
             response.raise_for_status()
             trades = response.json()
 
         # Filter by side
-        if side != 'BOTH':
-            trades = [t for t in trades if t.get('side', '').upper() == side.upper()]
+        if side != "BOTH":
+            trades = [t for t in trades if t.get("side", "").upper() == side.upper()]
 
         if not trades:
-            return [types.TextContent(
-                type="text",
-                text="No trades found matching criteria."
-            )]
+            return [types.TextContent(type="text", text="No trades found matching criteria.")]
 
         # Format output
-        output_lines = [
-            f"Trade History ({len(trades)} trades)",
-            "=" * 80,
-            ""
-        ]
+        output_lines = [f"Trade History ({len(trades)} trades)", "=" * 80, ""]
 
         total_volume = 0
 
         for trade in trades[:limit]:
-            timestamp = int(trade.get('timestamp', 0))
-            trade_date = datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
-            market_question = trade.get('market_question', 'Unknown')
-            outcome = trade.get('outcome', 'Unknown')
-            trade_side = trade.get('side', 'UNKNOWN')
-            price = float(trade.get('price', 0))
-            size = float(trade.get('size', 0))
+            timestamp = int(trade.get("timestamp", 0))
+            trade_date = datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M:%S")
+            market_question = trade.get("market_question", "Unknown")
+            outcome = trade.get("outcome", "Unknown")
+            trade_side = trade.get("side", "UNKNOWN")
+            price = float(trade.get("price", 0))
+            size = float(trade.get("size", 0))
             value = price * size
-            fee = float(trade.get('fee', 0))
+            fee = float(trade.get("fee", 0))
 
             total_volume += value
 
-            output_lines.extend([
-                f"[{trade_date}] {trade_side}",
-                f"Market: {market_question}",
-                f"Outcome: {outcome}",
-                f"Price: ${price:.4f} | Size: {size:.2f} shares",
-                f"Value: ${value:.2f} | Fee: ${fee:.4f}",
-                f"Trade ID: {trade.get('id', 'N/A')}",
-                ""
-            ])
+            output_lines.extend(
+                [
+                    f"[{trade_date}] {trade_side}",
+                    f"Market: {market_question}",
+                    f"Outcome: {outcome}",
+                    f"Price: ${price:.4f} | Size: {size:.2f} shares",
+                    f"Value: ${value:.2f} | Fee: ${fee:.4f}",
+                    f"Trade ID: {trade.get('id', 'N/A')}",
+                    "",
+                ]
+            )
 
-        output_lines.extend([
-            "=" * 80,
-            f"Total Volume: ${total_volume:.2f}",
-            ""
-        ])
+        output_lines.extend(["=" * 80, f"Total Volume: ${total_volume:.2f}", ""])
 
-        return [types.TextContent(
-            type="text",
-            text="\n".join(output_lines)
-        )]
+        return [types.TextContent(type="text", text="\n".join(output_lines))]
 
     except Exception as e:
         logger.error(f"Error fetching trade history: {e}")
-        return [types.TextContent(
-            type="text",
-            text=f"Error fetching trade history: {str(e)}"
-        )]
+        return [types.TextContent(type="text", text=f"Error fetching trade history: {str(e)}")]
 
 
 async def get_activity_log(
     polymarket_client,
     rate_limiter,
     config,
-    activity_type: Literal['trades', 'splits', 'merges', 'redeems', 'all'] = 'all',
+    activity_type: Literal["trades", "splits", "merges", "redeems", "all"] = "all",
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
-    limit: int = 100
+    limit: int = 100,
 ) -> List[types.TextContent]:
     """
     Get on-chain activity log.
@@ -895,82 +852,64 @@ async def get_activity_log(
         from ..utils.rate_limiter import EndpointCategory
 
         # Build query parameters
-        params = {
-            "user": config.POLYGON_ADDRESS.lower(),
-            "limit": min(limit, 500)
-        }
+        params = {"user": config.POLYGON_ADDRESS.lower(), "limit": min(limit, 500)}
 
-        if activity_type != 'all':
-            params['type'] = activity_type
+        if activity_type != "all":
+            params["type"] = activity_type
 
         if start_date:
-            start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-            params['start_time'] = int(start_dt.timestamp())
+            start_dt = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+            params["start_time"] = int(start_dt.timestamp())
 
         if end_date:
-            end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-            params['end_time'] = int(end_dt.timestamp())
+            end_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+            params["end_time"] = int(end_dt.timestamp())
 
         # Fetch activity
         await rate_limiter.acquire(EndpointCategory.DATA_API)
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                "https://data-api.polymarket.com/activity",
-                params=params,
-                timeout=10.0
+                "https://data-api.polymarket.com/activity", params=params, timeout=10.0
             )
             response.raise_for_status()
             activities = response.json()
 
         if not activities:
-            return [types.TextContent(
-                type="text",
-                text="No activity found matching criteria."
-            )]
+            return [types.TextContent(type="text", text="No activity found matching criteria.")]
 
         # Format output
-        output_lines = [
-            f"Activity Log ({len(activities)} events)",
-            "=" * 80,
-            ""
-        ]
+        output_lines = [f"Activity Log ({len(activities)} events)", "=" * 80, ""]
 
         for activity in activities[:limit]:
-            timestamp = int(activity.get('timestamp', 0))
-            activity_date = datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
-            event_type = activity.get('type', 'UNKNOWN').upper()
-            market_question = activity.get('market_question', 'N/A')
-            amount = float(activity.get('amount', 0))
-            value = float(activity.get('value', 0))
-            tx_hash = activity.get('transaction_hash', 'N/A')
+            timestamp = int(activity.get("timestamp", 0))
+            activity_date = datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M:%S")
+            event_type = activity.get("type", "UNKNOWN").upper()
+            market_question = activity.get("market_question", "N/A")
+            amount = float(activity.get("amount", 0))
+            value = float(activity.get("value", 0))
+            tx_hash = activity.get("transaction_hash", "N/A")
 
-            output_lines.extend([
-                f"[{activity_date}] {event_type}",
-                f"Market: {market_question}",
-                f"Amount: {amount:.2f} | Value: ${value:.2f}",
-                f"Tx Hash: {tx_hash[:10]}...{tx_hash[-8:] if len(tx_hash) > 18 else tx_hash}",
-                ""
-            ])
+            output_lines.extend(
+                [
+                    f"[{activity_date}] {event_type}",
+                    f"Market: {market_question}",
+                    f"Amount: {amount:.2f} | Value: ${value:.2f}",
+                    f"Tx Hash: {tx_hash[:10]}...{tx_hash[-8:] if len(tx_hash) > 18 else tx_hash}",
+                    "",
+                ]
+            )
 
         output_lines.append("=" * 80)
 
-        return [types.TextContent(
-            type="text",
-            text="\n".join(output_lines)
-        )]
+        return [types.TextContent(type="text", text="\n".join(output_lines))]
 
     except Exception as e:
         logger.error(f"Error fetching activity log: {e}")
-        return [types.TextContent(
-            type="text",
-            text=f"Error fetching activity log: {str(e)}"
-        )]
+        return [types.TextContent(type="text", text=f"Error fetching activity log: {str(e)}")]
 
 
 async def analyze_portfolio_risk(
-    polymarket_client,
-    rate_limiter,
-    config
+    polymarket_client, rate_limiter, config
 ) -> List[types.TextContent]:
     """
     Analyze portfolio risk and provide risk metrics.
@@ -992,16 +931,13 @@ async def analyze_portfolio_risk(
             response = await client.get(
                 "https://data-api.polymarket.com/positions",
                 params={"user": config.POLYGON_ADDRESS.lower()},
-                timeout=10.0
+                timeout=10.0,
             )
             response.raise_for_status()
             positions = response.json()
 
         if not positions:
-            return [types.TextContent(
-                type="text",
-                text="No positions to analyze."
-            )]
+            return [types.TextContent(type="text", text="No positions to analyze.")]
 
         # Calculate position metrics
         position_values = []
@@ -1011,36 +947,42 @@ async def analyze_portfolio_risk(
         total_exposure = 0
 
         for pos in positions:
-            size = float(pos.get('size', 0))
+            size = float(pos.get("size", 0))
             if size <= 0:
                 continue
 
-            token_id = pos.get('asset_id')
-            market_id = pos.get('market')
-            avg_price = float(pos.get('average_price', 0))
+            token_id = pos.get("asset_id")
+            market_id = pos.get("market")
+            avg_price = float(pos.get("average_price", 0))
 
             # Get current price and liquidity
             try:
                 await rate_limiter.acquire(EndpointCategory.MARKET_DATA)
                 orderbook = await polymarket_client.get_orderbook(token_id)
 
-                bids = orderbook.get('bids', [])
-                asks = orderbook.get('asks', [])
-                best_bid = float(bids[0]['price']) if bids else 0
-                best_ask = float(asks[0]['price']) if asks else 0
+                bids = orderbook.get("bids", [])
+                asks = orderbook.get("asks", [])
+                best_bid = float(bids[0]["price"]) if bids else 0
+                best_ask = float(asks[0]["price"]) if asks else 0
                 mid_price = (best_bid + best_ask) / 2 if (best_bid and best_ask) else avg_price
 
                 # Calculate liquidity
-                bid_liquidity = sum(float(b['price']) * float(b['size']) for b in bids[:5]) if bids else 0
-                ask_liquidity = sum(float(a['price']) * float(a['size']) for a in asks[:5]) if asks else 0
+                bid_liquidity = (
+                    sum(float(b["price"]) * float(b["size"]) for b in bids[:5]) if bids else 0
+                )
+                ask_liquidity = (
+                    sum(float(a["price"]) * float(a["size"]) for a in asks[:5]) if asks else 0
+                )
                 total_liquidity = bid_liquidity + ask_liquidity
 
                 if total_liquidity < 1000:
-                    low_liquidity_positions.append({
-                        'question': pos.get('market_question', 'Unknown'),
-                        'outcome': pos.get('outcome', 'Unknown'),
-                        'liquidity': total_liquidity
-                    })
+                    low_liquidity_positions.append(
+                        {
+                            "question": pos.get("market_question", "Unknown"),
+                            "outcome": pos.get("outcome", "Unknown"),
+                            "liquidity": total_liquidity,
+                        }
+                    )
             except Exception as e:
                 logger.warning(f"Failed to fetch orderbook for {token_id}: {e}")
                 mid_price = avg_price
@@ -1156,14 +1098,16 @@ async def analyze_portfolio_risk(
                     f"  • {pos['question'][:60]}... - ${pos['liquidity']:.2f} liquidity"
                 )
 
-        output_lines.extend([
-            "",
-            "RISK SCORE",
-            "-" * 80,
-            f"Overall Risk Score: {risk_score}/100",
-            f"Diversification Score: {diversification_score}/100",
-            ""
-        ])
+        output_lines.extend(
+            [
+                "",
+                "RISK SCORE",
+                "-" * 80,
+                f"Overall Risk Score: {risk_score}/100",
+                f"Diversification Score: {diversification_score}/100",
+                "",
+            ]
+        )
 
         # Risk level
         if risk_score < 30:
@@ -1173,40 +1117,26 @@ async def analyze_portfolio_risk(
         else:
             risk_level = "HIGH"
 
-        output_lines.extend([
-            f"Risk Level: {risk_level}",
-            "",
-            "RECOMMENDATIONS",
-            "-" * 80
-        ])
+        output_lines.extend([f"Risk Level: {risk_level}", "", "RECOMMENDATIONS", "-" * 80])
 
         for rec in recommendations:
             output_lines.append(f"  • {rec}")
 
-        output_lines.extend([
-            "",
-            "=" * 80
-        ])
+        output_lines.extend(["", "=" * 80])
 
-        return [types.TextContent(
-            type="text",
-            text="\n".join(output_lines)
-        )]
+        return [types.TextContent(type="text", text="\n".join(output_lines))]
 
     except Exception as e:
         logger.error(f"Error analyzing portfolio risk: {e}")
-        return [types.TextContent(
-            type="text",
-            text=f"Error analyzing portfolio risk: {str(e)}"
-        )]
+        return [types.TextContent(type="text", text=f"Error analyzing portfolio risk: {str(e)}")]
 
 
 async def suggest_portfolio_actions(
     polymarket_client,
     rate_limiter,
     config,
-    goal: Literal['balanced', 'aggressive', 'conservative'] = 'balanced',
-    max_actions: int = 5
+    goal: Literal["balanced", "aggressive", "conservative"] = "balanced",
+    max_actions: int = 5,
 ) -> List[types.TextContent]:
     """
     Suggest portfolio optimization actions based on goal.
@@ -1230,16 +1160,13 @@ async def suggest_portfolio_actions(
             response = await client.get(
                 "https://data-api.polymarket.com/positions",
                 params={"user": config.POLYGON_ADDRESS.lower()},
-                timeout=10.0
+                timeout=10.0,
             )
             response.raise_for_status()
             positions = response.json()
 
         if not positions:
-            return [types.TextContent(
-                type="text",
-                text="No positions to optimize."
-            )]
+            return [types.TextContent(type="text", text="No positions to optimize.")]
 
         # Analyze positions and generate suggestions
         suggestions = []
@@ -1248,28 +1175,32 @@ async def suggest_portfolio_actions(
         position_data = []
 
         for pos in positions:
-            size = float(pos.get('size', 0))
+            size = float(pos.get("size", 0))
             if size <= 0:
                 continue
 
-            token_id = pos.get('asset_id')
-            avg_price = float(pos.get('average_price', 0))
+            token_id = pos.get("asset_id")
+            avg_price = float(pos.get("average_price", 0))
 
             # Get current market data
             try:
                 await rate_limiter.acquire(EndpointCategory.MARKET_DATA)
                 orderbook = await polymarket_client.get_orderbook(token_id)
 
-                bids = orderbook.get('bids', [])
-                asks = orderbook.get('asks', [])
-                best_bid = float(bids[0]['price']) if bids else 0
-                best_ask = float(asks[0]['price']) if asks else 0
+                bids = orderbook.get("bids", [])
+                asks = orderbook.get("asks", [])
+                best_bid = float(bids[0]["price"]) if bids else 0
+                best_ask = float(asks[0]["price"]) if asks else 0
                 mid_price = (best_bid + best_ask) / 2 if (best_bid and best_ask) else avg_price
                 spread = (best_ask - best_bid) if (best_bid and best_ask) else 0
 
                 # Liquidity
-                bid_liquidity = sum(float(b['price']) * float(b['size']) for b in bids[:5]) if bids else 0
-                ask_liquidity = sum(float(a['price']) * float(a['size']) for a in asks[:5]) if asks else 0
+                bid_liquidity = (
+                    sum(float(b["price"]) * float(b["size"]) for b in bids[:5]) if bids else 0
+                )
+                ask_liquidity = (
+                    sum(float(a["price"]) * float(a["size"]) for a in asks[:5]) if asks else 0
+                )
                 total_liquidity = bid_liquidity + ask_liquidity
             except Exception as e:
                 logger.warning(f"Failed to fetch orderbook for {token_id}: {e}")
@@ -1284,41 +1215,43 @@ async def suggest_portfolio_actions(
 
             total_value += value
 
-            position_data.append({
-                'question': pos.get('market_question', 'Unknown'),
-                'outcome': pos.get('outcome', 'Unknown'),
-                'market_id': pos.get('market'),
-                'value': value,
-                'pnl': pnl,
-                'pnl_pct': pnl_pct,
-                'price': mid_price,
-                'spread': spread,
-                'liquidity': total_liquidity
-            })
+            position_data.append(
+                {
+                    "question": pos.get("market_question", "Unknown"),
+                    "outcome": pos.get("outcome", "Unknown"),
+                    "market_id": pos.get("market"),
+                    "value": value,
+                    "pnl": pnl,
+                    "pnl_pct": pnl_pct,
+                    "price": mid_price,
+                    "spread": spread,
+                    "liquidity": total_liquidity,
+                }
+            )
 
         # Sort by value
-        position_data.sort(key=lambda x: x['value'], reverse=True)
+        position_data.sort(key=lambda x: x["value"], reverse=True)
 
         # Goal-specific thresholds
         thresholds = {
-            'conservative': {
-                'take_profit': 15,
-                'stop_loss': -10,
-                'concentration_max': 20,
-                'min_liquidity': 2000
+            "conservative": {
+                "take_profit": 15,
+                "stop_loss": -10,
+                "concentration_max": 20,
+                "min_liquidity": 2000,
             },
-            'balanced': {
-                'take_profit': 25,
-                'stop_loss': -20,
-                'concentration_max': 30,
-                'min_liquidity': 1000
+            "balanced": {
+                "take_profit": 25,
+                "stop_loss": -20,
+                "concentration_max": 30,
+                "min_liquidity": 1000,
             },
-            'aggressive': {
-                'take_profit': 40,
-                'stop_loss': -30,
-                'concentration_max': 40,
-                'min_liquidity': 500
-            }
+            "aggressive": {
+                "take_profit": 40,
+                "stop_loss": -30,
+                "concentration_max": 40,
+                "min_liquidity": 500,
+            },
         }
 
         thresh = thresholds[goal]
@@ -1327,68 +1260,84 @@ async def suggest_portfolio_actions(
 
         # 1. Take profit suggestions
         for pos in position_data:
-            if pos['pnl_pct'] > thresh['take_profit']:
-                suggestions.append({
-                    'action': 'CLOSE',
-                    'market': pos['question'],
-                    'outcome': pos['outcome'],
-                    'reasoning': f"Take profit - position up {pos['pnl_pct']:+.1f}%",
-                    'impact': f"Realize ${pos['pnl']:+.2f} gain",
-                    'priority': 'HIGH' if pos['pnl_pct'] > thresh['take_profit'] * 1.5 else 'MEDIUM'
-                })
+            if pos["pnl_pct"] > thresh["take_profit"]:
+                suggestions.append(
+                    {
+                        "action": "CLOSE",
+                        "market": pos["question"],
+                        "outcome": pos["outcome"],
+                        "reasoning": f"Take profit - position up {pos['pnl_pct']:+.1f}%",
+                        "impact": f"Realize ${pos['pnl']:+.2f} gain",
+                        "priority": (
+                            "HIGH" if pos["pnl_pct"] > thresh["take_profit"] * 1.5 else "MEDIUM"
+                        ),
+                    }
+                )
 
         # 2. Stop loss suggestions
         for pos in position_data:
-            if pos['pnl_pct'] < thresh['stop_loss']:
-                suggestions.append({
-                    'action': 'CLOSE',
-                    'market': pos['question'],
-                    'outcome': pos['outcome'],
-                    'reasoning': f"Cut losses - position down {pos['pnl_pct']:+.1f}%",
-                    'impact': f"Limit loss to ${pos['pnl']:+.2f}",
-                    'priority': 'HIGH' if pos['pnl_pct'] < thresh['stop_loss'] * 1.5 else 'MEDIUM'
-                })
+            if pos["pnl_pct"] < thresh["stop_loss"]:
+                suggestions.append(
+                    {
+                        "action": "CLOSE",
+                        "market": pos["question"],
+                        "outcome": pos["outcome"],
+                        "reasoning": f"Cut losses - position down {pos['pnl_pct']:+.1f}%",
+                        "impact": f"Limit loss to ${pos['pnl']:+.2f}",
+                        "priority": (
+                            "HIGH" if pos["pnl_pct"] < thresh["stop_loss"] * 1.5 else "MEDIUM"
+                        ),
+                    }
+                )
 
         # 3. Concentration reduction
         for pos in position_data:
-            concentration_pct = (pos['value'] / total_value * 100) if total_value > 0 else 0
-            if concentration_pct > thresh['concentration_max']:
-                suggestions.append({
-                    'action': 'REDUCE',
-                    'market': pos['question'],
-                    'outcome': pos['outcome'],
-                    'reasoning': f"Reduce concentration - {concentration_pct:.1f}% of portfolio",
-                    'impact': f"Reduce to {thresh['concentration_max']}% max ({thresh['concentration_max']/100 * total_value:.2f} USD)",
-                    'priority': 'MEDIUM'
-                })
+            concentration_pct = (pos["value"] / total_value * 100) if total_value > 0 else 0
+            if concentration_pct > thresh["concentration_max"]:
+                suggestions.append(
+                    {
+                        "action": "REDUCE",
+                        "market": pos["question"],
+                        "outcome": pos["outcome"],
+                        "reasoning": f"Reduce concentration - {concentration_pct:.1f}% of portfolio",
+                        "impact": f"Reduce to {thresh['concentration_max']}% max ({thresh['concentration_max']/100 * total_value:.2f} USD)",
+                        "priority": "MEDIUM",
+                    }
+                )
 
         # 4. Low liquidity warnings
         for pos in position_data:
-            if pos['liquidity'] < thresh['min_liquidity']:
-                suggestions.append({
-                    'action': 'CLOSE',
-                    'market': pos['question'],
-                    'outcome': pos['outcome'],
-                    'reasoning': f"Exit low liquidity position (${pos['liquidity']:.2f} available)",
-                    'impact': "Avoid potential slippage on future exit",
-                    'priority': 'LOW'
-                })
+            if pos["liquidity"] < thresh["min_liquidity"]:
+                suggestions.append(
+                    {
+                        "action": "CLOSE",
+                        "market": pos["question"],
+                        "outcome": pos["outcome"],
+                        "reasoning": f"Exit low liquidity position (${pos['liquidity']:.2f} available)",
+                        "impact": "Avoid potential slippage on future exit",
+                        "priority": "LOW",
+                    }
+                )
 
         # 5. Wide spread warnings
         for pos in position_data:
-            if pos['spread'] > 0.10:  # 10% spread
-                suggestions.append({
-                    'action': 'REDUCE',
-                    'market': pos['question'],
-                    'outcome': pos['outcome'],
-                    'reasoning': f"Wide spread ({pos['spread']*100:.1f}%) - poor exit conditions",
-                    'impact': "Reduce exposure until spread improves",
-                    'priority': 'LOW'
-                })
+            if pos["spread"] > 0.10:  # 10% spread
+                suggestions.append(
+                    {
+                        "action": "REDUCE",
+                        "market": pos["question"],
+                        "outcome": pos["outcome"],
+                        "reasoning": f"Wide spread ({pos['spread']*100:.1f}%) - poor exit conditions",
+                        "impact": "Reduce exposure until spread improves",
+                        "priority": "LOW",
+                    }
+                )
 
         # Sort by priority and limit
-        priority_order = {'HIGH': 0, 'MEDIUM': 1, 'LOW': 2}
-        suggestions.sort(key=lambda x: (priority_order[x['priority']], -abs(position_data[0]['pnl_pct'])))
+        priority_order = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
+        suggestions.sort(
+            key=lambda x: (priority_order[x["priority"]], -abs(position_data[0]["pnl_pct"]))
+        )
         suggestions = suggestions[:max_actions]
 
         # Format output
@@ -1401,39 +1350,39 @@ async def suggest_portfolio_actions(
             "",
             "SUGGESTED ACTIONS",
             "=" * 80,
-            ""
+            "",
         ]
 
         if not suggestions:
-            output_lines.extend([
-                "No optimization actions recommended at this time.",
-                "Portfolio appears well-balanced for your goals.",
-                ""
-            ])
+            output_lines.extend(
+                [
+                    "No optimization actions recommended at this time.",
+                    "Portfolio appears well-balanced for your goals.",
+                    "",
+                ]
+            )
         else:
             for i, sugg in enumerate(suggestions, 1):
-                output_lines.extend([
-                    f"{i}. {sugg['action']} - {sugg['market'][:60]}...",
-                    f"   Outcome: {sugg['outcome']}",
-                    f"   Reasoning: {sugg['reasoning']}",
-                    f"   Expected Impact: {sugg['impact']}",
-                    f"   Priority: {sugg['priority']}",
-                    ""
-                ])
+                output_lines.extend(
+                    [
+                        f"{i}. {sugg['action']} - {sugg['market'][:60]}...",
+                        f"   Outcome: {sugg['outcome']}",
+                        f"   Reasoning: {sugg['reasoning']}",
+                        f"   Expected Impact: {sugg['impact']}",
+                        f"   Priority: {sugg['priority']}",
+                        "",
+                    ]
+                )
 
         output_lines.append("=" * 80)
 
-        return [types.TextContent(
-            type="text",
-            text="\n".join(output_lines)
-        )]
+        return [types.TextContent(type="text", text="\n".join(output_lines))]
 
     except Exception as e:
         logger.error(f"Error generating portfolio suggestions: {e}")
-        return [types.TextContent(
-            type="text",
-            text=f"Error generating portfolio suggestions: {str(e)}"
-        )]
+        return [
+            types.TextContent(type="text", text=f"Error generating portfolio suggestions: {str(e)}")
+        ]
 
 
 # Tool registration data for server integration
@@ -1447,37 +1396,32 @@ PORTFOLIO_TOOLS = [
                 "include_closed": {
                     "type": "boolean",
                     "description": "Include closed positions (default: false)",
-                    "default": False
+                    "default": False,
                 },
                 "min_value": {
                     "type": "number",
                     "description": "Minimum position value in USD (default: 1.0)",
-                    "default": 1.0
+                    "default": 1.0,
                 },
                 "sort_by": {
                     "type": "string",
                     "enum": ["value", "pnl", "size"],
                     "description": "Sort field (default: value)",
-                    "default": "value"
-                }
-            }
+                    "default": "value",
+                },
+            },
         },
-        "handler": get_all_positions
+        "handler": get_all_positions,
     },
     {
         "name": "get_position_details",
         "description": "Get detailed view of a specific position including market data and suggestions",
         "inputSchema": {
             "type": "object",
-            "properties": {
-                "market_id": {
-                    "type": "string",
-                    "description": "Market condition ID"
-                }
-            },
-            "required": ["market_id"]
+            "properties": {"market_id": {"type": "string", "description": "Market condition ID"}},
+            "required": ["market_id"],
         },
-        "handler": get_position_details
+        "handler": get_position_details,
     },
     {
         "name": "get_portfolio_value",
@@ -1488,11 +1432,11 @@ PORTFOLIO_TOOLS = [
                 "include_breakdown": {
                     "type": "boolean",
                     "description": "Include market-by-market breakdown (default: true)",
-                    "default": True
+                    "default": True,
                 }
-            }
+            },
         },
-        "handler": get_portfolio_value
+        "handler": get_portfolio_value,
     },
     {
         "name": "get_pnl_summary",
@@ -1504,11 +1448,11 @@ PORTFOLIO_TOOLS = [
                     "type": "string",
                     "enum": ["24h", "7d", "30d", "all"],
                     "description": "Time period (default: all)",
-                    "default": "all"
+                    "default": "all",
                 }
-            }
+            },
         },
-        "handler": get_pnl_summary
+        "handler": get_pnl_summary,
     },
     {
         "name": "get_trade_history",
@@ -1516,32 +1460,26 @@ PORTFOLIO_TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "market_id": {
-                    "type": "string",
-                    "description": "Filter by market ID (optional)"
-                },
+                "market_id": {"type": "string", "description": "Filter by market ID (optional)"},
                 "start_date": {
                     "type": "string",
-                    "description": "Start date in ISO format (optional)"
+                    "description": "Start date in ISO format (optional)",
                 },
-                "end_date": {
-                    "type": "string",
-                    "description": "End date in ISO format (optional)"
-                },
+                "end_date": {"type": "string", "description": "End date in ISO format (optional)"},
                 "limit": {
                     "type": "number",
                     "description": "Maximum trades to return (default: 100)",
-                    "default": 100
+                    "default": 100,
                 },
                 "side": {
                     "type": "string",
                     "enum": ["BUY", "SELL", "BOTH"],
                     "description": "Filter by side (default: BOTH)",
-                    "default": "BOTH"
-                }
-            }
+                    "default": "BOTH",
+                },
+            },
         },
-        "handler": get_trade_history
+        "handler": get_trade_history,
     },
     {
         "name": "get_activity_log",
@@ -1553,33 +1491,27 @@ PORTFOLIO_TOOLS = [
                     "type": "string",
                     "enum": ["trades", "splits", "merges", "redeems", "all"],
                     "description": "Activity type filter (default: all)",
-                    "default": "all"
+                    "default": "all",
                 },
                 "start_date": {
                     "type": "string",
-                    "description": "Start date in ISO format (optional)"
+                    "description": "Start date in ISO format (optional)",
                 },
-                "end_date": {
-                    "type": "string",
-                    "description": "End date in ISO format (optional)"
-                },
+                "end_date": {"type": "string", "description": "End date in ISO format (optional)"},
                 "limit": {
                     "type": "number",
                     "description": "Maximum events to return (default: 100)",
-                    "default": 100
-                }
-            }
+                    "default": 100,
+                },
+            },
         },
-        "handler": get_activity_log
+        "handler": get_activity_log,
     },
     {
         "name": "analyze_portfolio_risk",
         "description": "Analyze portfolio risk including concentration, liquidity, and correlation",
-        "inputSchema": {
-            "type": "object",
-            "properties": {}
-        },
-        "handler": analyze_portfolio_risk
+        "inputSchema": {"type": "object", "properties": {}},
+        "handler": analyze_portfolio_risk,
     },
     {
         "name": "suggest_portfolio_actions",
@@ -1591,15 +1523,15 @@ PORTFOLIO_TOOLS = [
                     "type": "string",
                     "enum": ["balanced", "aggressive", "conservative"],
                     "description": "Investment goal (default: balanced)",
-                    "default": "balanced"
+                    "default": "balanced",
                 },
                 "max_actions": {
                     "type": "number",
                     "description": "Maximum number of suggestions (default: 5)",
-                    "default": 5
-                }
-            }
+                    "default": 5,
+                },
+            },
         },
-        "handler": suggest_portfolio_actions
-    }
+        "handler": suggest_portfolio_actions,
+    },
 ]

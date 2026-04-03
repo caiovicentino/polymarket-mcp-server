@@ -2,6 +2,7 @@
 Rate limiter implementation using token bucket algorithm.
 Respects Polymarket's API rate limits across different endpoint categories.
 """
+
 import asyncio
 import time
 from collections import defaultdict
@@ -15,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 class EndpointCategory(Enum):
     """Polymarket API endpoint categories with different rate limits"""
+
     CLOB_GENERAL = "clob_general"  # 5000/10s
     MARKET_DATA = "market_data"  # 200/10s (/book, /price)
     BATCH_OPS = "batch_ops"  # 80/10s
@@ -27,6 +29,7 @@ class EndpointCategory(Enum):
 @dataclass
 class RateLimitConfig:
     """Configuration for a rate limit bucket"""
+
     max_tokens: int  # Maximum tokens in bucket
     refill_rate: float  # Tokens per second
     window_seconds: float  # Time window for rate limit
@@ -35,39 +38,25 @@ class RateLimitConfig:
 # Rate limit configurations for each endpoint category
 RATE_LIMITS: Dict[EndpointCategory, RateLimitConfig] = {
     EndpointCategory.CLOB_GENERAL: RateLimitConfig(
-        max_tokens=5000,
-        refill_rate=500.0,  # 5000/10s
-        window_seconds=10.0
+        max_tokens=5000, refill_rate=500.0, window_seconds=10.0  # 5000/10s
     ),
     EndpointCategory.MARKET_DATA: RateLimitConfig(
-        max_tokens=200,
-        refill_rate=20.0,  # 200/10s
-        window_seconds=10.0
+        max_tokens=200, refill_rate=20.0, window_seconds=10.0  # 200/10s
     ),
     EndpointCategory.BATCH_OPS: RateLimitConfig(
-        max_tokens=80,
-        refill_rate=8.0,  # 80/10s
-        window_seconds=10.0
+        max_tokens=80, refill_rate=8.0, window_seconds=10.0  # 80/10s
     ),
     EndpointCategory.TRADING_BURST: RateLimitConfig(
-        max_tokens=2400,
-        refill_rate=240.0,  # 2400/10s
-        window_seconds=10.0
+        max_tokens=2400, refill_rate=240.0, window_seconds=10.0  # 2400/10s
     ),
     EndpointCategory.TRADING_SUSTAINED: RateLimitConfig(
-        max_tokens=24000,
-        refill_rate=40.0,  # 24000/10min = 40/s
-        window_seconds=600.0
+        max_tokens=24000, refill_rate=40.0, window_seconds=600.0  # 24000/10min = 40/s
     ),
     EndpointCategory.GAMMA_API: RateLimitConfig(
-        max_tokens=750,
-        refill_rate=75.0,  # 750/10s
-        window_seconds=10.0
+        max_tokens=750, refill_rate=75.0, window_seconds=10.0  # 750/10s
     ),
     EndpointCategory.DATA_API: RateLimitConfig(
-        max_tokens=200,
-        refill_rate=20.0,  # 200/10s
-        window_seconds=10.0
+        max_tokens=200, refill_rate=20.0, window_seconds=10.0  # 200/10s
     ),
 }
 
@@ -163,10 +152,7 @@ class RateLimiter:
             self.buckets[category] = TokenBucket(config)
 
     async def acquire(
-        self,
-        category: EndpointCategory,
-        tokens: int = 1,
-        retry_on_429: bool = True
+        self, category: EndpointCategory, tokens: int = 1, retry_on_429: bool = True
     ) -> float:
         """
         Acquire rate limit tokens before making API request.
@@ -195,8 +181,7 @@ class RateLimiter:
                 if backoff_until > now:
                     wait_time = backoff_until - now
                     logger.warning(
-                        f"429 backoff active for {category.value}. "
-                        f"Waiting {wait_time:.2f}s"
+                        f"429 backoff active for {category.value}. " f"Waiting {wait_time:.2f}s"
                     )
                     await asyncio.sleep(wait_time)
                     total_wait += wait_time
@@ -208,9 +193,7 @@ class RateLimiter:
         return total_wait
 
     async def handle_429_error(
-        self,
-        category: EndpointCategory,
-        retry_after: Optional[int] = None
+        self, category: EndpointCategory, retry_after: Optional[int] = None
     ) -> None:
         """
         Handle 429 Too Many Requests error with exponential backoff.
@@ -240,8 +223,7 @@ class RateLimiter:
             self._429_backoff[category] = backoff_until
 
             logger.warning(
-                f"429 error for {category.value}. "
-                f"Setting backoff for {backoff_time:.2f}s"
+                f"429 error for {category.value}. " f"Setting backoff for {backoff_time:.2f}s"
             )
 
     def get_status(self) -> Dict[str, Dict[str, any]]:
@@ -262,7 +244,7 @@ class RateLimiter:
                 "max_tokens": bucket.max_tokens,
                 "refill_rate_per_sec": bucket.refill_rate,
                 "backoff_remaining_sec": backoff_remaining,
-                "is_throttled": backoff_remaining > 0
+                "is_throttled": backoff_remaining > 0,
             }
 
         return status

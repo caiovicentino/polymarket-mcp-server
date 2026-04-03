@@ -8,6 +8,7 @@ These tests interact with real APIs (no mocks) to verify:
 - Rate limiting
 - Safety limits
 """
+
 import asyncio
 import os
 import pytest
@@ -66,8 +67,7 @@ class TestAPIConnectivity:
         """Test trending markets endpoint."""
         url = f"{test_config['gamma_api_url']}/markets"
         response = await real_api_client.get(
-            url,
-            params={"limit": test_config["test_market_limit"], "order": "volume24hr"}
+            url, params={"limit": test_config["test_market_limit"], "order": "volume24hr"}
         )
 
         assert response.status_code == 200
@@ -105,10 +105,7 @@ class TestMarketDiscovery:
         url = f"{test_config['gamma_api_url']}/markets"
 
         # Search for common term
-        response = await real_api_client.get(
-            url,
-            params={"limit": 5, "closed": False}
-        )
+        response = await real_api_client.get(url, params={"limit": 5, "closed": False})
 
         assert response.status_code == 200
         markets = response.json()
@@ -120,10 +117,7 @@ class TestMarketDiscovery:
         url = f"{test_config['gamma_api_url']}/markets"
 
         # Try Politics category
-        response = await real_api_client.get(
-            url,
-            params={"limit": 5, "tag": "Politics"}
-        )
+        response = await real_api_client.get(url, params={"limit": 5, "tag": "Politics"})
 
         assert response.status_code == 200
         markets = response.json()
@@ -136,8 +130,7 @@ class TestMarketDiscovery:
 
         # Get active markets sorted by end date
         response = await real_api_client.get(
-            url,
-            params={"limit": 5, "closed": False, "order": "end_date_min"}
+            url, params={"limit": 5, "closed": False, "order": "end_date_min"}
         )
 
         assert response.status_code == 200
@@ -168,10 +161,7 @@ class TestMarketAnalysis:
 
         # Get orderbook from CLOB API
         orderbook_url = f"{test_config['clob_api_url']}/book"
-        orderbook_response = await real_api_client.get(
-            orderbook_url,
-            params={"token_id": token_id}
-        )
+        orderbook_response = await real_api_client.get(orderbook_url, params={"token_id": token_id})
 
         # Note: May return 404 if no orders, which is acceptable
         assert orderbook_response.status_code in [200, 404]
@@ -206,10 +196,7 @@ class TestErrorHandling:
     async def test_invalid_token_id(self, real_api_client, test_config):
         """Test handling of invalid token ID."""
         url = f"{test_config['clob_api_url']}/book"
-        response = await real_api_client.get(
-            url,
-            params={"token_id": "invalid-token-12345"}
-        )
+        response = await real_api_client.get(url, params={"token_id": "invalid-token-12345"})
 
         # Should handle gracefully (404 or error response)
         assert response.status_code in [400, 404]
@@ -218,10 +205,7 @@ class TestErrorHandling:
     async def test_malformed_request(self, real_api_client, test_config):
         """Test handling of malformed requests."""
         url = f"{test_config['gamma_api_url']}/markets"
-        response = await real_api_client.get(
-            url,
-            params={"limit": "invalid"}
-        )
+        response = await real_api_client.get(url, params={"limit": "invalid"})
 
         # API should handle gracefully
         assert response.status_code in [200, 400]
@@ -246,8 +230,7 @@ class TestRateLimiting:
 
         # Count successful responses
         successful = sum(
-            1 for r in responses
-            if not isinstance(r, Exception) and r.status_code == 200
+            1 for r in responses if not isinstance(r, Exception) and r.status_code == 200
         )
 
         # Should handle most requests (rate limiting may kick in)
@@ -278,8 +261,10 @@ class TestDemoMode:
 
         # Import should work
         import sys
+
         sys.path.insert(0, "src")
         from polymarket_mcp import config
+
         assert config is not None
 
         # Cleanup
@@ -295,6 +280,7 @@ class TestDemoMode:
 
         # Should be able to load config
         import sys
+
         sys.path.insert(0, "src")
         from polymarket_mcp.config import load_config
 
@@ -340,6 +326,7 @@ class TestSafetyValidation:
     def test_safety_limits_initialization(self):
         """Test safety limits can be initialized."""
         import sys
+
         sys.path.insert(0, "src")
         from polymarket_mcp.utils import SafetyLimits
 
@@ -348,7 +335,7 @@ class TestSafetyValidation:
             max_total_exposure_usd=1000.0,
             max_position_size_per_market=50.0,
             min_liquidity_required=500.0,
-            max_spread_tolerance=0.05
+            max_spread_tolerance=0.05,
         )
 
         assert limits.max_order_size_usd == 100.0
@@ -357,6 +344,7 @@ class TestSafetyValidation:
     def test_order_size_validation(self):
         """Test order size validation logic."""
         import sys
+
         sys.path.insert(0, "src")
         from polymarket_mcp.utils import SafetyLimits
 
@@ -398,10 +386,7 @@ async def test_full_integration_flow(real_api_client, test_config):
     if len(market_detail.get("tokens", [])) > 0:
         token_id = market_detail["tokens"][0]["token_id"]
         orderbook_url = f"{test_config['clob_api_url']}/book"
-        orderbook_response = await real_api_client.get(
-            orderbook_url,
-            params={"token_id": token_id}
-        )
+        orderbook_response = await real_api_client.get(orderbook_url, params={"token_id": token_id})
         # Accept both success and no orders
         assert orderbook_response.status_code in [200, 404]
 

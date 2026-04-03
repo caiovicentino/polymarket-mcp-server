@@ -3,6 +3,7 @@ Comprehensive tests for market discovery and analysis tools.
 
 Tests all 18 tools with real Polymarket API (no mocks).
 """
+
 import pytest
 import asyncio
 from datetime import datetime, timedelta
@@ -17,10 +18,7 @@ class TestMarketDiscovery:
     @pytest.mark.asyncio
     async def test_search_markets(self):
         """Test searching markets by query"""
-        results = await market_discovery.search_markets(
-            query="Trump",
-            limit=5
-        )
+        results = await market_discovery.search_markets(query="Trump", limit=5)
 
         assert isinstance(results, list)
         assert len(results) <= 5
@@ -34,10 +32,7 @@ class TestMarketDiscovery:
     async def test_get_trending_markets(self):
         """Test getting trending markets by volume"""
         # Test 24h timeframe
-        results_24h = await market_discovery.get_trending_markets(
-            timeframe="24h",
-            limit=5
-        )
+        results_24h = await market_discovery.get_trending_markets(timeframe="24h", limit=5)
 
         assert isinstance(results_24h, list)
         assert len(results_24h) <= 5
@@ -49,10 +44,7 @@ class TestMarketDiscovery:
             print(f"Top 24h market volume: ${volumes[0]:,.2f}")
 
         # Test 7d timeframe
-        results_7d = await market_discovery.get_trending_markets(
-            timeframe="7d",
-            limit=3
-        )
+        results_7d = await market_discovery.get_trending_markets(timeframe="7d", limit=3)
 
         assert isinstance(results_7d, list)
 
@@ -63,9 +55,7 @@ class TestMarketDiscovery:
 
         for category in categories:
             results = await market_discovery.filter_markets_by_category(
-                category=category,
-                active_only=True,
-                limit=3
+                category=category, active_only=True, limit=3
             )
 
             assert isinstance(results, list)
@@ -84,10 +74,7 @@ class TestMarketDiscovery:
     async def test_get_closing_soon_markets(self):
         """Test getting markets closing soon"""
         # Test markets closing within 24 hours
-        results = await market_discovery.get_closing_soon_markets(
-            hours=24,
-            limit=5
-        )
+        results = await market_discovery.get_closing_soon_markets(hours=24, limit=5)
 
         assert isinstance(results, list)
         print(f"Found {len(results)} markets closing within 24 hours")
@@ -116,10 +103,7 @@ class TestMarketDiscovery:
         print(f"Found {len(all_sports)} sports markets")
 
         # Specific sport
-        nfl_markets = await market_discovery.get_sports_markets(
-            sport_type="NFL",
-            limit=3
-        )
+        nfl_markets = await market_discovery.get_sports_markets(sport_type="NFL", limit=3)
         assert isinstance(nfl_markets, list)
         print(f"Found {len(nfl_markets)} NFL markets")
 
@@ -132,10 +116,7 @@ class TestMarketDiscovery:
         print(f"Found {len(all_crypto)} crypto markets")
 
         # Specific symbol
-        btc_markets = await market_discovery.get_crypto_markets(
-            symbol="BTC",
-            limit=3
-        )
+        btc_markets = await market_discovery.get_crypto_markets(symbol="BTC", limit=3)
         assert isinstance(btc_markets, list)
         print(f"Found {len(btc_markets)} BTC markets")
 
@@ -149,9 +130,7 @@ class TestMarketDiscovery:
             event_slug = markets[0].get("slug")
 
             try:
-                event_markets = await market_discovery.get_event_markets(
-                    event_slug=event_slug
-                )
+                event_markets = await market_discovery.get_event_markets(event_slug=event_slug)
                 assert isinstance(event_markets, list)
                 print(f"Found {len(event_markets)} markets for event: {event_slug}")
             except Exception as e:
@@ -201,18 +180,18 @@ class TestMarketAnalysis:
                 if token_id:
                     # Test BOTH side
                     price_data = await market_analysis.get_current_price(
-                        token_id=token_id,
-                        side="BOTH"
+                        token_id=token_id, side="BOTH"
                     )
 
                     assert isinstance(price_data, PriceData)
                     assert price_data.token_id == token_id
-                    print(f"Price - Bid: {price_data.bid}, Ask: {price_data.ask}, Mid: {price_data.mid}")
+                    print(
+                        f"Price - Bid: {price_data.bid}, Ask: {price_data.ask}, Mid: {price_data.mid}"
+                    )
 
                     # Test BUY side
                     buy_price = await market_analysis.get_current_price(
-                        token_id=token_id,
-                        side="BUY"
+                        token_id=token_id, side="BUY"
                     )
                     assert isinstance(buy_price, PriceData)
 
@@ -229,10 +208,7 @@ class TestMarketAnalysis:
                 token_id = tokens[0].get("token_id")
 
                 if token_id:
-                    orderbook = await market_analysis.get_orderbook(
-                        token_id=token_id,
-                        depth=10
-                    )
+                    orderbook = await market_analysis.get_orderbook(token_id=token_id, depth=10)
 
                     assert isinstance(orderbook, OrderBook)
                     assert orderbook.token_id == token_id
@@ -261,7 +237,9 @@ class TestMarketAnalysis:
                     assert isinstance(spread_data, dict)
                     assert "spread_value" in spread_data
                     assert "spread_percentage" in spread_data
-                    print(f"Spread: {spread_data['spread_value']:.4f} ({spread_data['spread_percentage']:.2f}%)")
+                    print(
+                        f"Spread: {spread_data['spread_value']:.4f} ({spread_data['spread_percentage']:.2f}%)"
+                    )
 
     @pytest.mark.asyncio
     async def test_get_market_volume(self):
@@ -274,13 +252,14 @@ class TestMarketAnalysis:
 
             if market_id:
                 volume_data = await market_analysis.get_market_volume(
-                    market_id=market_id,
-                    timeframes=["24h", "7d", "30d"]
+                    market_id=market_id, timeframes=["24h", "7d", "30d"]
                 )
 
                 assert isinstance(volume_data, VolumeData)
                 assert volume_data.market_id == market_id
-                print(f"Volume - 24h: ${volume_data.volume_24h:,.2f}, 7d: ${volume_data.volume_7d:,.2f}")
+                print(
+                    f"Volume - 24h: ${volume_data.volume_24h:,.2f}, 7d: ${volume_data.volume_7d:,.2f}"
+                )
 
     @pytest.mark.asyncio
     async def test_get_liquidity(self):
@@ -313,8 +292,7 @@ class TestMarketAnalysis:
                 if token_id:
                     # This will return a note about limited availability
                     history = await market_analysis.get_price_history(
-                        token_id=token_id,
-                        resolution="1h"
+                        token_id=token_id, resolution="1h"
                     )
 
                     assert isinstance(history, list)
@@ -331,10 +309,7 @@ class TestMarketAnalysis:
 
             if market_id:
                 # This will return a note about auth requirement
-                holders = await market_analysis.get_market_holders(
-                    market_id=market_id,
-                    limit=10
-                )
+                holders = await market_analysis.get_market_holders(market_id=market_id, limit=10)
 
                 assert isinstance(holders, list)
                 print(f"Holders response: {holders}")
@@ -391,8 +366,7 @@ class TestMarketAnalysis:
         """Test tool handler functions"""
         # Test discovery handler
         result = await market_discovery.handle_tool(
-            "search_markets",
-            {"query": "election", "limit": 2}
+            "search_markets", {"query": "election", "limit": 2}
         )
 
         assert isinstance(result, list)
@@ -405,8 +379,7 @@ class TestMarketAnalysis:
             market_id = markets[0].get("id") or markets[0].get("market_id")
             if market_id:
                 result = await market_analysis.handle_tool(
-                    "get_market_details",
-                    {"market_id": market_id}
+                    "get_market_details", {"market_id": market_id}
                 )
 
                 assert isinstance(result, list)
@@ -450,10 +423,7 @@ class TestIntegration:
     async def test_rate_limiting(self):
         """Test that rate limiting works correctly"""
         # Make multiple rapid requests
-        tasks = [
-            market_discovery.search_markets("test", limit=1)
-            for _ in range(5)
-        ]
+        tasks = [market_discovery.search_markets("test", limit=1) for _ in range(5)]
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
