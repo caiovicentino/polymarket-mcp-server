@@ -5,6 +5,8 @@ Provides MCP server for Polymarket trading integration with Claude Desktop.
 """
 import asyncio
 import logging
+import os
+import signal
 from typing import Any, Dict, Optional
 
 import mcp.server.stdio
@@ -37,6 +39,52 @@ polymarket_client: Optional[PolymarketClient] = None
 safety_limits: Optional[SafetyLimits] = None
 trading_tools: Optional[TradingTools] = None
 websocket_manager: Optional[WebSocketManager] = None
+_shutdown_event: Optional[asyncio.Event] = None
+
+
+async def shutdown() -> None:
+    """
+    Graceful shutdown handler.
+
+    1. Cancel all open orders (if CANCEL_ON_SHUTDOWN is enabled and credentials exist)
+    2. Close all WebSocket connections
+    3. Log shutdown sequence
+    """
+    logger.info("Graceful shutdown initiated...")
+
+    cancel_on_shutdown = os.getenv("CANCEL_ON_SHUTDOWN", "true").lower() in ("true", "1", "yes")
+
+    # Cancel all open orders if enabled and authenticated
+    if cancel_on_shutdown and polymarket_client and polymarket_client.has_api_credentials():
+        try:
+            logger.info("Canceling all open orders...")
+            await polymarket_client.cancel_all_orders()
+            logger.info("All open orders canceled successfully")
+        except Exception as e:
+            logger.error(f"Failed to cancel orders during shutdown: {e}")
+    elif cancel_on_shutdown:
+        logger.info("Skipping order cancellation (no API credentials)")
+    else:
+        logger.info("Skipping order cancellation (CANCEL_ON_SHUTDOWN=false)")
+
+    # Close WebSocket connections
+    if websocket_manager:
+        try:
+            logger.info("Closing WebSocket connections...")
+            await websocket_manager.disconnect()
+            logger.info("WebSocket connections closed")
+        except Exception as e:
+            logger.error(f"Failed to close WebSocket connections: {e}")
+
+    logger.info("Graceful shutdown complete")
+
+
+def _signal_handler(signum: int, frame) -> None:
+    """Handle SIGTERM/SIGINT by scheduling async shutdown."""
+    sig_name = signal.Signals(signum).name
+    logger.info(f"Received {sig_name}, initiating shutdown...")
+    if _shutdown_event and not _shutdown_event.is_set():
+        _shutdown_event.set()
 
 
 @server.list_tools()
@@ -378,25 +426,58 @@ async def main() -> None:
     Main entry point for MCP server.
 
     Initializes all components and runs the stdio-based MCP server.
+    Registers SIGTERM/SIGINT handlers for graceful shutdown.
     """
+    global _shutdown_event
+
     try:
         # Initialize server components
         await initialize_server()
 
+        # Set up shutdown event and signal handlers
+        _shutdown_event = asyncio.Event()
+        signal.signal(signal.SIGTERM, _signal_handler)
+        signal.signal(signal.SIGINT, _signal_handler)
+
         # Run MCP server with stdio transport
         logger.info("Starting MCP server...")
         async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
-            await server.run(
-                read_stream,
-                write_stream,
-                server.create_initialization_options()
+            # Run server alongside shutdown watcher
+            server_task = asyncio.create_task(
+                server.run(
+                    read_stream,
+                    write_stream,
+                    server.create_initialization_options()
+                )
+            )
+            shutdown_task = asyncio.create_task(_shutdown_event.wait())
+
+            # Wait for either server completion or shutdown signal
+            done, pending = await asyncio.wait(
+                [server_task, shutdown_task],
+                return_when=asyncio.FIRST_COMPLETED
             )
 
+            # Cancel remaining tasks
+            for task in pending:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+
+            # If server task raised an exception, propagate it
+            if server_task in done and server_task.exception():
+                raise server_task.exception()
+
     except KeyboardInterrupt:
-        logger.info("Server stopped by user")
+        logger.info("Server stopped by user (KeyboardInterrupt)")
     except Exception as e:
         logger.error(f"Server error: {e}")
         raise
+    finally:
+        # Always attempt graceful shutdown
+        await shutdown()
 
 
 def run():
