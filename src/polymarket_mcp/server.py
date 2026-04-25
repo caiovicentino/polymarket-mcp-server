@@ -265,7 +265,7 @@ async def call_tool(name: str, arguments: Dict[str, Any]) -> list[types.TextCont
             "success": False,
             "error": str(e),
             "tool": name,
-            "arguments": arguments
+            "arguments_count": len(arguments) if isinstance(arguments, dict) else 0
         }
         return [
             types.TextContent(
