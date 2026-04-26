@@ -7,31 +7,69 @@ import sys
 sys.path.insert(0, 'src')
 
 import asyncio
-import httpx
 import json
 from datetime import datetime
+from typing import Any
 
-async def get_top_markets_with_analysis():
+import httpx
+
+
+REQUEST_TIMEOUT_SECONDS = 30.0
+MAX_RETRIES = 3
+RETRYABLE_STATUS_CODES = {408, 429, 500, 502, 503, 504}
+
+
+async def _get_json_with_retries(
+    client: httpx.AsyncClient,
+    url: str,
+    *,
+    params: dict[str, Any] | None = None,
+    retries: int = MAX_RETRIES,
+) -> Any:
+    """Fetch JSON data with retry handling for transient HTTP failures."""
+    last_error: Exception | None = None
+
+    for attempt in range(1, retries + 1):
+        try:
+            response = await client.get(url, params=params)
+            if response.status_code in RETRYABLE_STATUS_CODES:
+                response.raise_for_status()
+            response.raise_for_status()
+            return response.json()
+        except (httpx.HTTPError, ValueError) as exc:
+            last_error = exc
+            if attempt == retries:
+                break
+            await asyncio.sleep(0.5 * attempt)
+
+    raise RuntimeError(f"Failed to fetch JSON from {url}") from last_error
+
+
+async def get_top_markets_with_analysis() -> None:
     """Busca e analisa os top 10 markets"""
 
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("📊 TOP 10 MARKETS DA POLYMARKET - ANÁLISE COMPLETA DE INVESTIMENTO")
-    print("="*80)
+    print("=" * 80)
     print(f"📅 Data: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS) as client:
         # Buscar top markets por volume
         print("🔍 Buscando markets com maior volume...\n")
-        response = await client.get(
-            'https://gamma-api.polymarket.com/markets',
-            params={
-                'limit': 15,
-                'closed': 'false',
-                'order': 'volume24hr',
-                'ascending': 'false'
-            }
-        )
-        markets = response.json()
+        try:
+            markets = await _get_json_with_retries(
+                client,
+                'https://gamma-api.polymarket.com/markets',
+                params={
+                    'limit': 15,
+                    'closed': 'false',
+                    'order': 'volume24hr',
+                    'ascending': 'false'
+                },
+            )
+        except RuntimeError as exc:
+            print(f"❌ Erro ao buscar markets: {exc}")
+            return
 
         # Filtrar markets com dados válidos (usando clobTokenIds)
         valid_markets = [m for m in markets if m.get('clobTokenIds') and len(m.get('clobTokenIds', '').split(',')) > 0][:10]
@@ -67,11 +105,11 @@ async def get_top_markets_with_analysis():
             if token_id:
                 try:
                     # Get orderbook
-                    book_response = await client.get(
-                        f'https://clob.polymarket.com/book',
-                        params={'token_id': token_id}
+                    book = await _get_json_with_retries(
+                        client,
+                        'https://clob.polymarket.com/book',
+                        params={'token_id': token_id},
                     )
-                    book = book_response.json()
 
                     bids = book.get('bids', [])
                     asks = book.get('asks', [])
@@ -86,7 +124,7 @@ async def get_top_markets_with_analysis():
                         bid_depth = sum(float(b.get('size', 0)) for b in bids[:5])
                         ask_depth = sum(float(a.get('size', 0)) for a in asks[:5])
                         depth_score = min(bid_depth, ask_depth)
-                except:
+                except RuntimeError:
                     pass
 
             # Calculate metrics
@@ -118,17 +156,17 @@ async def get_top_markets_with_analysis():
             })
 
             # Print market info
-            print(f"{'='*80}")
+            print(f"{'=' * 80}")
             print(f"#{i} - {question}")
-            print(f"{'='*80}")
+            print(f"{'=' * 80}")
             print(f"\n💰 MÉTRICAS FINANCEIRAS:")
             print(f"   Volume 24h: ${volume_24h:,.0f}")
             print(f"   Liquidez: ${liquidity:,.0f}")
             print(f"   Profundidade Orderbook: {depth_score:.0f} contratos")
 
             print(f"\n📈 PREÇOS ATUAIS:")
-            print(f"   YES: ${yes_price:.4f} ({yes_price*100:.1f}%)")
-            print(f"   NO:  ${no_price:.4f} ({no_price*100:.1f}%)")
+            print(f"   YES: ${yes_price:.4f} ({yes_price * 100:.1f}%)")
+            print(f"   NO:  ${no_price:.4f} ({no_price * 100:.1f}%)")
             if best_bid > 0 and best_ask > 0:
                 print(f"   Melhor Bid: ${best_bid:.4f}")
                 print(f"   Melhor Ask: ${best_ask:.4f}")
@@ -153,9 +191,9 @@ async def get_top_markets_with_analysis():
             await asyncio.sleep(0.5)  # Rate limiting
 
         # Summary and recommendations
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("🏆 RESUMO E RECOMENDAÇÕES FINAIS")
-        print("="*80)
+        print("=" * 80)
 
         # Rank by investment score
         buy_recommendations = [a for a in analyses if a['recommendation'] == 'BUY']
@@ -187,9 +225,9 @@ async def get_top_markets_with_analysis():
                 print()
 
         # Portfolio diversification suggestion
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("💼 SUGESTÃO DE PORTFÓLIO DIVERSIFICADO")
-        print("="*80)
+        print("=" * 80)
 
         if buy_recommendations:
             print("\n📊 Para um portfolio de $1,000:")
@@ -200,7 +238,7 @@ async def get_top_markets_with_analysis():
 
             for rec, allocation in zip(top_3, allocations):
                 amount = 1000 * allocation
-                print(f"• ${amount:.0f} ({allocation*100:.0f}%) - {rec['question'][:55]}...")
+                print(f"• ${amount:.0f} ({allocation * 100:.0f}%) - {rec['question'][:55]}...")
                 print(f"  Lado: {rec['side']} @ ${rec['entry_price']:.4f}")
                 print()
 
@@ -208,6 +246,7 @@ async def get_top_markets_with_analysis():
             print("  • Diversificação entre diferentes categorias")
             print("  • Balanceamento entre risco e retorno")
             print("  • Liquidez suficiente para saída rápida")
+
 
 def analyze_market(question, volume_24h, liquidity, yes_price, no_price,
                    spread_pct, depth_score, best_bid, best_ask):
@@ -341,6 +380,7 @@ def analyze_market(question, volume_24h, liquidity, yes_price, no_price,
         'strategy': strategy
     }
 
+
 def get_recommendation_emoji(rec):
     if rec == "BUY":
         return "🟢"
@@ -349,6 +389,7 @@ def get_recommendation_emoji(rec):
     else:
         return "🔴"
 
+
 def get_risk_emoji(risk):
     if risk == "BAIXO":
         return "🟢"
@@ -356,6 +397,7 @@ def get_risk_emoji(risk):
         return "🟡"
     else:
         return "🔴"
+
 
 if __name__ == "__main__":
     asyncio.run(get_top_markets_with_analysis())
