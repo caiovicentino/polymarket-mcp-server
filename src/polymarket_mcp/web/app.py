@@ -11,6 +11,7 @@ Provides web UI for:
 import asyncio
 import json
 import logging
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, Optional
@@ -32,11 +33,28 @@ from ..tools import market_discovery, market_analysis
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan: load config on startup, close websockets on shutdown."""
+    await load_mcp_config()
+    logger.info("Polymarket MCP Dashboard started")
+    try:
+        yield
+    finally:
+        for ws in active_websockets:
+            try:
+                await ws.close()
+            except Exception:
+                pass
+        logger.info("Dashboard shutdown complete")
+
+
 # Initialize FastAPI app
 app = FastAPI(
     title="Polymarket MCP Dashboard",
     description="Web dashboard for Polymarket MCP Server",
-    version="0.1.0"
+    version="0.1.0",
+    lifespan=lifespan,
 )
 
 # Template and static file directories
@@ -104,22 +122,6 @@ async def load_mcp_config():
         logger.warning("Dashboard running without MCP connection")
 
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize dashboard on startup"""
-    await load_mcp_config()
-    logger.info("Polymarket MCP Dashboard started")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Cleanup on shutdown"""
-    # Close all websockets
-    for ws in active_websockets:
-        await ws.close()
-    logger.info("Dashboard shutdown complete")
-
-
 # ============================================================================
 # HTML Pages
 # ============================================================================
@@ -141,12 +143,15 @@ async def dashboard_home(request: Request):
         "tools_available": 45 if (client and client.has_api_credentials()) else 25,
     }
 
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "mcp_status": mcp_status,
-        "stats": stats,
-        "uptime": str(uptime).split('.')[0],  # Remove microseconds
-    })
+    return templates.TemplateResponse(
+        request,
+        "index.html",
+        {
+            "mcp_status": mcp_status,
+            "stats": stats,
+            "uptime": str(uptime).split('.')[0],  # Remove microseconds
+        },
+    )
 
 
 @app.get("/config", response_class=HTMLResponse)
@@ -176,10 +181,11 @@ async def config_page(request: Request):
             "has_api_credentials": client.has_api_credentials() if client else False,
         }
 
-    return templates.TemplateResponse("config.html", {
-        "request": request,
-        "config": current_config,
-    })
+    return templates.TemplateResponse(
+        request,
+        "config.html",
+        {"config": current_config},
+    )
 
 
 @app.get("/markets", response_class=HTMLResponse)
@@ -187,9 +193,7 @@ async def markets_page(request: Request):
     """Markets discovery and analysis page"""
     stats["requests_total"] += 1
 
-    return templates.TemplateResponse("markets.html", {
-        "request": request,
-    })
+    return templates.TemplateResponse(request, "markets.html")
 
 
 @app.get("/monitoring", response_class=HTMLResponse)
@@ -212,12 +216,15 @@ async def monitoring_page(request: Request):
         "uptime": str(datetime.now() - stats["uptime_start"]).split('.')[0],
     }
 
-    return templates.TemplateResponse("monitoring.html", {
-        "request": request,
-        "stats": stats,
-        "rate_status": rate_status,
-        "system_info": system_info,
-    })
+    return templates.TemplateResponse(
+        request,
+        "monitoring.html",
+        {
+            "stats": stats,
+            "rate_status": rate_status,
+            "system_info": system_info,
+        },
+    )
 
 
 # ============================================================================
