@@ -561,3 +561,5 @@ The authors and contributors are not responsible for any financial losses incurr
 [⭐ Star this repo](https://github.com/caiovicentino/polymarket-mcp-server) | [🐛 Report Bug](https://github.com/caiovicentino/polymarket-mcp-server/issues) | [✨ Request Feature](https://github.com/caiovicentino/polymarket-mcp-server/issues)
 
 </div>
+
+- [EventTrader MCP Server](https://github.com/eventtrader/event-trader-mcp) — MCP server for AI prediction market trading. Pre-launch TGE token price predictions, CLOB exchange, 10 AI agents. [Agent Card](https://cymetica.com/.well-known/agent.json) | [Platform](https://cymetica.com/tge-launch)
