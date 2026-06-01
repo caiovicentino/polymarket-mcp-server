@@ -85,6 +85,68 @@ async def _fetch_gamma_markets(
         raise
 
 
+def _flatten_public_search_markets(
+    data: Dict[str, Any],
+    limit: Optional[int] = None
+) -> List[Dict[str, Any]]:
+    """Flatten /public-search event results into a market list."""
+    markets = []
+
+    for event in data.get("events") or []:
+        for market in event.get("markets") or []:
+            markets.append(market)
+            if limit and len(markets) >= limit:
+                return markets
+
+    return markets
+
+
+async def _search_gamma_markets(
+    query: str,
+    params: Optional[Dict[str, Any]] = None,
+    limit: Optional[int] = None
+) -> List[Dict[str, Any]]:
+    """
+    Search markets using Gamma's public search endpoint.
+
+    /markets does not apply free-text query parameters, so using it for search
+    returns the default listing regardless of the requested query.
+    """
+    rate_limiter = get_rate_limiter()
+
+    await rate_limiter.acquire(EndpointCategory.GAMMA_API)
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            search_params = {
+                "q": query,
+                "events_status": "active",
+                "keep_closed_markets": 0,
+            }
+
+            if limit:
+                search_params["limit_per_type"] = limit
+
+            if params:
+                search_params.update(params)
+
+            url = f"{GAMMA_API_URL}/public-search"
+            logger.debug(f"Searching markets from {url} with params: {search_params}")
+
+            response = await client.get(url, params=search_params)
+            response.raise_for_status()
+
+            data = response.json()
+            return _flatten_public_search_markets(data, limit)
+
+    except httpx.HTTPError as e:
+        logger.error(f"HTTP error searching markets: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"Error searching markets: {e}")
+        raise
+
+
 async def search_markets(
     query: str,
     limit: int = 20,
@@ -103,12 +165,12 @@ async def search_markets(
     """
     try:
         # Fetch markets with search — default to active, non-closed markets
-        params = {"query": query, "active": "true", "closed": "false"}
+        params = {}
 
         if filters:
             params.update(filters)
 
-        markets = await _fetch_gamma_markets("/markets", params, limit)
+        markets = await _search_gamma_markets(query, params, limit)
 
         logger.info(f"Found {len(markets)} markets for query: {query}")
         return markets
@@ -316,7 +378,6 @@ async def get_closing_soon_markets(
     try:
         # Calculate cutoff time
         cutoff_time = datetime.utcnow() + timedelta(hours=hours)
-        cutoff_timestamp = int(cutoff_time.timestamp())
 
         # Fetch active, non-closed markets
         markets = await _fetch_gamma_markets("/markets", {"active": "true", "closed": "false"}, limit=100)

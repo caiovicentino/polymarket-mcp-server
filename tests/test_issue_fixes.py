@@ -6,9 +6,7 @@ Tests for GitHub issue fixes (#2, #6, #10).
 - Issue #2: Market discovery must filter out closed/expired markets
 """
 import pytest
-import logging
-import importlib
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, patch
 from datetime import datetime, timedelta
 
 
@@ -22,7 +20,6 @@ class TestCredentialMasking:
     def test_server_logs_truncated_key(self):
         """Credentials should be logged at DEBUG with only first 8 chars."""
         import polymarket_mcp.server as server_module
-        source = importlib.util.find_spec("polymarket_mcp.server")
         import inspect
         source_code = inspect.getsource(server_module)
 
@@ -121,19 +118,30 @@ class TestMarketFiltering:
     """Verify that market discovery functions filter out old/closed markets."""
 
     @pytest.mark.asyncio
-    async def test_search_markets_sends_active_and_closed_params(self):
-        """search_markets must include active=true and closed=false."""
+    async def test_search_markets_uses_public_search_endpoint(self):
+        """search_markets must use Gamma's public search endpoint."""
         from polymarket_mcp.tools import market_discovery
 
-        with patch.object(market_discovery, "_fetch_gamma_markets", new_callable=AsyncMock) as mock_fetch:
+        with patch.object(market_discovery, "_search_gamma_markets", new_callable=AsyncMock) as mock_fetch:
             mock_fetch.return_value = []
             await market_discovery.search_markets("test", limit=5)
 
-            mock_fetch.assert_called_once()
-            call_args = mock_fetch.call_args
-            params = call_args[0][1] if len(call_args[0]) > 1 else call_args[1].get("params", {})
-            assert params.get("active") == "true", "search_markets must set active=true"
-            assert params.get("closed") == "false", "search_markets must set closed=false"
+            mock_fetch.assert_awaited_once_with("test", {}, 5)
+
+    def test_public_search_flattens_event_markets(self):
+        """public-search event results should be returned as a flat market list."""
+        from polymarket_mcp.tools import market_discovery
+
+        data = {
+            "events": [
+                {"title": "Bitcoin", "markets": [{"question": "BTC above 100k?"}]},
+                {"title": "Ethereum", "markets": [{"question": "ETH above 4k?"}]},
+            ]
+        }
+
+        results = market_discovery._flatten_public_search_markets(data, limit=1)
+
+        assert results == [{"question": "BTC above 100k?"}]
 
     @pytest.mark.asyncio
     async def test_get_trending_markets_sends_active_and_closed_params(self):
