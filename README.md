@@ -552,6 +552,14 @@ The authors and contributors are not responsible for any financial losses incurr
 
 ---
 
+## 🌟 Contributors
+
+Thanks to everyone who has contributed to this project!
+
+[![Contributors](https://contrib.rocks/image?repo=caiovicentino/polymarket-mcp-server)](https://github.com/caiovicentino/polymarket-mcp-server/graphs/contributors)
+
+---
+
 <div align="center">
 
 **Built with ❤️ for autonomous AI trading on Polymarket**
