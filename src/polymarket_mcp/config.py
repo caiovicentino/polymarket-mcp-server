@@ -50,6 +50,10 @@ class PolymarketConfig(BaseSettings):
         default=None,
         description="API key passphrase"
     )
+    POLYMARKET_API_SECRET: Optional[str] = Field(
+        default=None,
+        description="L2 API secret for WebSocket authentication (falls back to passphrase)"
+    )
     POLYMARKET_API_KEY_NAME: Optional[str] = Field(
         default=None,
         description="API key name/identifier"

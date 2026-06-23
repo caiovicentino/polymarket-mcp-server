@@ -255,7 +255,7 @@ async def call_tool(name: str, arguments: Dict[str, Any]) -> list[types.TextCont
                 name,
                 arguments,
                 polymarket_client,
-                safety_limits,
+                get_rate_limiter(),
                 config
             )
 
@@ -400,8 +400,18 @@ async def initialize_server() -> None:
         # Initialize WebSocket manager
         logger.info("Initializing WebSocket manager...")
         websocket_manager = WebSocketManager(config)
-        # Connect WebSocket (non-blocking)
-        asyncio.create_task(websocket_manager.connect())
+
+        # Connect WebSocket AND start the message-processing loop (non-blocking). Previously
+        # only connect() was scheduled, so the background loop that receives messages never
+        # started (issue #13).
+        async def _init_websocket():
+            try:
+                await websocket_manager.connect()
+                await websocket_manager.start_background_task()
+            except Exception as e:
+                logger.warning(f"WebSocket init failed (real-time tools unavailable): {e}")
+
+        asyncio.create_task(_init_websocket())
         logger.info("WebSocket manager initialized with 7 real-time tools")
 
         logger.info("Server initialization complete!")

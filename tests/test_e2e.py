@@ -429,7 +429,10 @@ class TestInstallationFlow:
         assert pyproject.exists()
 
         # Try to parse it
-        import tomllib if hasattr(__builtins__, 'tomllib') else None
+        try:
+            import tomllib
+        except ImportError:
+            tomllib = None
         if tomllib:
             with open(pyproject, 'rb') as f:
                 data = tomllib.load(f)

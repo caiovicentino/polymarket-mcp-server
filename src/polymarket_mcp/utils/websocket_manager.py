@@ -260,7 +260,8 @@ class WebSocketManager:
             auth_message = {
                 "auth": {
                     "apiKey": self.config.POLYMARKET_API_KEY,
-                    "secret": self.config.POLYMARKET_PASSPHRASE,
+                    "secret": (self.config.POLYMARKET_API_SECRET
+                               or self.config.POLYMARKET_PASSPHRASE),
                     "passphrase": self.config.POLYMARKET_PASSPHRASE
                 }
             }
@@ -792,33 +793,40 @@ class WebSocketManager:
         """
         logger.info("Background WebSocket loop started")
 
+        clob_task = None
+        realtime_task = None
         while self.should_run:
             try:
                 # Ensure connections are active
                 if not self.clob_connected or not self.realtime_connected:
+                    for _t in (clob_task, realtime_task):
+                        if _t is not None and not _t.done():
+                            _t.cancel()
+                    clob_task = realtime_task = None
                     await self.reconnect()
                     continue
 
-                # Process messages from both WebSockets
-                tasks = []
+                # Process both channels concurrently with persistent per-channel receive
+                # tasks. We NEVER cancel an in-flight recv(): the old FIRST_COMPLETED +
+                # cancel-pending logic starved whichever channel was quieter (issue #13).
+                if (self.clob_ws and not self.clob_ws.closed
+                        and (clob_task is None or clob_task.done())):
+                    clob_task = asyncio.create_task(self._receive_clob_messages())
+                if (self.realtime_ws and not self.realtime_ws.closed
+                        and (realtime_task is None or realtime_task.done())):
+                    realtime_task = asyncio.create_task(self._receive_realtime_messages())
 
-                if self.clob_ws and not self.clob_ws.closed:
-                    tasks.append(self._receive_clob_messages())
-
-                if self.realtime_ws and not self.realtime_ws.closed:
-                    tasks.append(self._receive_realtime_messages())
-
-                if tasks:
-                    # Wait for any message or timeout
-                    done, pending = await asyncio.wait(
-                        tasks,
+                pending = {t for t in (clob_task, realtime_task) if t is not None}
+                if pending:
+                    done, _ = await asyncio.wait(
+                        pending,
                         timeout=1.0,
                         return_when=asyncio.FIRST_COMPLETED
                     )
-
-                    # Cancel pending tasks
-                    for task in pending:
-                        task.cancel()
+                    # Surface receiver exceptions (e.g. ConnectionClosed) to trigger reconnect.
+                    for task in done:
+                        if task.exception() is not None:
+                            raise task.exception()
                 else:
                     await asyncio.sleep(1.0)
 
