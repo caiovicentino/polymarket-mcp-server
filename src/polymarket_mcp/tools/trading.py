@@ -5,6 +5,7 @@ Implements 12 comprehensive tools for order management and smart trading.
 import asyncio
 import json
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional, Tuple
 import mcp.types as types
@@ -364,7 +365,8 @@ class TradingTools:
 
     async def create_batch_orders(
         self,
-        orders: List[Dict[str, Any]]
+        orders: List[Dict[str, Any]],
+        confirm: bool = False
     ) -> Dict[str, Any]:
         """
         Submit multiple orders in batch.
@@ -377,6 +379,8 @@ class TradingTools:
                 - size (float)
                 - order_type (str, optional)
                 - expiration (int, optional)
+                - outcome (str, optional): 'YES'/'NO' or exact label
+            confirm: Must be True to execute orders that require confirmation.
 
         Returns:
             Dict with results for each order
@@ -399,7 +403,9 @@ class TradingTools:
                         price=order['price'],
                         size=order['size'],
                         order_type=order.get('order_type', 'GTC'),
-                        expiration=order.get('expiration')
+                        expiration=order.get('expiration'),
+                        outcome=order.get('outcome'),
+                        confirm=confirm
                     )
 
                     results.append({
@@ -445,7 +451,8 @@ class TradingTools:
         market_id: str,
         side: str,
         size: float,
-        strategy: str = 'mid'
+        strategy: str = 'mid',
+        outcome: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         AI suggests optimal price for order.
@@ -455,6 +462,7 @@ class TradingTools:
             side: 'BUY' or 'SELL'
             size: Order size in USD
             strategy: 'aggressive'|'passive'|'mid'
+            outcome: Outcome to price ('YES'/'NO' or exact label). Defaults to YES.
 
         Returns:
             Dict with suggested price and reasoning
@@ -464,11 +472,7 @@ class TradingTools:
 
             # Get market data
             market = await self.client.get_market(market_id)
-            tokens = market.get('tokens', [])
-            if not tokens:
-                raise ValueError(f"No tokens found for market {market_id}")
-
-            token_id = tokens[0]['token_id']
+            token_id, _ = self._select_token(market, outcome)
             orderbook = await self.client.get_orderbook(token_id)
 
             # Parse orderbook
@@ -866,7 +870,9 @@ class TradingTools:
         self,
         market_id: str,
         intent: str,
-        max_budget: float
+        max_budget: float,
+        outcome: Optional[str] = None,
+        confirm: bool = False
     ) -> Dict[str, Any]:
         """
         AI-powered trade execution with natural language intent.
@@ -877,6 +883,9 @@ class TradingTools:
             market_id: Market condition ID
             intent: Natural language intent (e.g., "Buy YES at good price up to $100")
             max_budget: Maximum budget in USD
+            outcome: Outcome to trade ('YES'/'NO' or exact label). If None, inferred
+                     from the intent text (defaults to YES).
+            confirm: Must be True to execute orders that require confirmation.
 
         Returns:
             Dict with execution summary
@@ -895,6 +904,13 @@ class TradingTools:
             else:
                 raise ValueError("Cannot determine BUY or SELL from intent")
 
+            # Determine outcome (explicit param wins; else infer from intent words).
+            if not outcome:
+                if re.search(r'\bno\b', intent_lower):
+                    outcome = 'NO'
+                elif re.search(r'\byes\b', intent_lower):
+                    outcome = 'YES'
+
             # Determine strategy
             if any(word in intent_lower for word in ['fast', 'quick', 'now', 'immediately']):
                 strategy = 'aggressive'
@@ -903,12 +919,13 @@ class TradingTools:
             else:
                 strategy = 'mid'
 
-            # Get price suggestion
+            # Get price suggestion (for the chosen outcome)
             price_suggestion = await self.suggest_order_price(
                 market_id=market_id,
                 side=side,
                 size=max_budget,
-                strategy=strategy
+                strategy=strategy,
+                outcome=outcome
             )
 
             if not price_suggestion.get('success'):
@@ -954,7 +971,9 @@ class TradingTools:
                     result = await self.create_market_order(
                         market_id=market_id,
                         side=side,
-                        size=plan['size']
+                        size=plan['size'],
+                        outcome=outcome,
+                        confirm=confirm
                     )
                 else:
                     result = await self.create_limit_order(
@@ -962,7 +981,9 @@ class TradingTools:
                         side=side,
                         price=plan['price'],
                         size=plan['size'],
-                        order_type='GTC'
+                        order_type='GTC',
+                        outcome=outcome,
+                        confirm=confirm
                     )
 
                 executed_orders.append(result)
@@ -1000,7 +1021,9 @@ class TradingTools:
         self,
         market_id: str,
         target_size: Optional[float] = None,
-        max_slippage: float = 0.02
+        max_slippage: float = 0.02,
+        outcome: Optional[str] = None,
+        confirm: bool = False
     ) -> Dict[str, Any]:
         """
         Adjust position to target size (or close if target_size is None).
@@ -1009,6 +1032,8 @@ class TradingTools:
             market_id: Market condition ID
             target_size: Target position size in USD (None to close)
             max_slippage: Maximum acceptable slippage (default 2%)
+            outcome: Outcome to rebalance ('YES'/'NO' or exact label). Defaults to YES.
+            confirm: Must be True to execute when confirmation is required.
 
         Returns:
             Dict with rebalance summary
@@ -1054,11 +1079,7 @@ class TradingTools:
 
             # Get market data for slippage check
             market = await self.client.get_market(market_id)
-            tokens = market.get('tokens', [])
-            if not tokens:
-                raise ValueError(f"No tokens found for market {market_id}")
-
-            token_id = tokens[0]['token_id']
+            token_id, _ = self._select_token(market, outcome)
             orderbook = await self.client.get_orderbook(token_id)
 
             bids = orderbook.get('bids', [])
@@ -1094,7 +1115,9 @@ class TradingTools:
                 side=side,
                 price=expected_price,
                 size=size,
-                order_type='GTC'
+                order_type='GTC',
+                outcome=outcome,
+                confirm=confirm
             )
 
             return {
@@ -1266,11 +1289,17 @@ def get_tool_definitions() -> List[types.Tool]:
                                 "price": {"type": "number"},
                                 "size": {"type": "number"},
                                 "order_type": {"type": "string"},
-                                "expiration": {"type": "integer"}
+                                "expiration": {"type": "integer"},
+                                "outcome": {"type": "string", "description": "YES/NO or exact label"}
                             },
                             "required": ["market_id", "side", "price", "size"]
                         },
                         "description": "List of orders to submit"
+                    },
+                    "confirm": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": "Must be true to execute orders that require confirmation."
                     }
                 },
                 "required": ["orders"]
@@ -1303,6 +1332,10 @@ def get_tool_definitions() -> List[types.Tool]:
                         "enum": ["aggressive", "passive", "mid"],
                         "default": "mid",
                         "description": "Pricing strategy"
+                    },
+                    "outcome": {
+                        "type": "string",
+                        "description": "Outcome to price: 'YES'/'NO' or exact label. Defaults to YES."
                     }
                 },
                 "required": ["market_id", "side", "size"]
@@ -1426,6 +1459,15 @@ def get_tool_definitions() -> List[types.Tool]:
                     "max_budget": {
                         "type": "number",
                         "description": "Maximum budget in USD"
+                    },
+                    "outcome": {
+                        "type": "string",
+                        "description": "Outcome to trade: 'YES'/'NO' or exact label. If omitted, inferred from intent."
+                    },
+                    "confirm": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": "Must be true to execute orders that require confirmation."
                     }
                 },
                 "required": ["market_id", "intent", "max_budget"]
@@ -1452,6 +1494,15 @@ def get_tool_definitions() -> List[types.Tool]:
                         "type": "number",
                         "default": 0.02,
                         "description": "Maximum acceptable slippage (0.02 = 2%)"
+                    },
+                    "outcome": {
+                        "type": "string",
+                        "description": "Outcome to rebalance: 'YES'/'NO' or exact label. Defaults to YES."
+                    },
+                    "confirm": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": "Must be true to execute when confirmation is required."
                     }
                 },
                 "required": ["market_id"]

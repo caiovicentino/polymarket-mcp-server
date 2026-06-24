@@ -116,9 +116,58 @@ def test_autonomous_small_order_no_confirm_needed():
     print("PASS test_autonomous_small_order_no_confirm_needed")
 
 
+def test_batch_gated_then_confirmed():
+    """Batch orders honor the gate: blocked without confirm, posted with confirm."""
+    tools, client = _make_tools(autonomous=False)
+    orders = [{"market_id": "0xM", "side": "BUY", "price": 0.5, "size": 10, "outcome": "NO"}]
+    blocked = asyncio.run(tools.create_batch_orders(orders))
+    assert client.post_calls == [], "batch must not post without confirm"
+    assert blocked["results"][0]["success"] is False
+    ok = asyncio.run(tools.create_batch_orders(orders, confirm=True))
+    assert ok["successful"] == 1, ok
+    assert client.post_calls[0]["token_id"] == "tok_no"
+    print("PASS test_batch_gated_then_confirmed")
+
+
+def test_rebalance_outcome_and_gate():
+    """Rebalance selects the requested outcome and respects the gate."""
+    tools, client = _make_tools(autonomous=False)
+    blocked = asyncio.run(tools.rebalance_position(
+        market_id="0xM", target_size=50, outcome="NO"
+    ))
+    assert client.post_calls == [], "rebalance must not post without confirm"
+    assert blocked["order_result"]["status"] == "confirmation_required"
+    ok = asyncio.run(tools.rebalance_position(
+        market_id="0xM", target_size=50, outcome="NO", confirm=True
+    ))
+    assert ok["success"] is True, ok
+    assert client.post_calls[0]["token_id"] == "tok_no"
+    print("PASS test_rebalance_outcome_and_gate")
+
+
+def test_smart_trade_infers_no_and_gates():
+    """Smart trade infers NO from intent text and does not post without confirm."""
+    tools, client = _make_tools(autonomous=False)
+    blocked = asyncio.run(tools.execute_smart_trade(
+        market_id="0xM", intent="Buy NO now", max_budget=20
+    ))
+    assert client.post_calls == [], "smart trade must not post without confirm"
+    # With confirm, it should post the NO token.
+    tools2, client2 = _make_tools(autonomous=False)
+    asyncio.run(tools2.execute_smart_trade(
+        market_id="0xM", intent="Buy NO now", max_budget=20, confirm=True
+    ))
+    assert client2.post_calls, "smart trade should post with confirm"
+    assert all(c["token_id"] == "tok_no" for c in client2.post_calls), client2.post_calls
+    print("PASS test_smart_trade_infers_no_and_gates")
+
+
 if __name__ == "__main__":
     test_select_token()
     test_confirmation_blocks_without_confirm()
     test_confirm_true_executes_and_uses_no_token()
     test_autonomous_small_order_no_confirm_needed()
+    test_batch_gated_then_confirmed()
+    test_rebalance_outcome_and_gate()
+    test_smart_trade_infers_no_and_gates()
     print("\nALL SAFETY-FIX TESTS PASSED")
