@@ -44,6 +44,51 @@ class TradingTools:
         self.config = config
         self.rate_limiter = get_rate_limiter()
 
+    # ========== HELPERS ==========
+
+    @staticmethod
+    def _select_token(market: Dict[str, Any], outcome: Optional[str]) -> Tuple[str, str]:
+        """
+        Select the correct outcome token from a binary/multi-outcome market.
+
+        Args:
+            market: Market dict containing a 'tokens' list (each with token_id/outcome).
+            outcome: Desired outcome label (e.g. 'YES'/'NO', or the exact outcome string).
+                     If None, defaults to the first outcome (typically YES).
+
+        Returns:
+            Tuple of (token_id, resolved_outcome_label).
+
+        Raises:
+            ValueError: If no tokens exist or the requested outcome is not found.
+        """
+        tokens = market.get('tokens', [])
+        if not tokens:
+            raise ValueError("No tokens found for market")
+
+        # Default: first outcome (typically YES) - preserves legacy behavior.
+        if not outcome:
+            first = tokens[0]
+            return first['token_id'], str(first.get('outcome', 'YES'))
+
+        target = outcome.strip().lower()
+
+        # 1) Exact match on the outcome label.
+        for t in tokens:
+            if str(t.get('outcome', '')).strip().lower() == target:
+                return t['token_id'], str(t.get('outcome', outcome))
+
+        # 2) Common aliases mapped to conventional index (YES=0, NO=1).
+        if target in ('yes', 'true', '1') and len(tokens) >= 1:
+            return tokens[0]['token_id'], str(tokens[0].get('outcome', 'YES'))
+        if target in ('no', 'false', '0') and len(tokens) >= 2:
+            return tokens[1]['token_id'], str(tokens[1].get('outcome', 'NO'))
+
+        available = [str(t.get('outcome', '?')) for t in tokens]
+        raise ValueError(
+            f"Outcome '{outcome}' not found in market. Available outcomes: {available}"
+        )
+
     # ========== ORDER CREATION TOOLS ==========
 
     async def create_limit_order(
@@ -53,7 +98,9 @@ class TradingTools:
         price: float,
         size: float,
         order_type: str = "GTC",
-        expiration: Optional[int] = None
+        expiration: Optional[int] = None,
+        outcome: Optional[str] = None,
+        confirm: bool = False
     ) -> Dict[str, Any]:
         """
         Create a limit order on Polymarket.
@@ -98,13 +145,9 @@ class TradingTools:
             logger.info(f"Fetching market data for {market_id}")
             market = await self.client.get_market(market_id)
 
-            # Get token ID (YES token for BUY, NO token for SELL on yes side typically)
-            # For simplicity, use first token. In production, implement proper token selection
-            tokens = market.get('tokens', [])
-            if not tokens:
-                raise ValueError(f"No tokens found for market {market_id}")
-
-            token_id = tokens[0]['token_id']
+            # Select the correct outcome token (YES/NO/...) instead of blindly using tokens[0].
+            token_id, resolved_outcome = self._select_token(market, outcome)
+            logger.info(f"Selected outcome '{resolved_outcome}' (token {token_id}) for {market_id}")
 
             # Get orderbook for validation
             orderbook = await self.client.get_orderbook(token_id)
@@ -156,17 +199,40 @@ class TradingTools:
             if not is_valid:
                 raise ValueError(f"Safety check failed: {error_msg}")
 
-            # Check if confirmation required
+            # REAL confirmation gate (human-in-the-loop). If confirmation is required and
+            # the caller did not pass confirm=True, DO NOT place the order - return a
+            # pending response so the client/user can explicitly approve.
             if self.safety_limits.should_require_confirmation(
                 order_request,
                 self.config.ENABLE_AUTONOMOUS_TRADING
-            ):
-                logger.warning(
-                    f"Order requires confirmation: ${size:.2f} exceeds threshold "
-                    f"${self.config.REQUIRE_CONFIRMATION_ABOVE_USD:.2f}"
+            ) and not confirm:
+                reason = (
+                    "autonomous trading is disabled"
+                    if not self.config.ENABLE_AUTONOMOUS_TRADING
+                    else (
+                        f"order size ${size:.2f} exceeds confirmation threshold "
+                        f"${self.config.REQUIRE_CONFIRMATION_ABOVE_USD:.2f}"
+                    )
                 )
-                # In autonomous mode, we proceed with logging
-                # In interactive mode, this would prompt the user
+                logger.warning(f"Order NOT placed - confirmation required ({reason})")
+                return {
+                    "success": False,
+                    "status": "confirmation_required",
+                    "requires_confirmation": True,
+                    "message": (
+                        f"This order was NOT placed because {reason}. "
+                        f"Review the details and call again with confirm=true to execute."
+                    ),
+                    "pending_order": {
+                        "market_id": market_id,
+                        "outcome": resolved_outcome,
+                        "side": side,
+                        "price": price,
+                        "size_usd": size,
+                        "size_shares": size_in_shares,
+                        "order_type": order_type,
+                    }
+                }
 
             # Post order
             logger.info(
@@ -190,6 +256,7 @@ class TradingTools:
                 "details": {
                     "market_id": market_id,
                     "token_id": token_id,
+                    "outcome": resolved_outcome,
                     "side": side,
                     "price": price,
                     "size_shares": size_in_shares,
@@ -220,7 +287,9 @@ class TradingTools:
         self,
         market_id: str,
         side: str,
-        size: float
+        size: float,
+        outcome: Optional[str] = None,
+        confirm: bool = False
     ) -> Dict[str, Any]:
         """
         Execute market order at best available price (FOK).
@@ -229,6 +298,8 @@ class TradingTools:
             market_id: Market condition ID
             side: 'BUY' or 'SELL'
             size: Order size in USD
+            outcome: Outcome to trade ('YES'/'NO' or exact label). Defaults to YES.
+            confirm: Must be True to execute when confirmation is required.
 
         Returns:
             Dict with execution details
@@ -236,11 +307,9 @@ class TradingTools:
         try:
             # Get current best price
             market = await self.client.get_market(market_id)
-            tokens = market.get('tokens', [])
-            if not tokens:
-                raise ValueError(f"No tokens found for market {market_id}")
 
-            token_id = tokens[0]['token_id']
+            # Select the correct outcome token (not blindly tokens[0]).
+            token_id, resolved_outcome = self._select_token(market, outcome)
 
             # Get best price from orderbook
             orderbook = await self.client.get_orderbook(token_id)
@@ -263,13 +332,16 @@ class TradingTools:
                 f"Executing market order: {side} ${size} @ market price {best_price}"
             )
 
-            # Use FOK (Fill-Or-Kill) for market orders
+            # Use FOK (Fill-Or-Kill) for market orders. Pass outcome + confirm through so
+            # the real confirmation gate and outcome selection are honored.
             result = await self.create_limit_order(
                 market_id=market_id,
                 side=side,
                 price=best_price,
                 size=size,
-                order_type='FOK'
+                order_type='FOK',
+                outcome=resolved_outcome,
+                confirm=confirm
             )
 
             result['execution_type'] = 'market_order'
@@ -1124,6 +1196,15 @@ def get_tool_definitions() -> List[types.Tool]:
                     "expiration": {
                         "type": "integer",
                         "description": "Unix timestamp for GTD orders (optional)"
+                    },
+                    "outcome": {
+                        "type": "string",
+                        "description": "Outcome to trade: 'YES'/'NO' or the exact outcome label. Defaults to YES."
+                    },
+                    "confirm": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": "Must be true to execute when confirmation is required (large size or non-autonomous mode)."
                     }
                 },
                 "required": ["market_id", "side", "price", "size"]
@@ -1151,6 +1232,15 @@ def get_tool_definitions() -> List[types.Tool]:
                         "type": "number",
                         "minimum": 1,
                         "description": "Order size in USD"
+                    },
+                    "outcome": {
+                        "type": "string",
+                        "description": "Outcome to trade: 'YES'/'NO' or the exact outcome label. Defaults to YES."
+                    },
+                    "confirm": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": "Must be true to execute when confirmation is required (large size or non-autonomous mode)."
                     }
                 },
                 "required": ["market_id", "side", "size"]

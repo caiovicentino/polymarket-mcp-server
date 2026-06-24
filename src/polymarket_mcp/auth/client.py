@@ -57,11 +57,12 @@ class PolymarketClient:
         # L2 API credentials
         self.api_creds: Optional[ApiCreds] = None
         if api_key and (api_secret or passphrase):
-            secret = api_secret or passphrase
+            # api_secret (HMAC) and passphrase are DISTINCT fields. Fall back to the
+            # other only when one is missing (legacy single-value configs).
             self.api_creds = ApiCreds(
                 api_key=api_key,
-                api_secret=secret,
-                api_passphrase=secret
+                api_secret=api_secret or passphrase,
+                api_passphrase=passphrase or api_secret
             )
 
         # Initialize CLOB client

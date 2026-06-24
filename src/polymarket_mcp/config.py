@@ -46,6 +46,10 @@ class PolymarketConfig(BaseSettings):
         default=None,
         description="L2 API key for authenticated requests"
     )
+    POLYMARKET_API_SECRET: Optional[str] = Field(
+        default=None,
+        description="L2 API secret (HMAC). Distinct from passphrase. Auto-created if blank."
+    )
     POLYMARKET_PASSPHRASE: Optional[str] = Field(
         default=None,
         description="API key passphrase"
@@ -79,8 +83,12 @@ class PolymarketConfig(BaseSettings):
 
     # Trading Controls
     ENABLE_AUTONOMOUS_TRADING: bool = Field(
-        default=True,
-        description="Enable autonomous trading without confirmation"
+        default=False,
+        description=(
+            "Enable autonomous trading without per-order confirmation. "
+            "SAFE DEFAULT: False -> every order requires confirm=true. "
+            "When True, only orders above REQUIRE_CONFIRMATION_ABOVE_USD need confirm=true."
+        )
     )
     REQUIRE_CONFIRMATION_ABOVE_USD: float = Field(
         default=500.0,
@@ -205,6 +213,8 @@ class PolymarketConfig(BaseSettings):
             data["POLYGON_PRIVATE_KEY"] = "***HIDDEN***"
         if data.get("POLYMARKET_API_KEY"):
             data["POLYMARKET_API_KEY"] = "***HIDDEN***"
+        if data.get("POLYMARKET_API_SECRET"):
+            data["POLYMARKET_API_SECRET"] = "***HIDDEN***"
         if data.get("POLYMARKET_PASSPHRASE"):
             data["POLYMARKET_PASSPHRASE"] = "***HIDDEN***"
         return data
