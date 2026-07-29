@@ -18,6 +18,10 @@ from polymarket_mcp.config import load_config
 from polymarket_mcp.tools import TradingTools
 from polymarket_mcp.utils import create_safety_limits_from_config
 
+# These tests place real orders and need a funded wallet, so they are excluded
+# from CI via the real_api marker (see .github/workflows/tests.yml).
+pytestmark = pytest.mark.real_api
+
 # Test configuration
 TEST_MARKET_ID = None  # Will be populated from live markets
 TEST_ORDER_SIZE = 1.0  # $1 for safety

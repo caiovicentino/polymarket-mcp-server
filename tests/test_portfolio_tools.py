@@ -22,6 +22,11 @@ from polymarket_mcp.tools.portfolio import (
 )
 from polymarket_mcp.utils.rate_limiter import EndpointCategory, RateLimiter
 
+# These tests place real orders and need a funded wallet, so they are excluded
+# from CI via the real_api marker (see .github/workflows/tests.yml).
+pytestmark = pytest.mark.real_api
+
+
 
 @pytest.fixture
 def mock_config():
