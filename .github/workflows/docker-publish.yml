@@ -23,6 +23,11 @@ jobs:
     permissions:
       contents: read
       packages: write
+    # `secrets` cannot be read in `if`, so mirror it into env. Without Docker
+    # Hub credentials the image is still built (validating the Dockerfile) but
+    # nothing is pushed, instead of the whole job dying at the login step.
+    env:
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
 
     steps:
       - name: Checkout repository
@@ -37,7 +42,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to Docker Hub
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && env.DOCKER_USERNAME != ''
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
@@ -63,18 +68,18 @@ jobs:
           context: .
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
+          push: ${{ github.event_name != 'pull_request' && env.DOCKER_USERNAME != '' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           build-args: |
             VERSION=${{ steps.meta.outputs.version }}
             BUILD_DATE=${{ github.event.repository.updated_at }}
             VCS_REF=${{ github.sha }}
 
       - name: Scan image for vulnerabilities
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && env.DOCKER_USERNAME != ''
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
@@ -83,13 +88,13 @@ jobs:
           severity: 'CRITICAL,HIGH'
 
       - name: Upload Trivy scan results
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && env.DOCKER_USERNAME != ''
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: 'trivy-results.sarif'
 
       - name: Test Docker image
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && env.DOCKER_USERNAME != ''
         run: |
           docker run --rm \
             -e POLYGON_PRIVATE_KEY=test \
@@ -99,7 +104,7 @@ jobs:
             python -c "from polymarket_mcp.config import load_config; print('Config loaded successfully')"
 
       - name: Generate SBOM
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && env.DOCKER_USERNAME != ''
         uses: anchore/sbom-action@v0
         with:
           image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
@@ -107,7 +112,7 @@ jobs:
           output-file: sbom.spdx.json
 
       - name: Publish SBOM as artifact
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && env.DOCKER_USERNAME != ''
         uses: actions/upload-artifact@v7
         with:
           name: sbom

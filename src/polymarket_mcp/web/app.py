@@ -10,6 +10,7 @@ Provides web UI for:
 """
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
@@ -499,8 +500,25 @@ async def broadcast_update(message: dict):
 # Server Startup
 # ============================================================================
 
-def start(host: str = "0.0.0.0", port: int = 8080):
-    """Start the web dashboard server"""
+def start(host: str | None = None, port: int | None = None):
+    """
+    Start the web dashboard server.
+
+    Binds to loopback by default. The dashboard has no authentication and
+    POST /api/config can rewrite the trading safety limits, so exposing it on a
+    routable interface hands control of the wallet to anyone who can reach the
+    port. Override with WEB_HOST only on a trusted, isolated network.
+    """
+    host = host or os.getenv("WEB_HOST", "127.0.0.1")
+    port = port or int(os.getenv("WEB_PORT", "8080"))
+
+    if host not in ("127.0.0.1", "localhost", "::1"):
+        logger.warning(
+            f"Dashboard bound to {host}, not loopback. It has no authentication "
+            "and can change your safety limits - anyone who reaches this port "
+            "controls your trading configuration."
+        )
+
     logger.info(f"Starting Polymarket MCP Dashboard on http://{host}:{port}")
     uvicorn.run(app, host=host, port=port)
 

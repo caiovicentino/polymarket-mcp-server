@@ -67,7 +67,11 @@ class TestDependencyCompatibility:
         """fastapi must be pinned >=0.115.0 to support anyio>=4.5."""
         import pathlib
 
-        import tomllib
+        try:
+            import tomllib
+        except ImportError:
+            # tomllib landed in 3.11; the project supports 3.10.
+            pytest.skip("tomllib requires Python 3.11+")
 
         pyproject = pathlib.Path(__file__).parent.parent / "pyproject.toml"
         with open(pyproject, "rb") as f:
