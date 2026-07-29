@@ -991,15 +991,26 @@ class TradingTools:
                     total_executed_value += plan['size']
 
             successful_orders = [o for o in executed_orders if o.get('success')]
+            awaiting_confirmation = [
+                o for o in executed_orders
+                if o.get('status') == 'confirmation_required'
+            ]
 
-            return {
-                "success": True,
+            # Report the gate at the top level. Otherwise a caller sees
+            # success=True and assumes the trade went through when nothing did.
+            result = {
+                "success": bool(successful_orders),
                 "intent": intent,
                 "strategy": strategy,
                 "execution_summary": {
                     "total_orders": len(execution_plan),
                     "successful": len(successful_orders),
-                    "failed": len(executed_orders) - len(successful_orders),
+                    "awaiting_confirmation": len(awaiting_confirmation),
+                    "failed": (
+                        len(executed_orders)
+                        - len(successful_orders)
+                        - len(awaiting_confirmation)
+                    ),
                     "total_value": total_executed_value,
                     "budget_used": (total_executed_value / max_budget) * 100
                 },
@@ -1007,6 +1018,16 @@ class TradingTools:
                 "executed_orders": executed_orders,
                 "price_analysis": price_suggestion
             }
+
+            if awaiting_confirmation and not successful_orders:
+                result["status"] = "confirmation_required"
+                result["message"] = (
+                    f"No order was placed: {len(awaiting_confirmation)} of "
+                    f"{len(execution_plan)} require confirmation. Call again with "
+                    "confirm=true to execute."
+                )
+
+            return result
 
         except Exception as e:
             logger.error(f"Smart trade execution failed: {e}")

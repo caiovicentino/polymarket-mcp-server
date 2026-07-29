@@ -163,3 +163,40 @@ class TestConfirmPropagation:
         )
 
         assert client.posted[0]["token_id"] == "no-token"
+
+
+class TestSmartTradeReporting:
+    """A blocked smart trade must not report itself as a success."""
+
+    @pytest.mark.asyncio
+    async def test_blocked_smart_trade_reports_confirmation_required(self):
+        tools, client = build_tools(autonomous=True, threshold=1.0)
+
+        result = await tools.execute_smart_trade(
+            market_id="m1",
+            intent="buy quickly",
+            max_budget=500.0,
+            outcome="Yes",
+        )
+
+        assert client.posted == [], "no order should reach the exchange"
+        assert result["success"] is False
+        assert result["status"] == "confirmation_required"
+        assert result["execution_summary"]["successful"] == 0
+        assert result["execution_summary"]["awaiting_confirmation"] > 0
+
+    @pytest.mark.asyncio
+    async def test_confirmed_smart_trade_executes(self):
+        tools, client = build_tools(autonomous=True, threshold=1.0)
+
+        result = await tools.execute_smart_trade(
+            market_id="m1",
+            intent="buy quickly",
+            max_budget=500.0,
+            outcome="Yes",
+            confirm=True,
+        )
+
+        assert result["success"] is True
+        assert len(client.posted) > 0
+        assert result["execution_summary"]["awaiting_confirmation"] == 0
