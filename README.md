@@ -242,9 +242,14 @@ MAX_TOTAL_EXPOSURE_USD=5000
 MAX_POSITION_SIZE_PER_MARKET=2000
 MIN_LIQUIDITY_REQUIRED=10000
 MAX_SPREAD_TOLERANCE=0.05
-ENABLE_AUTONOMOUS_TRADING=true
+ENABLE_AUTONOMOUS_TRADING=false
 REQUIRE_CONFIRMATION_ABOVE_USD=500
 ```
+
+With `ENABLE_AUTONOMOUS_TRADING=false` (the default), every order is held and
+returned as `confirmation_required` until you re-issue it with `confirm=true`.
+Set it to `true` to let orders under `REQUIRE_CONFIRMATION_ABOVE_USD` go through
+without that step.
 
 ### Claude Desktop Integration
 
@@ -428,10 +433,18 @@ MAX_TOTAL_EXPOSURE_USD=5000          # Maximum $5,000 total exposure
 MAX_POSITION_SIZE_PER_MARKET=2000    # Maximum $2,000 per market
 MIN_LIQUIDITY_REQUIRED=10000         # Minimum $10,000 market liquidity
 MAX_SPREAD_TOLERANCE=0.05            # Maximum 5% spread
-REQUIRE_CONFIRMATION_ABOVE_USD=500   # Confirm orders over $500
+ENABLE_AUTONOMOUS_TRADING=false      # Every order needs confirm=true
+REQUIRE_CONFIRMATION_ABOVE_USD=500   # When autonomous: confirm orders over $500
 ```
 
 These can be customized in your `.env` file or Claude Desktop config.
+
+### Choosing the Outcome
+
+Order tools take an `outcome` argument (`"Yes"`, `"No"`, or a label like
+`"Lakers"`). On a Yes/No market it defaults to `Yes`. Sports and multi-outcome
+markets have no Yes/No side, so the outcome must be given explicitly — the tool
+refuses the order and lists the available outcomes rather than guessing a side.
 
 ---
 

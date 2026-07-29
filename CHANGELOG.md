@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### ⚠️ Breaking Changes
+
+- **`ENABLE_AUTONOMOUS_TRADING` now defaults to `false`.** Every order requires
+  `confirm=true` unless you opt in. Previously it defaulted to `true` and, with
+  the confirmation gate broken (below), a fresh install would place any order an
+  agent asked for, bounded only by `MAX_ORDER_SIZE_USD`.
+- **Orders needing confirmation are no longer placed automatically.** They come
+  back as `status="confirmation_required"` with the resolved outcome and token;
+  re-issue with `confirm=true` to place them.
+- **`POLYMARKET_API_SECRET` is a new, separate setting.** The secret and the
+  passphrase are distinct values issued by Polymarket; reusing the passphrase for
+  both breaks request signing. Configs without it still load, with a warning.
+- **Non-Yes/No markets now require an explicit `outcome`.** Sports and
+  multi-outcome markets no longer silently default to the first token.
+
+### Fixed
+
+- Pinned `mcp<2.0.0`. SDK 2.0.0 removed the decorator API on `Server`, so
+  `pip install` resolved to a version where the server could not even import.
+- Outcome tokens are selected by their `outcome` label instead of `tokens[0]`,
+  so an order on NO no longer trades the YES token (#14).
+- Portfolio tools received `SafetyLimits` where a `RateLimiter` was expected and
+  crashed on first use (#12).
+- The WebSocket message loop is now started after connecting, so real-time
+  subscriptions actually deliver events (#13).
+- The CLOB WebSocket URL was missing its channel suffix and returned HTTP 404;
+  it is now `/ws/market`.
+- Connection checks used the `.closed` property that `websockets` 14 removed.
+- The confirmation gate logged and then placed the order anyway.
+
+### Changed
+
+- GitHub Actions updated (up to three majors behind, Node 20 deprecation) and
+  Python 3.13 added to the test matrix.
+- Added `SECURITY.md` with private vulnerability reporting and operator guidance.
+- Repaired the test suite: collection had been aborting on a syntax error, and
+  the nightly run had been failing for months.
+
 ## [0.1.0] - 2025-01-10
 
 ### 🎉 Initial Public Release
