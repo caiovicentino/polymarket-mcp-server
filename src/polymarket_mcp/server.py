@@ -13,16 +13,21 @@ import mcp.server.stdio
 import mcp.types as types
 from mcp.server import Server
 
-from .config import load_config, PolymarketConfig
 from .auth import PolymarketClient, create_polymarket_client
-from .utils import get_rate_limiter, create_safety_limits_from_config, SafetyLimits, WebSocketManager
+from .config import PolymarketConfig, load_config
 from .tools import (
-    market_discovery,
-    market_analysis,
     TradingTools,
     get_tool_definitions,
+    market_analysis,
+    market_discovery,
     portfolio_integration,
-    realtime
+    realtime,
+)
+from .utils import (
+    SafetyLimits,
+    WebSocketManager,
+    create_safety_limits_from_config,
+    get_rate_limiter,
 )
 
 # Configure logging
@@ -396,7 +401,7 @@ async def initialize_server() -> None:
         safety_limits = create_safety_limits_from_config(config)
 
         # Initialize rate limiter (singleton)
-        rate_limiter = get_rate_limiter()
+        get_rate_limiter()
         logger.info("Rate limiter initialized")
 
         # Initialize trading tools (only if authenticated)

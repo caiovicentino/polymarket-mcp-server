@@ -3,12 +3,13 @@ Comprehensive tests for market discovery and analysis tools.
 
 Tests all 18 tools with real Polymarket API (no mocks).
 """
-import pytest
 import asyncio
 from datetime import datetime, timedelta
 
-from polymarket_mcp.tools import market_discovery, market_analysis
-from polymarket_mcp.tools.market_analysis import PriceData, OrderBook, VolumeData, MarketOpportunity
+import pytest
+
+from polymarket_mcp.tools import market_analysis, market_discovery
+from polymarket_mcp.tools.market_analysis import MarketOpportunity, OrderBook, PriceData, VolumeData
 
 
 class TestMarketDiscovery:
@@ -357,7 +358,7 @@ class TestMarketAnalysis:
                 assert analysis.risk_assessment in ["low", "medium", "high"]
                 assert 0 <= analysis.confidence_score <= 100
 
-                print(f"\nMarket Analysis:")
+                print("\nMarket Analysis:")
                 print(f"  Market: {analysis.market_question}")
                 print(f"  Recommendation: {analysis.recommendation}")
                 print(f"  Confidence: {analysis.confidence_score}%")
@@ -379,7 +380,7 @@ class TestMarketAnalysis:
                 assert isinstance(comparison, list)
                 assert len(comparison) == len(market_ids)
 
-                print(f"\nMarket Comparison:")
+                print("\nMarket Comparison:")
                 for comp in comparison:
                     if "error" not in comp:
                         print(f"  - {comp.get('question', 'Unknown')}")

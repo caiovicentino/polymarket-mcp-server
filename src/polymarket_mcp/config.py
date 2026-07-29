@@ -2,8 +2,8 @@
 Configuration management for Polymarket MCP server.
 Loads and validates environment variables with proper defaults.
 """
-import os
 from typing import Optional
+
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -154,7 +154,8 @@ class PolymarketConfig(BaseSettings):
         try:
             int(v, 16)
         except ValueError:
-            raise ValueError("POLYGON_PRIVATE_KEY must be valid hex")
+            # from None: the inner int() error would leak key material context.
+            raise ValueError("POLYGON_PRIVATE_KEY must be valid hex") from None
         return v
 
     @field_validator("POLYGON_ADDRESS")

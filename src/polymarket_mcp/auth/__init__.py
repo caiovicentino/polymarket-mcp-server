@@ -1,7 +1,7 @@
 """Authentication and client management for Polymarket CLOB"""
 
 from .client import PolymarketClient, create_polymarket_client
-from .signer import OrderSigner, create_order_signer, SignatureType
+from .signer import OrderSigner, SignatureType, create_order_signer
 
 __all__ = [
     "PolymarketClient",

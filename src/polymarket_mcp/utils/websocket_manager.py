@@ -15,8 +15,8 @@ import uuid
 from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 from enum import Enum
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 import websockets
 from pydantic import BaseModel

@@ -11,9 +11,9 @@ These tests interact with real APIs (no mocks) to verify:
 import asyncio
 import json
 import os
-import pytest
+
 import httpx
-from typing import Dict, Any
+import pytest
 
 # Test markers
 pytestmark = pytest.mark.integration
@@ -282,7 +282,6 @@ class TestDemoMode:
         # Import should work
         import sys
         sys.path.insert(0, "src")
-        from polymarket_mcp import config
 
         # Cleanup
         if "POLYMARKET_DEMO_MODE" in os.environ:

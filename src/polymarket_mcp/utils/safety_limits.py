@@ -2,9 +2,9 @@
 Safety limits and risk management for Polymarket trading.
 Validates orders against configured limits before execution.
 """
+import logging
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
-import logging
 
 logger = logging.getLogger(__name__)
 

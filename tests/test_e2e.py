@@ -8,14 +8,12 @@ Tests the complete MCP server lifecycle:
 4. Response validation
 5. Cleanup
 """
-import asyncio
-import os
 import json
-import subprocess
+import os
 import tempfile
-import pytest
 from pathlib import Path
-from typing import Dict, Any
+
+import pytest
 
 
 @pytest.fixture
@@ -75,11 +73,7 @@ class TestServerInitialization:
         import sys
         sys.path.insert(0, "src")
 
-        from polymarket_mcp.tools import (
-            market_discovery,
-            market_analysis,
-            realtime
-        )
+        from polymarket_mcp.tools import market_analysis, market_discovery, realtime
 
         # Check market discovery tools
         discovery_tools = market_discovery.get_tools()
@@ -167,7 +161,7 @@ class TestToolExecution:
         import sys
         sys.path.insert(0, "src")
 
-        from polymarket_mcp.tools import market_discovery, market_analysis
+        from polymarket_mcp.tools import market_analysis, market_discovery
 
         # First get a market
         markets_result = await market_discovery.handle_tool(
@@ -204,7 +198,7 @@ class TestResourceAccess:
         os.environ["POLYGON_ADDRESS"] = "0x" + "0" * 40
 
         try:
-            from polymarket_mcp.server import read_resource, initialize_server
+            from polymarket_mcp.server import initialize_server, read_resource
 
             # Initialize server
             await initialize_server()
@@ -232,7 +226,7 @@ class TestResourceAccess:
         os.environ["POLYGON_ADDRESS"] = "0x" + "0" * 40
 
         try:
-            from polymarket_mcp.server import read_resource, initialize_server
+            from polymarket_mcp.server import initialize_server, read_resource
 
             await initialize_server()
 
@@ -288,7 +282,7 @@ class TestErrorScenarios:
 
             # Should either error or use default
             assert result is not None
-        except (TypeError, KeyError) as e:
+        except (TypeError, KeyError):
             # Expected - missing required argument
             pass
 
@@ -330,7 +324,7 @@ class TestFullWorkflow:
         import sys
         sys.path.insert(0, "src")
 
-        from polymarket_mcp.tools import market_discovery, market_analysis
+        from polymarket_mcp.tools import market_discovery
 
         # 1. Search for markets
         search_result = await market_discovery.handle_tool(
@@ -372,7 +366,7 @@ class TestFullWorkflow:
         import sys
         sys.path.insert(0, "src")
 
-        from polymarket_mcp.tools import market_discovery, market_analysis
+        from polymarket_mcp.tools import market_analysis, market_discovery
 
         # 1. Get a market
         markets_result = await market_discovery.handle_tool(
@@ -465,7 +459,7 @@ async def test_complete_e2e_flow():
     os.environ["POLYGON_ADDRESS"] = "0x" + "0" * 40
 
     try:
-        from polymarket_mcp.server import initialize_server, list_tools, call_tool
+        from polymarket_mcp.server import initialize_server, list_tools
         from polymarket_mcp.tools import market_discovery
 
         # 1. Initialize

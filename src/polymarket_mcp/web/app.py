@@ -9,25 +9,23 @@ Provides web UI for:
 - Subscription management
 """
 import asyncio
-import json
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, Optional
-import os
+from typing import Optional
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, Form, HTTPException
+import uvicorn
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-import uvicorn
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 
-from ..config import load_config, PolymarketConfig
-from ..auth import create_polymarket_client, PolymarketClient
-from ..utils import get_rate_limiter, create_safety_limits_from_config, SafetyLimits
-from ..tools import market_discovery, market_analysis
+from ..auth import PolymarketClient, create_polymarket_client
+from ..config import PolymarketConfig, load_config
+from ..tools import market_analysis, market_discovery
+from ..utils import SafetyLimits, create_safety_limits_from_config, get_rate_limiter
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -206,8 +204,8 @@ async def monitoring_page(request: Request):
     rate_status = rate_limiter.get_status() if config else {}
 
     # System info
-    import sys
     import platform
+    import sys
 
     system_info = {
         "python_version": sys.version.split()[0],
@@ -300,7 +298,7 @@ async def get_trending_markets(limit: int = 10):
     except Exception as e:
         stats["errors"] += 1
         logger.error(f"Failed to get trending markets: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/api/markets/search")
@@ -325,7 +323,7 @@ async def search_markets(q: str, limit: int = 20):
     except Exception as e:
         stats["errors"] += 1
         logger.error(f"Search failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/api/markets/{market_id}")
@@ -348,7 +346,7 @@ async def get_market_details(market_id: str):
     except Exception as e:
         stats["errors"] += 1
         logger.error(f"Failed to get market details: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/api/markets/{market_id}/analyze")
@@ -371,7 +369,7 @@ async def analyze_market(market_id: str):
     except Exception as e:
         stats["errors"] += 1
         logger.error(f"Market analysis failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.post("/api/config")
@@ -427,7 +425,7 @@ async def update_config(config_update: ConfigUpdateRequest):
     except Exception as e:
         stats["errors"] += 1
         logger.error(f"Config update failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/api/stats")

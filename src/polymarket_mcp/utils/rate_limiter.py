@@ -3,12 +3,12 @@ Rate limiter implementation using token bucket algorithm.
 Respects Polymarket's API rate limits across different endpoint categories.
 """
 import asyncio
+import logging
 import time
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, Optional
-import logging
 
 logger = logging.getLogger(__name__)
 

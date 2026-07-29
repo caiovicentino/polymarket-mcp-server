@@ -5,7 +5,6 @@ Tests all 12 trading tools with real API integration.
 Uses small amounts for safety.
 """
 import asyncio
-import os
 import sys
 from pathlib import Path
 
@@ -13,11 +12,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 import pytest
-from polymarket_mcp.config import load_config
-from polymarket_mcp.auth import create_polymarket_client
-from polymarket_mcp.utils import create_safety_limits_from_config
-from polymarket_mcp.tools import TradingTools
 
+from polymarket_mcp.auth import create_polymarket_client
+from polymarket_mcp.config import load_config
+from polymarket_mcp.tools import TradingTools
+from polymarket_mcp.utils import create_safety_limits_from_config
 
 # Test configuration
 TEST_MARKET_ID = None  # Will be populated from live markets

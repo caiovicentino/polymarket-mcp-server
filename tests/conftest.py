@@ -6,10 +6,10 @@ This file is automatically loaded by pytest and provides:
 - Shared fixtures
 - Test configuration
 """
-import pytest
 import os
 from pathlib import Path
 
+import pytest
 
 # Test modules that place real orders with a funded wallet. Without credentials
 # they error out at fixture setup, which is what made CI red on every run.

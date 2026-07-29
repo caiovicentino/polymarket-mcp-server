@@ -8,13 +8,11 @@ Implements 8 tools for portfolio management:
 - Risk analysis (2 tools)
 """
 import logging
-from typing import Dict, Any, List, Optional, Tuple, Literal
-from datetime import datetime, timedelta
-from decimal import Decimal
 from collections import defaultdict
-import httpx
-import asyncio
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
+import httpx
 import mcp.types as types
 
 logger = logging.getLogger(__name__)
@@ -260,10 +258,6 @@ async def get_position_details(
 
         position = positions[0]
         token_id = position.get('asset_id')
-
-        # Fetch market details
-        await rate_limiter.acquire(EndpointCategory.CLOB_GENERAL)
-        market = await polymarket_client.get_market(market_id)
 
         # Fetch current orderbook
         await rate_limiter.acquire(EndpointCategory.MARKET_DATA)
@@ -607,8 +601,8 @@ async def get_pnl_summary(
         wins = 0
         losses = 0
 
-        for market_id, outcomes in market_trades.items():
-            for outcome, outcome_trades in outcomes.items():
+        for _market_id, outcomes in market_trades.items():
+            for _outcome, outcome_trades in outcomes.items():
                 # Sort by timestamp
                 outcome_trades.sort(key=lambda t: int(t.get('timestamp', 0)))
 

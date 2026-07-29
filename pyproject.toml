@@ -66,6 +66,12 @@ target-version = ['py310']
 line-length = 100
 target-version = "py310"
 
+[tool.ruff.lint]
+# Pinned explicitly: with no select, the rule set follows whatever ruff ships as
+# its default, so a new ruff release silently turns CI red. E501 is left out
+# because black owns line length.
+select = ["E4", "E7", "E9", "F", "W", "I", "B"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]

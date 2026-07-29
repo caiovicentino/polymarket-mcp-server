@@ -4,6 +4,7 @@ Portfolio tools integration for server.py.
 This module provides helper functions to integrate portfolio tools into the MCP server.
 """
 import mcp.types as types
+
 from .portfolio import PORTFOLIO_TOOLS
 
 

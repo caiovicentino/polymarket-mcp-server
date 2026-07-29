@@ -13,10 +13,11 @@ Provides 8 tools for discovering and filtering markets:
 """
 import json
 import logging
-from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
-import mcp.types as types
+from typing import Any, Dict, List, Optional
+
 import httpx
+import mcp.types as types
 
 from ..utils.rate_limiter import EndpointCategory, get_rate_limiter
 

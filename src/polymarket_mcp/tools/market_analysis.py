@@ -15,11 +15,12 @@ Provides 10 tools for analyzing markets:
 """
 import json
 import logging
-from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
-from pydantic import BaseModel, Field
-import mcp.types as types
+from typing import Any, Dict, List, Optional
+
 import httpx
+import mcp.types as types
+from pydantic import BaseModel, Field
 
 from ..utils.rate_limiter import EndpointCategory, get_rate_limiter
 
@@ -137,7 +138,7 @@ async def get_market_details(
         if slug:
             data = await _fetch_gamma_api(f"/markets/{slug}")
         elif condition_id:
-            data = await _fetch_gamma_api(f"/markets", {"condition_id": condition_id})
+            data = await _fetch_gamma_api("/markets", {"condition_id": condition_id})
         elif market_id:
             data = await _fetch_gamma_api(f"/markets/{market_id}")
         else:

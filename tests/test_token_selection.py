@@ -8,7 +8,6 @@ import pytest
 
 from polymarket_mcp.tools.trading import resolve_token_id
 
-
 YES_NO_MARKET = {
     "tokens": [
         {"token_id": "111", "outcome": "Yes"},

@@ -14,11 +14,7 @@ from typing import Any, Dict, List, Optional
 
 import mcp.types as types
 
-from ..utils.websocket_manager import (
-    WebSocketManager,
-    EventType,
-    ChannelType
-)
+from ..utils.websocket_manager import ChannelType, EventType, WebSocketManager
 
 logger = logging.getLogger(__name__)
 
@@ -291,15 +287,6 @@ async def _subscribe_market_prices(arguments: Dict[str, Any]) -> List[types.Text
             market_ids=market_ids,
             callback_type=callback_type
         )
-
-        result = {
-            "success": True,
-            "subscription_id": subscription_id,
-            "type": "price_change",
-            "market_ids": market_ids,
-            "callback_type": callback_type,
-            "message": f"Subscribed to price changes for {len(market_ids)} market(s)"
-        }
 
         return [types.TextContent(
             type="text",

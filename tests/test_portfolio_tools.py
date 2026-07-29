@@ -3,24 +3,24 @@ Tests for portfolio management tools.
 
 Tests all 8 portfolio tools with real Polymarket data (no mocks).
 """
-import pytest
-import asyncio
-from unittest.mock import AsyncMock, MagicMock
 from datetime import datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock
 
-from polymarket_mcp.tools.portfolio import (
-    get_all_positions,
-    get_position_details,
-    get_portfolio_value,
-    get_pnl_summary,
-    get_trade_history,
-    get_activity_log,
-    analyze_portfolio_risk,
-    suggest_portfolio_actions,
-    PORTFOLIO_TOOLS
-)
+import pytest
+
 from polymarket_mcp.config import PolymarketConfig
-from polymarket_mcp.utils.rate_limiter import RateLimiter, EndpointCategory
+from polymarket_mcp.tools.portfolio import (
+    PORTFOLIO_TOOLS,
+    analyze_portfolio_risk,
+    get_activity_log,
+    get_all_positions,
+    get_pnl_summary,
+    get_portfolio_value,
+    get_position_details,
+    get_trade_history,
+    suggest_portfolio_actions,
+)
+from polymarket_mcp.utils.rate_limiter import EndpointCategory, RateLimiter
 
 
 @pytest.fixture

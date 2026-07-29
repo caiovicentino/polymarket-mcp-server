@@ -70,6 +70,9 @@ jobs:
         ruff check src/ tests/ --output-format=github
 
     - name: Format check with black
+      # Non-blocking: the tree predates black and reformatting it touches ~4k
+      # lines, which would bury real changes. Tracked as separate cleanup.
+      continue-on-error: true
       run: |
         black --check src/ tests/
 

@@ -5,18 +5,16 @@ Tests real WebSocket connections (NO MOCKS) to Polymarket endpoints.
 """
 import asyncio
 import os
-import pytest
 from datetime import datetime
-from decimal import Decimal
-from typing import Dict, Any, List
+from typing import Any, Dict
+
+import pytest
 
 from polymarket_mcp.config import PolymarketConfig
 from polymarket_mcp.utils.websocket_manager import (
-    WebSocketManager,
-    EventType,
     ChannelType,
-    PriceChangeEvent,
-    OrderbookUpdate,
+    EventType,
+    WebSocketManager,
     ws_is_open,
 )
 
@@ -331,7 +329,7 @@ class TestBackgroundTask:
         # Subscribe to a real active market
         test_market_id = "21742633143463906290569050155826241533067272736897614950488156847949938836455"
 
-        subscription_id = await websocket_manager.subscribe(
+        await websocket_manager.subscribe(
             event_type=EventType.PRICE_CHANGE,
             channel=ChannelType.CLOB_MARKET,
             market_ids=[test_market_id],
@@ -424,13 +422,13 @@ class TestStatus:
         await websocket_manager.connect()
 
         # Create multiple subscriptions
-        sub1 = await websocket_manager.subscribe(
+        await websocket_manager.subscribe(
             event_type=EventType.PRICE_CHANGE,
             channel=ChannelType.CLOB_MARKET,
             market_ids=["market1"],
         )
 
-        sub2 = await websocket_manager.subscribe(
+        await websocket_manager.subscribe(
             event_type=EventType.AGG_ORDERBOOK,
             channel=ChannelType.CLOB_MARKET,
             token_ids=["token1"],

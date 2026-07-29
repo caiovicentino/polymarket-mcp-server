@@ -5,10 +5,10 @@ Tests for GitHub issue fixes (#2, #6, #10).
 - Issue #6: fastapi dependency must be compatible with mcp's anyio requirement
 - Issue #2: Market discovery must filter out closed/expired markets
 """
-import pytest
-from unittest.mock import AsyncMock, patch
 from datetime import datetime, timedelta
+from unittest.mock import AsyncMock, patch
 
+import pytest
 
 # ---------------------------------------------------------------------------
 # Issue #10 — Credential masking in server.py
@@ -19,8 +19,9 @@ class TestCredentialMasking:
 
     def test_server_logs_truncated_key(self):
         """Credentials should be logged at DEBUG with only first 8 chars."""
-        import polymarket_mcp.server as server_module
         import inspect
+
+        import polymarket_mcp.server as server_module
         source_code = inspect.getsource(server_module)
 
         # Must NOT contain the old full-logging pattern
@@ -42,8 +43,9 @@ class TestCredentialMasking:
 
     def test_no_full_credentials_at_info(self):
         """Ensure no line logs full credential values at INFO."""
-        import polymarket_mcp.server as server_module
         import inspect
+
+        import polymarket_mcp.server as server_module
         lines = inspect.getsource(server_module).splitlines()
 
         for i, line in enumerate(lines):
@@ -63,8 +65,9 @@ class TestDependencyCompatibility:
 
     def test_fastapi_version_constraint(self):
         """fastapi must be pinned >=0.115.0 to support anyio>=4.5."""
-        import tomllib
         import pathlib
+
+        import tomllib
 
         pyproject = pathlib.Path(__file__).parent.parent / "pyproject.toml"
         with open(pyproject, "rb") as f:
@@ -92,9 +95,9 @@ class TestDependencyCompatibility:
 
     def test_pip_dry_run_install(self):
         """Verify pip can resolve dependencies without conflict."""
+        import pathlib
         import subprocess
         import sys
-        import pathlib
 
         project_root = pathlib.Path(__file__).parent.parent
         result = subprocess.run(
