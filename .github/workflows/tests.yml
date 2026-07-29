@@ -289,8 +289,8 @@ jobs:
                 assert response.status_code == 200, f'Gamma API failed: {response.status_code}'
                 print('✅ Gamma API connectivity OK')
 
-                # Test CLOB API
-                response = await client.get('https://clob.polymarket.com/ping')
+                # Test CLOB API (/ping was removed; /ok is the health endpoint)
+                response = await client.get('https://clob.polymarket.com/ok')
                 assert response.status_code == 200, f'CLOB API failed: {response.status_code}'
                 print('✅ CLOB API connectivity OK')
 
