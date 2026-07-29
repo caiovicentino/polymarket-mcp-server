@@ -17,6 +17,7 @@ from polymarket_mcp.utils.websocket_manager import (
     ChannelType,
     PriceChangeEvent,
     OrderbookUpdate,
+    ws_is_open,
 )
 
 
@@ -70,7 +71,7 @@ class TestWebSocketConnection:
 
         assert websocket_manager.clob_connected is True
         assert websocket_manager.clob_ws is not None
-        assert not websocket_manager.clob_ws.closed
+        assert ws_is_open(websocket_manager.clob_ws)
 
         # Cleanup
         await websocket_manager.disconnect()
@@ -82,7 +83,7 @@ class TestWebSocketConnection:
 
         assert websocket_manager.realtime_connected is True
         assert websocket_manager.realtime_ws is not None
-        assert not websocket_manager.realtime_ws.closed
+        assert ws_is_open(websocket_manager.realtime_ws)
 
         # Cleanup
         await websocket_manager.disconnect()

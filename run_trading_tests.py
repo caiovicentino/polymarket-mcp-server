@@ -39,7 +39,7 @@ async def main():
             address=config.POLYGON_ADDRESS,
             chain_id=config.POLYMARKET_CHAIN_ID,
             api_key=config.POLYMARKET_API_KEY,
-            api_secret=config.POLYMARKET_PASSPHRASE,
+            api_secret=config.POLYMARKET_API_SECRET,
             passphrase=config.POLYMARKET_PASSPHRASE,
         )
 

@@ -8,6 +8,15 @@ This file is automatically loaded by pytest and provides:
 """
 import pytest
 import os
+from pathlib import Path
+
+
+# Test modules that place real orders with a funded wallet. Without credentials
+# they error out at fixture setup, which is what made CI red on every run.
+CREDENTIAL_ONLY_MODULES = {
+    "test_trading_tools.py",
+    "test_portfolio_tools.py",
+}
 
 
 def pytest_configure(config):
@@ -24,6 +33,29 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "performance: Performance benchmarks"
     )
+    config.addinivalue_line(
+        "markers", "requires_credentials: Needs a funded wallet (POLYGON_PRIVATE_KEY)"
+    )
+
+
+def _has_wallet_credentials() -> bool:
+    return bool(os.environ.get("POLYGON_PRIVATE_KEY")) and bool(
+        os.environ.get("POLYGON_ADDRESS")
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    """Skip wallet-dependent tests when no credentials are configured."""
+    if _has_wallet_credentials():
+        return
+
+    skip_marker = pytest.mark.skip(
+        reason="requires POLYGON_PRIVATE_KEY and POLYGON_ADDRESS (funded wallet)"
+    )
+    for item in items:
+        module_name = Path(str(item.fspath)).name
+        if module_name in CREDENTIAL_ONLY_MODULES or "requires_credentials" in item.keywords:
+            item.add_marker(skip_marker)
 
 
 @pytest.fixture(scope="session")

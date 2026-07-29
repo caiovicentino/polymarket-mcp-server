@@ -9,6 +9,7 @@ These tests interact with real APIs (no mocks) to verify:
 - Safety limits
 """
 import asyncio
+import json
 import os
 import pytest
 import httpx
@@ -48,19 +49,20 @@ class TestAPIConnectivity:
         assert isinstance(data, list), "Expected list of markets"
         assert len(data) > 0, "Expected at least one market"
 
-        # Verify market structure
+        # Verify market structure. Gamma exposes outcome tokens as the
+        # 'clobTokenIds' JSON string; the 'tokens' array is CLOB-only.
         market = data[0]
-        required_fields = ["question", "id", "tokens", "volume"]
+        required_fields = ["question", "id", "clobTokenIds", "volume"]
         for field in required_fields:
             assert field in market, f"Missing required field: {field}"
 
     @pytest.mark.asyncio
     async def test_clob_api_ping(self, real_api_client, test_config):
         """Test CLOB API health check."""
-        url = f"{test_config['clob_api_url']}/ping"
+        url = f"{test_config['clob_api_url']}/ok"
         response = await real_api_client.get(url)
 
-        assert response.status_code == 200, f"CLOB API ping failed: {response.status_code}"
+        assert response.status_code == 200, f"CLOB API health check failed: {response.status_code}"
 
     @pytest.mark.asyncio
     async def test_gamma_api_trending_markets(self, real_api_client, test_config):
@@ -138,7 +140,7 @@ class TestMarketDiscovery:
         # Get active markets sorted by end date
         response = await real_api_client.get(
             url,
-            params={"limit": 5, "closed": False, "order": "end_date_min"}
+            params={"limit": 5, "closed": False, "order": "endDate", "ascending": True}
         )
 
         assert response.status_code == 200
@@ -200,8 +202,8 @@ class TestErrorHandling:
         url = f"{test_config['gamma_api_url']}/markets/invalid-market-id-12345"
         response = await real_api_client.get(url)
 
-        # Should return 404
-        assert response.status_code == 404
+        # Gamma rejects a non-numeric id at validation time (422), or 404s it.
+        assert response.status_code in [404, 422]
 
     @pytest.mark.asyncio
     async def test_invalid_token_id(self, real_api_client, test_config):
@@ -224,8 +226,8 @@ class TestErrorHandling:
             params={"limit": "invalid"}
         )
 
-        # API should handle gracefully
-        assert response.status_code in [200, 400]
+        # API should handle gracefully (422 = validation rejected the bad limit)
+        assert response.status_code in [200, 400, 422]
 
 
 class TestRateLimiting:
@@ -259,7 +261,7 @@ class TestRateLimiting:
         """Test concurrent requests to different endpoints."""
         tasks = [
             real_api_client.get(f"{test_config['gamma_api_url']}/markets", params={"limit": 1}),
-            real_api_client.get(f"{test_config['clob_api_url']}/ping"),
+            real_api_client.get(f"{test_config['clob_api_url']}/ok"),
         ]
 
         responses = await asyncio.gather(*tasks)
@@ -348,7 +350,8 @@ class TestSafetyValidation:
             max_total_exposure_usd=1000.0,
             max_position_size_per_market=50.0,
             min_liquidity_required=500.0,
-            max_spread_tolerance=0.05
+            max_spread_tolerance=0.05,
+            require_confirmation_above_usd=50.0
         )
 
         assert limits.max_order_size_usd == 100.0
@@ -363,6 +366,10 @@ class TestSafetyValidation:
         limits = SafetyLimits(
             max_order_size_usd=100.0,
             max_total_exposure_usd=1000.0,
+            max_position_size_per_market=50.0,
+            min_liquidity_required=500.0,
+            max_spread_tolerance=0.05,
+            require_confirmation_above_usd=50.0
         )
 
         # Test validation
@@ -391,12 +398,13 @@ async def test_full_integration_flow(real_api_client, test_config):
 
     # 3. Verify market has required data
     market_detail = detail_response.json()
-    assert "tokens" in market_detail
+    assert "clobTokenIds" in market_detail
     assert "volume" in market_detail or "volume24hr" in market_detail
 
     # 4. If market has tokens, try to get orderbook
-    if len(market_detail.get("tokens", [])) > 0:
-        token_id = market_detail["tokens"][0]["token_id"]
+    token_ids = json.loads(market_detail.get("clobTokenIds") or "[]")
+    if token_ids:
+        token_id = token_ids[0]
         orderbook_url = f"{test_config['clob_api_url']}/book"
         orderbook_response = await real_api_client.get(
             orderbook_url,

@@ -40,7 +40,7 @@ async def test_client(config):
             address=config.POLYGON_ADDRESS,
             chain_id=config.POLYMARKET_CHAIN_ID,
             api_key=config.POLYMARKET_API_KEY,
-            api_secret=config.POLYMARKET_PASSPHRASE,
+            api_secret=config.POLYMARKET_API_SECRET,
         )
         print(f"✓ Client initialized for {client.get_address()}")
         print(f"✓ Has API credentials: {client.has_api_credentials()}")

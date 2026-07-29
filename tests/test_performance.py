@@ -14,7 +14,13 @@ import pytest
 import httpx
 import psutil
 import os
+import sys
+from pathlib import Path
 from typing import List, Dict
+
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+from polymarket_mcp.utils.rate_limiter import EndpointCategory
 
 
 # Test markers
@@ -35,8 +41,7 @@ def performance_config():
 class TestAPIPerformance:
     """Test API response time performance."""
 
-    @pytest.mark.asyncio
-    async def test_market_search_latency(self, performance_config, benchmark):
+    def test_market_search_latency(self, performance_config, benchmark):
         """Benchmark market search latency."""
         async def search_markets():
             async with httpx.AsyncClient() as client:
@@ -50,20 +55,22 @@ class TestAPIPerformance:
         result = benchmark(lambda: asyncio.run(search_markets()))
         assert result.status_code == 200
 
-    @pytest.mark.asyncio
-    async def test_market_details_latency(self, performance_config, benchmark):
+    def test_market_details_latency(self, performance_config, benchmark):
         """Benchmark market details retrieval."""
         # First get a market ID
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{performance_config['gamma_api_url']}/markets",
-                params={"limit": 1}
-            )
-            markets = response.json()
-            if len(markets) == 0:
-                pytest.skip("No markets available")
+        async def fetch_market_id():
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{performance_config['gamma_api_url']}/markets",
+                    params={"limit": 1}
+                )
+                return response.json()
 
-            market_id = markets[0]["id"]
+        markets = asyncio.run(fetch_market_id())
+        if len(markets) == 0:
+            pytest.skip("No markets available")
+
+        market_id = markets[0]["id"]
 
         async def get_details():
             async with httpx.AsyncClient() as client:
@@ -75,13 +82,12 @@ class TestAPIPerformance:
         result = benchmark(lambda: asyncio.run(get_details()))
         assert result.status_code == 200
 
-    @pytest.mark.asyncio
-    async def test_clob_api_latency(self, performance_config, benchmark):
+    def test_clob_api_latency(self, performance_config, benchmark):
         """Benchmark CLOB API response time."""
         async def ping_clob():
             async with httpx.AsyncClient() as client:
                 response = await client.get(
-                    f"{performance_config['clob_api_url']}/ping"
+                    f"{performance_config['clob_api_url']}/ok"
                 )
                 return response
 
@@ -127,7 +133,7 @@ class TestConcurrentPerformance:
 
             tasks = [
                 client.get(f"{performance_config['gamma_api_url']}/markets", params={"limit": 1}),
-                client.get(f"{performance_config['clob_api_url']}/ping"),
+                client.get(f"{performance_config['clob_api_url']}/ok"),
                 client.get(f"{performance_config['gamma_api_url']}/markets", params={"limit": 5}),
             ]
 
@@ -157,10 +163,12 @@ class TestRateLimiterPerformance:
         rate_limiter = RateLimiter()
 
         def check_rate_limit():
-            return rate_limiter.check_rate_limit("test_category")
+            return asyncio.run(rate_limiter.acquire(EndpointCategory.MARKET_DATA))
 
+        # acquire() returns the seconds it waited, so 0.0 is the fast path.
         result = benchmark(check_rate_limit)
-        assert result is True
+        assert isinstance(result, (int, float))
+        assert result >= 0
 
     @pytest.mark.asyncio
     async def test_rate_limiter_concurrent(self):
@@ -173,7 +181,7 @@ class TestRateLimiterPerformance:
         rate_limiter = RateLimiter()
 
         async def check_limit():
-            return rate_limiter.check_rate_limit("test_category")
+            return await rate_limiter.acquire(EndpointCategory.MARKET_DATA)
 
         start_time = time.time()
         results = await asyncio.gather(*[check_limit() for _ in range(100)])
@@ -260,8 +268,7 @@ class TestMemoryUsage:
 class TestToolPerformance:
     """Test individual tool performance."""
 
-    @pytest.mark.asyncio
-    async def test_search_tool_performance(self, benchmark):
+    def test_search_tool_performance(self, benchmark):
         """Benchmark search_markets tool."""
         import sys
         sys.path.insert(0, "src")
@@ -277,8 +284,7 @@ class TestToolPerformance:
         result = benchmark(lambda: asyncio.run(search()))
         assert result is not None
 
-    @pytest.mark.asyncio
-    async def test_trending_tool_performance(self, benchmark):
+    def test_trending_tool_performance(self, benchmark):
         """Benchmark get_trending_markets tool."""
         import sys
         sys.path.insert(0, "src")
@@ -294,8 +300,7 @@ class TestToolPerformance:
         result = benchmark(lambda: asyncio.run(get_trending()))
         assert result is not None
 
-    @pytest.mark.asyncio
-    async def test_filter_tool_performance(self, benchmark):
+    def test_filter_tool_performance(self, benchmark):
         """Benchmark filter_markets_by_category tool."""
         import sys
         sys.path.insert(0, "src")
@@ -383,8 +388,12 @@ class TestStressScenarios:
         print(f"  Errors: {errors}")
         print(f"  Throughput: {request_count/actual_duration:.2f} req/s")
 
-        # Should handle sustained load
-        assert request_count > 50
+        # Each iteration costs a 0.1s sleep plus a live round trip, so the rate
+        # is network-bound. Assert a floor of 1.5 req/s, which still catches a
+        # stall without failing on normal API latency.
+        assert request_count > actual_duration * 1.5, (
+            f"Only {request_count} requests in {actual_duration:.1f}s"
+        )
         assert errors < request_count * 0.1  # Less than 10% errors
 
 

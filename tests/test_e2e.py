@@ -118,7 +118,8 @@ class TestToolExecution:
         result_text = result[0].text
         data = json.loads(result_text)
 
-        assert "markets" in data or "error" in data
+        # Discovery tools return a JSON list of markets; errors come back as a dict.
+        assert isinstance(data, list) or "markets" in data or "error" in data
 
     @pytest.mark.asyncio
     async def test_get_trending_markets_tool(self):
@@ -137,7 +138,8 @@ class TestToolExecution:
         result_text = result[0].text
         data = json.loads(result_text)
 
-        assert "markets" in data or "error" in data
+        # Discovery tools return a JSON list of markets; errors come back as a dict.
+        assert isinstance(data, list) or "markets" in data or "error" in data
 
     @pytest.mark.asyncio
     async def test_filter_markets_by_category_tool(self):
@@ -156,7 +158,8 @@ class TestToolExecution:
         result_text = result[0].text
         data = json.loads(result_text)
 
-        assert "markets" in data or "error" in data
+        # Discovery tools return a JSON list of markets; errors come back as a dict.
+        assert isinstance(data, list) or "markets" in data or "error" in data
 
     @pytest.mark.asyncio
     async def test_get_market_details_tool(self):
@@ -265,8 +268,8 @@ class TestErrorScenarios:
         result_text = result[0].text
         data = json.loads(result_text)
 
-        # Should handle gracefully with error
-        assert "error" in data or "markets" in data
+        # Should handle gracefully: a list of results or an error dict.
+        assert isinstance(data, list) or "error" in data or "markets" in data
 
     @pytest.mark.asyncio
     async def test_tool_missing_required_arg(self):
@@ -356,9 +359,9 @@ class TestFullWorkflow:
         assert category_result is not None
         category_data = json.loads(category_result[0].text)
 
-        # All should succeed or return valid errors
+        # All should succeed (list of markets) or return valid errors
         assert all(
-            "markets" in data or "error" in data
+            isinstance(data, list) or "markets" in data or "error" in data
             for data in [search_data, trending_data, category_data]
         )
 
@@ -429,12 +432,15 @@ class TestInstallationFlow:
         assert pyproject.exists()
 
         # Try to parse it
-        import tomllib if hasattr(__builtins__, 'tomllib') else None
-        if tomllib:
-            with open(pyproject, 'rb') as f:
-                data = tomllib.load(f)
-                assert "project" in data
-                assert "name" in data["project"]
+        try:
+            import tomllib
+        except ImportError:
+            pytest.skip("tomllib requires Python 3.11+")
+
+        with open(pyproject, 'rb') as f:
+            data = tomllib.load(f)
+            assert "project" in data
+            assert "name" in data["project"]
 
     def test_readme_exists(self, project_root):
         """Test README exists."""
@@ -477,7 +483,8 @@ async def test_complete_e2e_flow():
 
         assert result is not None
         data = json.loads(result[0].text)
-        assert "markets" in data or "error" in data
+        # Discovery tools return a JSON list of markets; errors come back as a dict.
+        assert isinstance(data, list) or "markets" in data or "error" in data
 
         # 4. Get trending
         result = await market_discovery.handle_tool(
@@ -487,7 +494,8 @@ async def test_complete_e2e_flow():
 
         assert result is not None
         data = json.loads(result[0].text)
-        assert "markets" in data or "error" in data
+        # Discovery tools return a JSON list of markets; errors come back as a dict.
+        assert isinstance(data, list) or "markets" in data or "error" in data
 
     finally:
         # Cleanup
