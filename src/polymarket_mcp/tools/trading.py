@@ -23,6 +23,61 @@ from ..utils import (
 logger = logging.getLogger(__name__)
 
 
+def resolve_token_id(
+    market: Dict[str, Any],
+    outcome: Optional[str],
+    market_id: str
+) -> Tuple[str, str]:
+    """
+    Resolve which outcome token an order targets.
+
+    Args:
+        market: Market payload from the CLOB API (must contain 'tokens')
+        outcome: Desired outcome label, e.g. 'Yes', 'No', 'Lakers'. When None,
+            only Yes/No markets can be resolved, and 'Yes' is used.
+        market_id: Market condition ID, for error messages
+
+    Returns:
+        Tuple of (token_id, outcome_label)
+
+    Raises:
+        ValueError: If the market has no tokens, the outcome does not exist,
+            or no outcome was given for a market that is not Yes/No.
+    """
+    tokens = market.get('tokens') or []
+    if not tokens:
+        raise ValueError(f"No tokens found for market {market_id}")
+
+    labels = [str(token.get('outcome') or '').strip() for token in tokens]
+
+    if outcome is not None:
+        wanted = str(outcome).strip().casefold()
+        matches = [i for i, label in enumerate(labels) if label.casefold() == wanted]
+        if len(matches) == 1:
+            index = matches[0]
+            return tokens[index]['token_id'], labels[index]
+        if not matches:
+            raise ValueError(
+                f"Outcome '{outcome}' not found in market {market_id}. "
+                f"Available outcomes: {labels}"
+            )
+        raise ValueError(
+            f"Outcome '{outcome}' matches multiple tokens in market {market_id}: {labels}"
+        )
+
+    # Without an explicit outcome, only a Yes/No market can be resolved safely.
+    # Guessing on a sports or multi-outcome market would trade the wrong side.
+    yes_matches = [i for i, label in enumerate(labels) if label.casefold() == 'yes']
+    if len(yes_matches) == 1:
+        index = yes_matches[0]
+        return tokens[index]['token_id'], labels[index]
+
+    raise ValueError(
+        f"Market {market_id} is not a Yes/No market, so the outcome cannot be "
+        f"inferred. Pass 'outcome' explicitly. Available outcomes: {labels}"
+    )
+
+
 class TradingTools:
     """
     Trading tools for Polymarket.
@@ -53,7 +108,8 @@ class TradingTools:
         price: float,
         size: float,
         order_type: str = "GTC",
-        expiration: Optional[int] = None
+        expiration: Optional[int] = None,
+        outcome: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Create a limit order on Polymarket.
@@ -61,6 +117,8 @@ class TradingTools:
         Args:
             market_id: Market condition ID
             side: 'BUY' or 'SELL'
+            outcome: Outcome to trade, e.g. 'Yes', 'No', 'Lakers'. Required for
+                markets that are not Yes/No.
             price: Limit price (0.00-1.00)
             size: Order size in USD
             order_type: 'GTC'|'GTD'|'FOK'|'FAK' (default 'GTC')
@@ -98,13 +156,7 @@ class TradingTools:
             logger.info(f"Fetching market data for {market_id}")
             market = await self.client.get_market(market_id)
 
-            # Get token ID (YES token for BUY, NO token for SELL on yes side typically)
-            # For simplicity, use first token. In production, implement proper token selection
-            tokens = market.get('tokens', [])
-            if not tokens:
-                raise ValueError(f"No tokens found for market {market_id}")
-
-            token_id = tokens[0]['token_id']
+            token_id, outcome_label = resolve_token_id(market, outcome, market_id)
 
             # Get orderbook for validation
             orderbook = await self.client.get_orderbook(token_id)
@@ -190,6 +242,7 @@ class TradingTools:
                 "details": {
                     "market_id": market_id,
                     "token_id": token_id,
+                    "outcome": outcome_label,
                     "side": side,
                     "price": price,
                     "size_shares": size_in_shares,
@@ -220,7 +273,8 @@ class TradingTools:
         self,
         market_id: str,
         side: str,
-        size: float
+        size: float,
+        outcome: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Execute market order at best available price (FOK).
@@ -229,6 +283,8 @@ class TradingTools:
             market_id: Market condition ID
             side: 'BUY' or 'SELL'
             size: Order size in USD
+            outcome: Outcome to trade, e.g. 'Yes', 'No', 'Lakers'. Required for
+                markets that are not Yes/No.
 
         Returns:
             Dict with execution details
@@ -236,11 +292,7 @@ class TradingTools:
         try:
             # Get current best price
             market = await self.client.get_market(market_id)
-            tokens = market.get('tokens', [])
-            if not tokens:
-                raise ValueError(f"No tokens found for market {market_id}")
-
-            token_id = tokens[0]['token_id']
+            token_id, outcome_label = resolve_token_id(market, outcome, market_id)
 
             # Get best price from orderbook
             orderbook = await self.client.get_orderbook(token_id)
@@ -263,13 +315,15 @@ class TradingTools:
                 f"Executing market order: {side} ${size} @ market price {best_price}"
             )
 
-            # Use FOK (Fill-Or-Kill) for market orders
+            # Use FOK (Fill-Or-Kill) for market orders. Pass the resolved outcome
+            # so the same token is traded, not re-inferred.
             result = await self.create_limit_order(
                 market_id=market_id,
                 side=side,
                 price=best_price,
                 size=size,
-                order_type='FOK'
+                order_type='FOK',
+                outcome=outcome_label
             )
 
             result['execution_type'] = 'market_order'
@@ -327,7 +381,8 @@ class TradingTools:
                         price=order['price'],
                         size=order['size'],
                         order_type=order.get('order_type', 'GTC'),
-                        expiration=order.get('expiration')
+                        expiration=order.get('expiration'),
+                        outcome=order.get('outcome')
                     )
 
                     results.append({
@@ -373,7 +428,8 @@ class TradingTools:
         market_id: str,
         side: str,
         size: float,
-        strategy: str = 'mid'
+        strategy: str = 'mid',
+        outcome: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         AI suggests optimal price for order.
@@ -383,6 +439,8 @@ class TradingTools:
             side: 'BUY' or 'SELL'
             size: Order size in USD
             strategy: 'aggressive'|'passive'|'mid'
+            outcome: Outcome to price, e.g. 'Yes', 'No', 'Lakers'. Required for
+                markets that are not Yes/No.
 
         Returns:
             Dict with suggested price and reasoning
@@ -392,11 +450,7 @@ class TradingTools:
 
             # Get market data
             market = await self.client.get_market(market_id)
-            tokens = market.get('tokens', [])
-            if not tokens:
-                raise ValueError(f"No tokens found for market {market_id}")
-
-            token_id = tokens[0]['token_id']
+            token_id, outcome_label = resolve_token_id(market, outcome, market_id)
             orderbook = await self.client.get_orderbook(token_id)
 
             # Parse orderbook
@@ -467,6 +521,7 @@ class TradingTools:
                     "spread_pct": (spread / mid_price) * 100
                 },
                 "order_details": {
+                    "outcome": outcome_label,
                     "side": side,
                     "size_usd": size,
                     "estimated_shares": size_shares,
@@ -794,7 +849,8 @@ class TradingTools:
         self,
         market_id: str,
         intent: str,
-        max_budget: float
+        max_budget: float,
+        outcome: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         AI-powered trade execution with natural language intent.
@@ -805,6 +861,8 @@ class TradingTools:
             market_id: Market condition ID
             intent: Natural language intent (e.g., "Buy YES at good price up to $100")
             max_budget: Maximum budget in USD
+            outcome: Outcome to trade, e.g. 'Yes', 'No', 'Lakers'. Required for
+                markets that are not Yes/No.
 
         Returns:
             Dict with execution summary
@@ -836,7 +894,8 @@ class TradingTools:
                 market_id=market_id,
                 side=side,
                 size=max_budget,
-                strategy=strategy
+                strategy=strategy,
+                outcome=outcome
             )
 
             if not price_suggestion.get('success'):
@@ -882,7 +941,8 @@ class TradingTools:
                     result = await self.create_market_order(
                         market_id=market_id,
                         side=side,
-                        size=plan['size']
+                        size=plan['size'],
+                        outcome=outcome
                     )
                 else:
                     result = await self.create_limit_order(
@@ -890,7 +950,8 @@ class TradingTools:
                         side=side,
                         price=plan['price'],
                         size=plan['size'],
-                        order_type='GTC'
+                        order_type='GTC',
+                        outcome=outcome
                     )
 
                 executed_orders.append(result)
@@ -928,7 +989,8 @@ class TradingTools:
         self,
         market_id: str,
         target_size: Optional[float] = None,
-        max_slippage: float = 0.02
+        max_slippage: float = 0.02,
+        outcome: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Adjust position to target size (or close if target_size is None).
@@ -937,6 +999,8 @@ class TradingTools:
             market_id: Market condition ID
             target_size: Target position size in USD (None to close)
             max_slippage: Maximum acceptable slippage (default 2%)
+            outcome: Outcome to rebalance, e.g. 'Yes', 'No', 'Lakers'. Required
+                for markets that are not Yes/No.
 
         Returns:
             Dict with rebalance summary
@@ -982,11 +1046,7 @@ class TradingTools:
 
             # Get market data for slippage check
             market = await self.client.get_market(market_id)
-            tokens = market.get('tokens', [])
-            if not tokens:
-                raise ValueError(f"No tokens found for market {market_id}")
-
-            token_id = tokens[0]['token_id']
+            token_id, outcome_label = resolve_token_id(market, outcome, market_id)
             orderbook = await self.client.get_orderbook(token_id)
 
             bids = orderbook.get('bids', [])
@@ -1022,7 +1082,8 @@ class TradingTools:
                 side=side,
                 price=expected_price,
                 size=size,
-                order_type='GTC'
+                order_type='GTC',
+                outcome=outcome_label
             )
 
             return {
@@ -1031,6 +1092,7 @@ class TradingTools:
                     "current_size": current_size,
                     "target_size": target_size,
                     "adjustment": adjustment,
+                    "outcome": outcome_label,
                     "side": side,
                     "size": size,
                     "execution_price": expected_price,
@@ -1124,6 +1186,14 @@ def get_tool_definitions() -> List[types.Tool]:
                     "expiration": {
                         "type": "integer",
                         "description": "Unix timestamp for GTD orders (optional)"
+                    },
+                    "outcome": {
+                        "type": "string",
+                        "description": (
+                            "Outcome to trade, e.g. 'Yes', 'No', 'Lakers'. "
+                            "Defaults to 'Yes' on Yes/No markets; required for "
+                            "sports and other multi-outcome markets."
+                        )
                     }
                 },
                 "required": ["market_id", "side", "price", "size"]
@@ -1151,6 +1221,14 @@ def get_tool_definitions() -> List[types.Tool]:
                         "type": "number",
                         "minimum": 1,
                         "description": "Order size in USD"
+                    },
+                    "outcome": {
+                        "type": "string",
+                        "description": (
+                            "Outcome to trade, e.g. 'Yes', 'No', 'Lakers'. "
+                            "Defaults to 'Yes' on Yes/No markets; required for "
+                            "sports and other multi-outcome markets."
+                        )
                     }
                 },
                 "required": ["market_id", "side", "size"]
@@ -1176,7 +1254,8 @@ def get_tool_definitions() -> List[types.Tool]:
                                 "price": {"type": "number"},
                                 "size": {"type": "number"},
                                 "order_type": {"type": "string"},
-                                "expiration": {"type": "integer"}
+                                "expiration": {"type": "integer"},
+                                "outcome": {"type": "string"}
                             },
                             "required": ["market_id", "side", "price", "size"]
                         },
@@ -1213,6 +1292,14 @@ def get_tool_definitions() -> List[types.Tool]:
                         "enum": ["aggressive", "passive", "mid"],
                         "default": "mid",
                         "description": "Pricing strategy"
+                    },
+                    "outcome": {
+                        "type": "string",
+                        "description": (
+                            "Outcome to price, e.g. 'Yes', 'No', 'Lakers'. "
+                            "Defaults to 'Yes' on Yes/No markets; required for "
+                            "sports and other multi-outcome markets."
+                        )
                     }
                 },
                 "required": ["market_id", "side", "size"]
@@ -1336,6 +1423,14 @@ def get_tool_definitions() -> List[types.Tool]:
                     "max_budget": {
                         "type": "number",
                         "description": "Maximum budget in USD"
+                    },
+                    "outcome": {
+                        "type": "string",
+                        "description": (
+                            "Outcome to trade, e.g. 'Yes', 'No', 'Lakers'. "
+                            "Defaults to 'Yes' on Yes/No markets; required for "
+                            "sports and other multi-outcome markets."
+                        )
                     }
                 },
                 "required": ["market_id", "intent", "max_budget"]
@@ -1362,6 +1457,14 @@ def get_tool_definitions() -> List[types.Tool]:
                         "type": "number",
                         "default": 0.02,
                         "description": "Maximum acceptable slippage (0.02 = 2%)"
+                    },
+                    "outcome": {
+                        "type": "string",
+                        "description": (
+                            "Outcome to rebalance, e.g. 'Yes', 'No', 'Lakers'. "
+                            "Defaults to 'Yes' on Yes/No markets; required for "
+                            "sports and other multi-outcome markets."
+                        )
                     }
                 },
                 "required": ["market_id"]
