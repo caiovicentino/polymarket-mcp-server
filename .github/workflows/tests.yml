@@ -12,6 +12,13 @@ on:
 env:
   PYTHON_VERSION_DEFAULT: "3.12"
 
+# The run: blocks use backslash line continuations, which PowerShell does not
+# understand — every windows-latest leg failed with "Missing expression after
+# unary operator '--'". Force bash everywhere.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   # Quick smoke test - runs first to fail fast
   smoke-test:

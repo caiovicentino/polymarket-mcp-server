@@ -164,8 +164,13 @@ class TestRateLimiterPerformance:
         def check_rate_limit():
             return asyncio.run(rate_limiter.acquire(EndpointCategory.MARKET_DATA))
 
+        # MARKET_DATA holds 200 tokens and refills at 20/s. A default benchmark
+        # run makes thousands of calls, drains the bucket and then measures the
+        # 50ms refill wait instead of the call — which timed out in CI. Cap the
+        # rounds well under the bucket size to keep this on the fast path.
+        result = benchmark.pedantic(check_rate_limit, rounds=50, iterations=1)
+
         # acquire() returns the seconds it waited, so 0.0 is the fast path.
-        result = benchmark(check_rate_limit)
         assert isinstance(result, (int, float))
         assert result >= 0
 
