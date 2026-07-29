@@ -41,6 +41,19 @@ trading_tools: Optional[TradingTools] = None
 websocket_manager: Optional[WebSocketManager] = None
 _shutdown_event: Optional[asyncio.Event] = None
 
+# Strong references to fire-and-forget tasks, so they are not garbage collected
+# mid-flight (asyncio only keeps weak references to running tasks).
+_background_tasks: set = set()
+
+
+async def _start_websocket(manager: WebSocketManager) -> None:
+    """Connect the WebSocket manager and start its message loop."""
+    try:
+        await manager.connect()
+        await manager.start_background_task()
+    except Exception as e:
+        logger.error(f"WebSocket startup failed: {e}")
+
 
 async def shutdown() -> None:
     """
@@ -71,7 +84,8 @@ async def shutdown() -> None:
     if websocket_manager:
         try:
             logger.info("Closing WebSocket connections...")
-            await websocket_manager.disconnect()
+            # Stops the background loop and disconnects both sockets.
+            await websocket_manager.stop_background_task()
             logger.info("WebSocket connections closed")
         except Exception as e:
             logger.error(f"Failed to close WebSocket connections: {e}")
@@ -255,7 +269,7 @@ async def call_tool(name: str, arguments: Dict[str, Any]) -> list[types.TextCont
                 name,
                 arguments,
                 polymarket_client,
-                safety_limits,
+                get_rate_limiter(),
                 config
             )
 
@@ -353,7 +367,7 @@ async def initialize_server() -> None:
             address=config.POLYGON_ADDRESS,
             chain_id=config.POLYMARKET_CHAIN_ID,
             api_key=config.POLYMARKET_API_KEY,
-            api_secret=config.POLYMARKET_PASSPHRASE,
+            api_secret=config.POLYMARKET_API_SECRET,
             passphrase=config.POLYMARKET_PASSPHRASE,
         )
 
@@ -400,8 +414,11 @@ async def initialize_server() -> None:
         # Initialize WebSocket manager
         logger.info("Initializing WebSocket manager...")
         websocket_manager = WebSocketManager(config)
-        # Connect WebSocket (non-blocking)
-        asyncio.create_task(websocket_manager.connect())
+        # Connect WebSocket (non-blocking). The background loop must be started
+        # after connecting, otherwise subscriptions never receive messages.
+        _websocket_startup_task = asyncio.create_task(_start_websocket(websocket_manager))
+        _background_tasks.add(_websocket_startup_task)
+        _websocket_startup_task.add_done_callback(_background_tasks.discard)
         logger.info("WebSocket manager initialized with 7 real-time tools")
 
         logger.info("Server initialization complete!")
