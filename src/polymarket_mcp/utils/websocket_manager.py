@@ -2,7 +2,7 @@
 WebSocket manager for Polymarket real-time data.
 
 Manages connections to:
-- CLOB WebSocket (wss://ws-subscriptions-clob.polymarket.com/ws/)
+- CLOB WebSocket (wss://ws-subscriptions-clob.polymarket.com/ws/market)
 - Real-time data WebSocket (wss://ws-live-data.polymarket.com)
 
 Handles authentication, subscriptions, and event routing.
@@ -22,6 +22,23 @@ import websockets
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
+
+
+def ws_is_open(ws: Any) -> bool:
+    """
+    Report whether a WebSocket connection is usable.
+
+    websockets 14 replaced the ``.closed`` property of the legacy protocol with
+    ``.state``/``.close_code`` on the asyncio connection, so probe both.
+    """
+    if ws is None:
+        return False
+
+    legacy_closed = getattr(ws, "closed", None)
+    if legacy_closed is not None:
+        return not legacy_closed
+
+    return getattr(ws, "close_code", None) is None
 
 
 class ChannelType(str, Enum):
@@ -126,8 +143,10 @@ class WebSocketManager:
     - Message buffering
     """
 
-    # WebSocket endpoints
-    CLOB_WS_URL = "wss://ws-subscriptions-clob.polymarket.com/ws/"
+    # WebSocket endpoints. The CLOB socket requires the channel suffix —
+    # the bare /ws/ path is rejected with HTTP 404.
+    CLOB_WS_URL = "wss://ws-subscriptions-clob.polymarket.com/ws/market"
+    CLOB_USER_WS_URL = "wss://ws-subscriptions-clob.polymarket.com/ws/user"
     REALTIME_WS_URL = "wss://ws-live-data.polymarket.com"
 
     # Reconnect settings
@@ -153,9 +172,10 @@ class WebSocketManager:
         self.notification_callback = notification_callback
         self.log_callback = log_callback
 
-        # WebSocket connections
-        self.clob_ws: Optional[websockets.WebSocketClientProtocol] = None
-        self.realtime_ws: Optional[websockets.WebSocketClientProtocol] = None
+        # WebSocket connections. Left untyped because the concrete connection
+        # class moved in websockets 14 and WebSocketClientProtocol is deprecated.
+        self.clob_ws: Optional[Any] = None
+        self.realtime_ws: Optional[Any] = None
 
         # Connection state
         self.clob_connected = False
@@ -260,7 +280,10 @@ class WebSocketManager:
             auth_message = {
                 "auth": {
                     "apiKey": self.config.POLYMARKET_API_KEY,
-                    "secret": self.config.POLYMARKET_PASSPHRASE,
+                    "secret": (
+                        getattr(self.config, "POLYMARKET_API_SECRET", None)
+                        or self.config.POLYMARKET_PASSPHRASE
+                    ),
                     "passphrase": self.config.POLYMARKET_PASSPHRASE
                 }
             }
@@ -293,14 +316,14 @@ class WebSocketManager:
         logger.info("Disconnecting WebSocket connections...")
 
         # Close CLOB connection
-        if self.clob_ws and not self.clob_ws.closed:
+        if ws_is_open(self.clob_ws):
             await self.clob_ws.close()
             logger.info("CLOB WebSocket disconnected")
         self.clob_connected = False
         self.authenticated = False
 
         # Close real-time connection
-        if self.realtime_ws and not self.realtime_ws.closed:
+        if ws_is_open(self.realtime_ws):
             await self.realtime_ws.close()
             logger.info("Real-time WebSocket disconnected")
         self.realtime_connected = False
@@ -487,7 +510,7 @@ class WebSocketManager:
         elif subscription.channel in [ChannelType.ACTIVITY, ChannelType.CRYPTO_PRICES]:
             ws = self.realtime_ws
 
-        if not ws or ws.closed:
+        if not ws_is_open(ws):
             return
 
         message = {
@@ -802,10 +825,10 @@ class WebSocketManager:
                 # Process messages from both WebSockets
                 tasks = []
 
-                if self.clob_ws and not self.clob_ws.closed:
+                if ws_is_open(self.clob_ws):
                     tasks.append(self._receive_clob_messages())
 
-                if self.realtime_ws and not self.realtime_ws.closed:
+                if ws_is_open(self.realtime_ws):
                     tasks.append(self._receive_realtime_messages())
 
                 if tasks:
@@ -833,7 +856,7 @@ class WebSocketManager:
 
     async def _receive_clob_messages(self) -> None:
         """Receive messages from CLOB WebSocket"""
-        if not self.clob_ws or self.clob_ws.closed:
+        if not ws_is_open(self.clob_ws):
             return
 
         try:
@@ -848,7 +871,7 @@ class WebSocketManager:
 
     async def _receive_realtime_messages(self) -> None:
         """Receive messages from real-time WebSocket"""
-        if not self.realtime_ws or self.realtime_ws.closed:
+        if not ws_is_open(self.realtime_ws):
             return
 
         try:

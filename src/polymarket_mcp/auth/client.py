@@ -42,7 +42,7 @@ class PolymarketClient:
             address: Polygon wallet address
             chain_id: Chain ID (137 for mainnet, 80002 for Amoy testnet)
             api_key: Optional L2 API key
-            api_secret: Optional L2 API secret (same as passphrase)
+            api_secret: Optional L2 API secret used to sign requests
             passphrase: Optional L2 API passphrase
             host: CLOB API host URL
         """
@@ -57,11 +57,18 @@ class PolymarketClient:
         # L2 API credentials
         self.api_creds: Optional[ApiCreds] = None
         if api_key and (api_secret or passphrase):
-            secret = api_secret or passphrase
+            # secret and passphrase are distinct values issued by Polymarket.
+            # Falling back to one for both keeps older configs working, but the
+            # HMAC signature is only valid when the real secret is supplied.
+            if not api_secret:
+                logger.warning(
+                    "POLYMARKET_API_SECRET not set; falling back to the passphrase. "
+                    "L2 requests will fail if they are not the same value."
+                )
             self.api_creds = ApiCreds(
                 api_key=api_key,
-                api_secret=secret,
-                api_passphrase=secret
+                api_secret=api_secret or passphrase,
+                api_passphrase=passphrase or api_secret
             )
 
         # Initialize CLOB client
