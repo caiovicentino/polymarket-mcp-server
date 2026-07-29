@@ -397,6 +397,7 @@ class TradingTools:
             results = []
             successful = 0
             failed = 0
+            awaiting_confirmation = 0
 
             logger.info(f"Processing batch of {len(orders)} orders")
 
@@ -414,17 +415,23 @@ class TradingTools:
                         confirm=order.get('confirm', False)
                     )
 
-                    results.append({
+                    entry = {
                         "index": idx,
                         "success": result.get('success', False),
                         "order_id": result.get('order_id'),
                         "details": result.get('details', {})
-                    })
-
-                    if result.get('success'):
+                    }
+                    # A gated order has not failed - it is waiting on confirm=true.
+                    if result.get('status') == 'confirmation_required':
+                        entry["status"] = "confirmation_required"
+                        entry["reason"] = result.get('reason')
+                        awaiting_confirmation += 1
+                    elif result.get('success'):
                         successful += 1
                     else:
                         failed += 1
+
+                    results.append(entry)
 
                 except Exception as e:
                     logger.error(f"Order {idx} failed: {e}")
@@ -436,13 +443,23 @@ class TradingTools:
                     })
                     failed += 1
 
-            return {
-                "success": True,
+            batch_result = {
+                "success": successful > 0,
                 "total_orders": len(orders),
                 "successful": successful,
+                "awaiting_confirmation": awaiting_confirmation,
                 "failed": failed,
                 "results": results
             }
+
+            if awaiting_confirmation and not successful:
+                batch_result["status"] = "confirmation_required"
+                batch_result["message"] = (
+                    f"No order was placed: {awaiting_confirmation} of {len(orders)} "
+                    "require confirmation. Re-send them with confirm=true."
+                )
+
+            return batch_result
 
         except Exception as e:
             logger.error(f"Batch order processing failed: {e}")
@@ -1141,7 +1158,7 @@ class TradingTools:
                 confirm=confirm
             )
 
-            return {
+            rebalance_result = {
                 "success": result.get('success', False),
                 "rebalance_summary": {
                     "current_size": current_size,
@@ -1156,6 +1173,16 @@ class TradingTools:
                 },
                 "order_result": result
             }
+
+            # Surface the gate at the top level so the caller does not have to
+            # dig into order_result to learn nothing was placed.
+            if result.get('status') == 'confirmation_required':
+                rebalance_result["status"] = "confirmation_required"
+                rebalance_result["message"] = (
+                    "Rebalance order not placed - call again with confirm=true."
+                )
+
+            return rebalance_result
 
         except Exception as e:
             logger.error(f"Position rebalancing failed: {e}")

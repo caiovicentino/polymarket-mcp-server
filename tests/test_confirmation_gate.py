@@ -200,3 +200,61 @@ class TestSmartTradeReporting:
         assert result["success"] is True
         assert len(client.posted) > 0
         assert result["execution_summary"]["awaiting_confirmation"] == 0
+
+
+class TestBatchAndRebalanceReporting:
+    """Gated orders must be reported as pending, not as failures or successes."""
+
+    @pytest.mark.asyncio
+    async def test_batch_separates_pending_from_failed(self):
+        tools, client = build_tools(autonomous=True, threshold=100.0)
+
+        result = await tools.create_batch_orders([
+            {"market_id": "m1", "side": "BUY", "price": 0.5, "size": 500.0,
+             "outcome": "Yes"},
+            {"market_id": "m1", "side": "BUY", "price": 0.5, "size": 10.0,
+             "outcome": "No"},
+        ])
+
+        assert result["awaiting_confirmation"] == 1
+        assert result["failed"] == 0, "a gated order has not failed"
+        assert result["successful"] == 1
+        # Only the small order went through.
+        assert len(client.posted) == 1
+
+    @pytest.mark.asyncio
+    async def test_fully_gated_batch_is_not_a_success(self):
+        tools, client = build_tools(autonomous=False)
+
+        result = await tools.create_batch_orders([
+            {"market_id": "m1", "side": "BUY", "price": 0.5, "size": 10.0,
+             "outcome": "Yes"},
+        ])
+
+        assert result["success"] is False
+        assert result["status"] == "confirmation_required"
+        assert client.posted == []
+
+    @pytest.mark.asyncio
+    async def test_batch_forwards_per_order_confirm(self):
+        tools, client = build_tools(autonomous=True, threshold=100.0)
+
+        result = await tools.create_batch_orders([
+            {"market_id": "m1", "side": "BUY", "price": 0.5, "size": 500.0,
+             "outcome": "Yes", "confirm": True},
+        ])
+
+        assert result["successful"] == 1
+        assert len(client.posted) == 1
+
+    @pytest.mark.asyncio
+    async def test_rebalance_surfaces_the_gate(self):
+        tools, client = build_tools(autonomous=False)
+        # No positions, so a target size means buying into the market.
+        result = await tools.rebalance_position(
+            market_id="m1", target_size=50.0, outcome="Yes"
+        )
+
+        assert result["success"] is False
+        assert result["status"] == "confirmation_required"
+        assert client.posted == []
