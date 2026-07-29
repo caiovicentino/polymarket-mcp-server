@@ -808,51 +808,101 @@ class WebSocketManager:
 
     async def _background_loop(self) -> None:
         """
-        Main background loop for processing WebSocket messages.
+        Supervise one reader task per WebSocket channel.
 
-        Handles both CLOB and real-time WebSocket connections simultaneously.
-        Implements auto-reconnect on connection loss.
+        Each channel gets its own long-lived reader, so a busy channel cannot
+        starve the other and a message already pulled off the wire is never
+        discarded. Previously both channels were awaited with FIRST_COMPLETED
+        and the loser was cancelled on every iteration, which dropped whatever
+        the cancelled recv() had in flight.
+
+        This loop only supervises: it restarts readers and reconnects.
         """
         logger.info("Background WebSocket loop started")
 
-        while self.should_run:
-            try:
-                # Ensure connections are active
-                if not self.clob_connected or not self.realtime_connected:
-                    await self.reconnect()
-                    continue
+        readers: Dict[str, asyncio.Task] = {}
 
-                # Process messages from both WebSockets
-                tasks = []
+        try:
+            while self.should_run:
+                try:
+                    # Ensure connections are active
+                    if not self.clob_connected or not self.realtime_connected:
+                        await self._cancel_readers(readers)
+                        await self.reconnect()
+                        continue
 
-                if ws_is_open(self.clob_ws):
-                    tasks.append(self._receive_clob_messages())
+                    if ws_is_open(self.clob_ws) and "clob" not in readers:
+                        readers["clob"] = asyncio.create_task(
+                            self._read_channel(
+                                self._receive_clob_messages,
+                                lambda: ws_is_open(self.clob_ws),
+                            )
+                        )
 
-                if ws_is_open(self.realtime_ws):
-                    tasks.append(self._receive_realtime_messages())
+                    if ws_is_open(self.realtime_ws) and "realtime" not in readers:
+                        readers["realtime"] = asyncio.create_task(
+                            self._read_channel(
+                                self._receive_realtime_messages,
+                                lambda: ws_is_open(self.realtime_ws),
+                            )
+                        )
 
-                if tasks:
-                    # Wait for any message or timeout
-                    done, pending = await asyncio.wait(
-                        tasks,
+                    if not readers:
+                        await asyncio.sleep(1.0)
+                        continue
+
+                    # Wake up when a reader exits so it can be replaced, or after
+                    # a second to re-check connection state.
+                    done, _ = await asyncio.wait(
+                        readers.values(),
                         timeout=1.0,
                         return_when=asyncio.FIRST_COMPLETED
                     )
 
-                    # Cancel pending tasks
-                    for task in pending:
-                        task.cancel()
-                else:
-                    await asyncio.sleep(1.0)
+                    for name, task in list(readers.items()):
+                        if task not in done:
+                            continue
+                        del readers[name]
+                        if task.cancelled():
+                            continue
+                        error = task.exception()
+                        if error:
+                            logger.warning(f"{name} reader stopped: {error}")
+                            self.clob_connected = self.clob_connected and name != "clob"
+                            self.realtime_connected = (
+                                self.realtime_connected and name != "realtime"
+                            )
 
-            except websockets.exceptions.ConnectionClosed:
-                logger.warning("WebSocket connection closed, reconnecting...")
-                await self.reconnect()
-            except Exception as e:
-                logger.error(f"Error in background loop: {e}", exc_info=True)
-                await asyncio.sleep(1.0)
+                except websockets.exceptions.ConnectionClosed:
+                    logger.warning("WebSocket connection closed, reconnecting...")
+                    await self._cancel_readers(readers)
+                    await self.reconnect()
+                except Exception as e:
+                    logger.error(f"Error in background loop: {e}", exc_info=True)
+                    await asyncio.sleep(1.0)
+        finally:
+            await self._cancel_readers(readers)
 
         logger.info("Background WebSocket loop stopped")
+
+    async def _read_channel(self, receive_one: Callable, is_open: Callable) -> None:
+        """
+        Read from one channel until it closes or the manager stops.
+
+        `is_open` is checked each pass because receive_one() returns immediately
+        on a closed socket, which would otherwise spin.
+        """
+        while self.should_run and is_open():
+            await receive_one()
+
+    @staticmethod
+    async def _cancel_readers(readers: Dict[str, asyncio.Task]) -> None:
+        """Cancel and await every reader task, then clear the registry."""
+        for task in readers.values():
+            task.cancel()
+        if readers:
+            await asyncio.gather(*readers.values(), return_exceptions=True)
+        readers.clear()
 
     async def _receive_clob_messages(self) -> None:
         """Receive messages from CLOB WebSocket"""
