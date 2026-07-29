@@ -9,7 +9,9 @@ description = "MCP server for Polymarket trading integration"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "mcp>=1.0.0",
+    # MCP 2.0 removed the decorator API on Server (@server.list_tools, etc.)
+    # that this server is built on. Pinned until the migration lands.
+    "mcp>=1.0.0,<2.0.0",
     "py-clob-client>=0.28.0",
     "websockets>=12.0",
     "eth-account>=0.11.0",
