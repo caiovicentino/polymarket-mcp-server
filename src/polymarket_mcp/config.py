@@ -83,8 +83,12 @@ class PolymarketConfig(BaseSettings):
 
     # Trading Controls
     ENABLE_AUTONOMOUS_TRADING: bool = Field(
-        default=True,
-        description="Enable autonomous trading without confirmation"
+        default=False,
+        description=(
+            "Trade without per-order confirmation. Defaults to False, so every "
+            "order needs confirm=true. When True, only orders above "
+            "REQUIRE_CONFIRMATION_ABOVE_USD need it."
+        )
     )
     REQUIRE_CONFIRMATION_ABOVE_USD: float = Field(
         default=500.0,

@@ -109,7 +109,8 @@ class TradingTools:
         size: float,
         order_type: str = "GTC",
         expiration: Optional[int] = None,
-        outcome: Optional[str] = None
+        outcome: Optional[str] = None,
+        confirm: bool = False
     ) -> Dict[str, Any]:
         """
         Create a limit order on Polymarket.
@@ -117,12 +118,14 @@ class TradingTools:
         Args:
             market_id: Market condition ID
             side: 'BUY' or 'SELL'
-            outcome: Outcome to trade, e.g. 'Yes', 'No', 'Lakers'. Required for
-                markets that are not Yes/No.
             price: Limit price (0.00-1.00)
             size: Order size in USD
             order_type: 'GTC'|'GTD'|'FOK'|'FAK' (default 'GTC')
             expiration: Unix timestamp for GTD orders (optional)
+            outcome: Outcome to trade, e.g. 'Yes', 'No', 'Lakers'. Required for
+                markets that are not Yes/No.
+            confirm: Set True to place an order that needs confirmation. Without
+                it, such an order is reported back instead of being placed.
 
         Returns:
             Dict with order ID, status, and details
@@ -208,17 +211,40 @@ class TradingTools:
             if not is_valid:
                 raise ValueError(f"Safety check failed: {error_msg}")
 
-            # Check if confirmation required
+            # Confirmation gate. This must block the order, not just log it:
+            # the caller has to come back with confirm=True.
             if self.safety_limits.should_require_confirmation(
                 order_request,
                 self.config.ENABLE_AUTONOMOUS_TRADING
-            ):
-                logger.warning(
-                    f"Order requires confirmation: ${size:.2f} exceeds threshold "
-                    f"${self.config.REQUIRE_CONFIRMATION_ABOVE_USD:.2f}"
-                )
-                # In autonomous mode, we proceed with logging
-                # In interactive mode, this would prompt the user
+            ) and not confirm:
+                if self.config.ENABLE_AUTONOMOUS_TRADING:
+                    reason = (
+                        f"order value ${size:.2f} exceeds the confirmation threshold "
+                        f"of ${self.config.REQUIRE_CONFIRMATION_ABOVE_USD:.2f}"
+                    )
+                else:
+                    reason = "autonomous trading is disabled (ENABLE_AUTONOMOUS_TRADING=false)"
+
+                logger.warning(f"Order NOT placed - confirmation required: {reason}")
+                return {
+                    "success": False,
+                    "status": "confirmation_required",
+                    "reason": reason,
+                    "message": (
+                        "Review the details and call again with confirm=true to place "
+                        "this order."
+                    ),
+                    "details": {
+                        "market_id": market_id,
+                        "token_id": token_id,
+                        "outcome": outcome_label,
+                        "side": side,
+                        "price": price,
+                        "size_shares": size_in_shares,
+                        "size_usd": size,
+                        "order_type": order_type,
+                    }
+                }
 
             # Post order
             logger.info(
@@ -274,7 +300,8 @@ class TradingTools:
         market_id: str,
         side: str,
         size: float,
-        outcome: Optional[str] = None
+        outcome: Optional[str] = None,
+        confirm: bool = False
     ) -> Dict[str, Any]:
         """
         Execute market order at best available price (FOK).
@@ -323,7 +350,8 @@ class TradingTools:
                 price=best_price,
                 size=size,
                 order_type='FOK',
-                outcome=outcome_label
+                outcome=outcome_label,
+                confirm=confirm
             )
 
             result['execution_type'] = 'market_order'
@@ -382,7 +410,8 @@ class TradingTools:
                         size=order['size'],
                         order_type=order.get('order_type', 'GTC'),
                         expiration=order.get('expiration'),
-                        outcome=order.get('outcome')
+                        outcome=order.get('outcome'),
+                        confirm=order.get('confirm', False)
                     )
 
                     results.append({
@@ -850,7 +879,8 @@ class TradingTools:
         market_id: str,
         intent: str,
         max_budget: float,
-        outcome: Optional[str] = None
+        outcome: Optional[str] = None,
+        confirm: bool = False
     ) -> Dict[str, Any]:
         """
         AI-powered trade execution with natural language intent.
@@ -942,7 +972,8 @@ class TradingTools:
                         market_id=market_id,
                         side=side,
                         size=plan['size'],
-                        outcome=outcome
+                        outcome=outcome,
+                        confirm=confirm
                     )
                 else:
                     result = await self.create_limit_order(
@@ -951,7 +982,8 @@ class TradingTools:
                         price=plan['price'],
                         size=plan['size'],
                         order_type='GTC',
-                        outcome=outcome
+                        outcome=outcome,
+                        confirm=confirm
                     )
 
                 executed_orders.append(result)
@@ -990,7 +1022,8 @@ class TradingTools:
         market_id: str,
         target_size: Optional[float] = None,
         max_slippage: float = 0.02,
-        outcome: Optional[str] = None
+        outcome: Optional[str] = None,
+        confirm: bool = False
     ) -> Dict[str, Any]:
         """
         Adjust position to target size (or close if target_size is None).
@@ -1083,7 +1116,8 @@ class TradingTools:
                 price=expected_price,
                 size=size,
                 order_type='GTC',
-                outcome=outcome_label
+                outcome=outcome_label,
+                confirm=confirm
             )
 
             return {
@@ -1187,6 +1221,15 @@ def get_tool_definitions() -> List[types.Tool]:
                         "type": "integer",
                         "description": "Unix timestamp for GTD orders (optional)"
                     },
+                    "confirm": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": (
+                            "Set true to place an order that requires confirmation. "
+                            "Without it the order is described back to you instead "
+                            "of being placed."
+                        )
+                    },
                     "outcome": {
                         "type": "string",
                         "description": (
@@ -1221,6 +1264,15 @@ def get_tool_definitions() -> List[types.Tool]:
                         "type": "number",
                         "minimum": 1,
                         "description": "Order size in USD"
+                    },
+                    "confirm": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": (
+                            "Set true to place an order that requires confirmation. "
+                            "Without it the order is described back to you instead "
+                            "of being placed."
+                        )
                     },
                     "outcome": {
                         "type": "string",
@@ -1424,6 +1476,15 @@ def get_tool_definitions() -> List[types.Tool]:
                         "type": "number",
                         "description": "Maximum budget in USD"
                     },
+                    "confirm": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": (
+                            "Set true to place an order that requires confirmation. "
+                            "Without it the order is described back to you instead "
+                            "of being placed."
+                        )
+                    },
                     "outcome": {
                         "type": "string",
                         "description": (
@@ -1457,6 +1518,15 @@ def get_tool_definitions() -> List[types.Tool]:
                         "type": "number",
                         "default": 0.02,
                         "description": "Maximum acceptable slippage (0.02 = 2%)"
+                    },
+                    "confirm": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": (
+                            "Set true to place an order that requires confirmation. "
+                            "Without it the order is described back to you instead "
+                            "of being placed."
+                        )
                     },
                     "outcome": {
                         "type": "string",
