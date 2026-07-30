@@ -23,6 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
+from .. import __version__
 from ..auth import PolymarketClient, create_polymarket_client
 from ..config import PolymarketConfig, load_config
 from ..tools import market_analysis, market_discovery
@@ -52,7 +53,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Polymarket MCP Dashboard",
     description="Web dashboard for Polymarket MCP Server",
-    version="0.1.0",
+    version=__version__,
     lifespan=lifespan,
 )
 
@@ -211,7 +212,7 @@ async def monitoring_page(request: Request):
     system_info = {
         "python_version": sys.version.split()[0],
         "platform": platform.platform(),
-        "mcp_version": "0.1.0",
+        "mcp_version": __version__,
         "uptime": str(datetime.now() - stats["uptime_start"]).split('.')[0],
     }
 

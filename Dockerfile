@@ -57,9 +57,11 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # Entry point
 CMD ["python", "-m", "polymarket_mcp.server"]
 
-# Labels for metadata
+# Labels for metadata. VERSION comes from the build-arg the release workflow
+# passes, so it does not drift from __init__.py.
+ARG VERSION=dev
 LABEL org.opencontainers.image.title="Polymarket MCP Server" \
       org.opencontainers.image.description="Model Context Protocol server for Polymarket trading" \
-      org.opencontainers.image.version="0.1.0" \
+      org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.authors="Polymarket MCP Team" \
       org.opencontainers.image.licenses="MIT"

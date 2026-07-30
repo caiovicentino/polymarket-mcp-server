@@ -253,6 +253,12 @@ jobs:
     name: Update Documentation
     runs-on: ubuntu-latest
     needs: release
+    permissions:
+      contents: write
+    # Best-effort: main requires a pull request, and github-actions[bot] is not
+    # an admin, so a direct push is rejected by branch protection. Never fail
+    # the release over a README badge.
+    continue-on-error: true
     steps:
     - uses: actions/checkout@v7
       with:
@@ -278,7 +284,9 @@ jobs:
   notify:
     name: Release Notification
     runs-on: ubuntu-latest
-    needs: [release, publish]
+    # test and build are listed because the summary below reads their results;
+    # without them in needs, those expressions resolve to empty.
+    needs: [test, build, release, publish]
     if: always()
     steps:
     - name: Release Status

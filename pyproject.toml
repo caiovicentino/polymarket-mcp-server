@@ -4,7 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "polymarket-mcp"
-version = "0.1.0"
+# Read from src/polymarket_mcp/__init__.py so the version lives in one place.
+dynamic = ["version"]
 description = "MCP server for Polymarket trading integration"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -54,6 +55,9 @@ dev = [
 polymarket-mcp = "polymarket_mcp.server:main"
 polymarket-web = "polymarket_mcp.web.app:start"
 polymarket-setup = "setup_wizard:main"
+
+[tool.hatch.version]
+path = "src/polymarket_mcp/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/polymarket_mcp"]

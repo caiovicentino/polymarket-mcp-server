@@ -13,6 +13,7 @@ import mcp.server.stdio
 import mcp.types as types
 from mcp.server import Server
 
+from . import __version__
 from .auth import PolymarketClient, create_polymarket_client
 from .config import PolymarketConfig, load_config
 from .tools import (
@@ -200,7 +201,7 @@ async def read_resource(uri: str) -> str:
                 polymarket_client.has_api_credentials()
                 if polymarket_client else False
             ),
-            "server_version": "0.1.0",
+            "server_version": __version__,
         }
         return json.dumps(status_data, indent=2)
 

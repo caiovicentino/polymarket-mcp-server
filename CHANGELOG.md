@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [0.2.0] - 2026-07-29
 
 ### ⚠️ Breaking Changes
 
@@ -38,14 +38,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it is now `/ws/market`.
 - Connection checks used the `.closed` property that `websockets` 14 removed.
 - The confirmation gate logged and then placed the order anyway.
+- Each WebSocket channel now has its own reader. The loop previously awaited
+  both with `FIRST_COMPLETED` and cancelled the loser every iteration, which
+  starved the quieter channel and discarded whatever the cancelled `recv()` had
+  already taken off the wire (#13).
+- `execute_smart_trade` reported `success: true` even when every nested order
+  was withheld for confirmation, and `create_batch_orders` counted a withheld
+  order as failed.
+
+### Security
+
+- **The web dashboard now binds to `127.0.0.1`** instead of `0.0.0.0`. It has no
+  authentication and `POST /api/config` rewrites the trading safety limits, so
+  listening on every interface let anyone able to reach the port raise the order
+  caps of a server holding a funded wallet. Override with `WEB_HOST` only on a
+  trusted network.
+- Added `SECURITY.md` with private vulnerability reporting and operator guidance.
 
 ### Changed
 
+- The version now lives only in `src/polymarket_mcp/__init__.py`; packaging,
+  the server, the dashboard and the Docker label all read from it.
 - GitHub Actions updated (up to three majors behind, Node 20 deprecation) and
   Python 3.13 added to the test matrix.
-- Added `SECURITY.md` with private vulnerability reporting and operator guidance.
 - Repaired the test suite: collection had been aborting on a syntax error, and
   the nightly run had been failing for months.
+- Fixed the CI itself, which had never fully run: the Windows legs used bash
+  line continuations under PowerShell, `release.yml` was invalid since June
+  (the `secrets` context is not available in `if`), the Docker job died at
+  login when no registry credentials are configured, and the ruff rule set was
+  unpinned so it drifted with each release.
 
 ## [0.1.0] - 2025-01-10
 
