@@ -18,6 +18,10 @@ from polymarket_mcp.utils.websocket_manager import (
     ws_is_open,
 )
 
+# Hits the live Polymarket API (no mocks), so it belongs to the integration
+# tier: excluded from the release gate, still run on every push.
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture
 def config():
