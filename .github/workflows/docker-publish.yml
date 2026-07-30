@@ -59,7 +59,10 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=sha,prefix={{branch}}-
+            # {{branch}} is empty on a tag build, which yields the invalid tag
+            # "-<sha>". Use the branch prefix only when building a branch.
+            type=sha,prefix={{branch}}-,enable=${{ github.ref_type == 'branch' }}
+            type=sha,prefix=sha-,enable=${{ github.ref_type == 'tag' }}
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Docker image
