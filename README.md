@@ -1,5 +1,7 @@
 # 🤖 Polymarket MCP Server
 
+[![MCP Toplist](https://mcptoplist.com/badge/glama%2Fcaiovicentino%2Fpolymarket-mcp-server.svg)](https://mcptoplist.com/server/glama%2Fcaiovicentino%2Fpolymarket-mcp-server)
+
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![MCP Protocol](https://img.shields.io/badge/MCP-1.0-purple.svg)](https://modelcontextprotocol.io)
