@@ -114,8 +114,8 @@ async def list_tools() -> list[types.Tool]:
 
     Returns:
         List of tools (conditional on authentication):
-        - 8 Market Discovery tools (always available - public API)
-        - 10 Market Analysis tools (always available - public API)
+        - 9 Market Discovery tools (always available - public API)
+    - 10 Market Analysis tools (always available - public API)
         - 12 Trading tools (requires API credentials)
         - 8 Portfolio Management tools (requires API credentials)
         - 7 Real-time WebSocket tools (partial - some require auth)
@@ -256,7 +256,7 @@ async def call_tool(name: str, arguments: Dict[str, Any]) -> list[types.TextCont
 
     try:
         # Route to market discovery tools
-        if name in ["search_markets", "get_trending_markets", "filter_markets_by_category",
+        if name in ["search_markets", "search_events", "get_trending_markets", "filter_markets_by_category",
                     "get_event_markets", "get_featured_markets", "get_closing_soon_markets",
                     "get_sports_markets", "get_crypto_markets"]:
             return await market_discovery.handle_tool(name, arguments)

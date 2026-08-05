@@ -1,8 +1,9 @@
 """
 Market Discovery Tools for Polymarket MCP Server.
 
-Provides 8 tools for discovering and filtering markets:
+Provides 9 tools for discovering and filtering markets:
 - search_markets: Search by text/slug/keywords
+- search_events: Search events by text query
 - get_trending_markets: Markets with highest volume
 - filter_markets_by_category: Filter by tags/categories
 - get_event_markets: All markets for an event
@@ -178,6 +179,38 @@ async def search_markets(
 
     except Exception as e:
         logger.error(f"Failed to search markets: {e}")
+        raise
+
+
+async def search_events(
+    query: str,
+    limit: int = 20,
+    active_only: bool = True
+) -> List[Dict[str, Any]]:
+    """
+    Search events by text query.
+
+    Args:
+        query: Search query for events
+        limit: Maximum number of results (default 20)
+        active_only: Only return events with active markets (default True)
+
+    Returns:
+        List of events matching the query
+    """
+    try:
+        params = {"query": query}
+
+        if active_only:
+            params["active"] = "true"
+
+        events = await _fetch_gamma_markets("/events", params, limit)
+
+        logger.info(f"Found {len(events)} events for query: {query}")
+        return events
+
+    except Exception as e:
+        logger.error(f"Failed to search events: {e}")
         raise
 
 
@@ -527,6 +560,30 @@ def get_tools() -> List[types.Tool]:
             }
         ),
         types.Tool(
+            name="search_events",
+            description="Search events by text query. Returns events matching the search criteria.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Search query for events"
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum number of results (default 20)",
+                        "default": 20
+                    },
+                    "active_only": {
+                        "type": "boolean",
+                        "description": "Only return events with active markets (default True)",
+                        "default": true
+                    }
+                },
+                "required": ["query"]
+            }
+        ),
+        types.Tool(
             name="get_trending_markets",
             description="Get markets with highest trading volume in specified timeframe. Returns top markets sorted by volume.",
             inputSchema={
@@ -680,6 +737,8 @@ async def handle_tool(name: str, arguments: Dict[str, Any]) -> List[types.TextCo
         # Route to appropriate function
         if name == "search_markets":
             result = await search_markets(**arguments)
+        elif name == "search_events":
+            result = await search_events(**arguments)
         elif name == "get_trending_markets":
             result = await get_trending_markets(**arguments)
         elif name == "filter_markets_by_category":

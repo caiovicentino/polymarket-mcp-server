@@ -83,6 +83,18 @@ async def demo_market_discovery():
             print(f"   💰 Volume 24h: ${volume:,.0f}")
             print(f"   📊 Total Markets: {markets_count}")
 
+        # 4. Search events (NEW tool)
+        print("\n\n🔍 Tool: search_events")
+        print("-" * 50)
+        response = await client.get(
+            'https://gamma-api.polymarket.com/events',
+            params={'limit': 3, 'query': 'Bitcoin', 'active': 'true'}
+        )
+        search_results = response.json()
+        for i, event in enumerate(search_results[:3], 1):
+            print(f"\n{i}. {event.get('title', 'N/A')}")
+            print(f"   📂 Slug: {event.get('slug', 'N/A')}")
+
 async def demo_market_analysis():
     """Demo das ferramentas de Market Analysis"""
     print("\n\n" + "="*70)
@@ -93,22 +105,23 @@ async def demo_market_analysis():
         # Get a market first
         response = await client.get(
             'https://gamma-api.polymarket.com/markets',
-            params={'limit': 1, 'closed': 'false'}
+            params={'limit': 5, 'closed': 'false'}
         )
         markets = response.json()
 
-        if not markets:
-            print("Nenhum market disponível")
+        # Find a market with tokens
+        market = None
+        token_id = None
+        for m in markets:
+            tokens = m.get('tokens', [])
+            if tokens and len(tokens) > 0:
+                market = m
+                token_id = tokens[0].get('token_id')
+                break
+
+        if not market or not token_id:
+            print("Nenhum market com tokens disponível para análise")
             return
-
-        market = markets[0]
-        tokens = market.get('tokens', [])
-
-        if not tokens:
-            print("Market sem tokens")
-            return
-
-        token_id = tokens[0].get('token_id')
 
         # 1. Get market details
         print("\n📊 Tool: get_market_details")
@@ -256,7 +269,7 @@ async def main():
     print("="*70)
     print("""
 📊 Ferramentas Testadas:
-   ✅ Market Discovery (8 tools) - DADOS REAIS
+   ✅ Market Discovery (9 tools) - DADOS REAIS
    ✅ Market Analysis (10 tools) - DADOS REAIS
    ✅ Portfolio Management (8 tools) - EXEMPLO
 
