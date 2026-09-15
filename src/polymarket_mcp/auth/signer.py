@@ -6,7 +6,7 @@ import logging
 from typing import Any, Dict
 
 from eth_account import Account
-from eth_account.messages import encode_typed_data
+from eth_account.messages import encode_defunct, encode_typed_data
 from eth_utils import keccak
 
 logger = logging.getLogger(__name__)
@@ -74,7 +74,7 @@ class OrderSigner:
         typed_data = self._build_typed_data(order)
 
         # Encode and sign
-        encoded_data = encode_typed_data(typed_data)
+        encoded_data = encode_typed_data(full_message=typed_data)
         signed_message = self.account.sign_message(encoded_data)
 
         # Return signature as hex (with 0x prefix)
@@ -97,7 +97,7 @@ class OrderSigner:
 
         # Sign the message
         signed_message = self.account.sign_message(
-            text=message
+            encode_defunct(text=message)
         )
 
         return signed_message.signature.hex()
@@ -142,7 +142,7 @@ class OrderSigner:
             "message": cancel_data
         }
 
-        encoded_data = encode_typed_data(typed_data)
+        encoded_data = encode_typed_data(full_message=typed_data)
         signed_message = self.account.sign_message(encoded_data)
 
         return signed_message.signature.hex()
@@ -198,7 +198,7 @@ class OrderSigner:
             Order hash as hex string
         """
         typed_data = self._build_typed_data(order)
-        encoded_data = encode_typed_data(typed_data)
+        encoded_data = encode_typed_data(full_message=typed_data)
 
         # Hash the encoded data
         order_hash = keccak(encoded_data.body)
@@ -221,7 +221,7 @@ class OrderSigner:
         """
         try:
             typed_data = self._build_typed_data(order)
-            encoded_data = encode_typed_data(typed_data)
+            encoded_data = encode_typed_data(full_message=typed_data)
 
             # Recover signer address from signature
             recovered_address = Account.recover_message(
