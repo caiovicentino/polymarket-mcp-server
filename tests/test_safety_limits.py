@@ -348,6 +348,27 @@ def test_validate_order_sell_treated_as_short_in_other_market():
     assert "per-market maximum" in error
 
 
+def test_validate_order_sell_in_own_market_reduces_market_exposure():
+    """SELL of a token held in the order's own market reduces BOTH the total
+    and the per-market exposure (lines 156-160) and stays within the caps."""
+    limits = make_limits(
+        max_order_size_usd=1_000.0,
+        max_total_exposure_usd=1_000.0,
+        max_position_size_per_market=1_000.0,
+    )
+    positions = [make_position("tok-a", "m1", size=1_000.0)]  # 500.0 USD in m1
+
+    ok, error = limits.validate_order(
+        make_order(
+            token_id="tok-a", price=0.5, size=400.0, side="SELL", market_id="m1"
+        ),
+        positions,
+        make_market_data(market_id="m1"),
+    )
+
+    assert (ok, error) == (True, None)
+
+
 def test_check_exposure_flags_over_limit():
     """check_exposure returns (total, within); the cap boundary is within."""
     limits = make_limits(max_total_exposure_usd=1_000.0)
