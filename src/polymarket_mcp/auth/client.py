@@ -5,9 +5,18 @@ Handles L1 (private key) and L2 (API key) authentication.
 import logging
 from typing import Any, Dict, List, Optional
 
+import httpx
 from py_clob_client.client import ClobClient
-from py_clob_client.clob_types import ApiCreds, OrderArgs
+from py_clob_client.clob_types import (
+    ApiCreds,
+    AssetType,
+    BalanceAllowanceParams,
+    OpenOrderParams,
+    OrderArgs,
+    OrderType,
+)
 
+from ..utils.rate_limiter import EndpointCategory, get_rate_limiter
 from .signer import OrderSigner
 
 logger = logging.getLogger(__name__)
@@ -275,27 +284,34 @@ class PolymarketClient:
             )
 
         try:
-            # Build order args
+            order_type = (order_type or "GTC").upper()
+            if not hasattr(OrderType, order_type):
+                raise ValueError(f"Invalid order type: {order_type}")
+
+            # Build order args. OrderArgs does NOT carry order_type
+            # (py-clob-client 0.34); the order type is passed to post_order.
             order_args = OrderArgs(
                 token_id=token_id,
                 price=price,
                 size=size,
                 side=side.upper(),
-                order_type=order_type,
             )
 
             if expiration:
-                order_args.expiration = expiration
+                order_args.expiration = int(expiration)
 
-            # Post order using client
-            order_response = self.client.create_order(order_args)
+            # create_order only signs the order; post_order submits it.
+            signed = self.client.create_order(order_args)
+            response = self.client.post_order(
+                signed, orderType=getattr(OrderType, order_type)
+            )
 
             logger.info(
                 f"Order posted: {side} {size} @ {price} "
-                f"(token: {token_id}, order_id: {order_response.get('orderID')})"
+                f"(token: {token_id}, order_id: {response.get('orderID')})"
             )
 
-            return order_response
+            return response
 
         except Exception as e:
             logger.error(f"Failed to post order: {e}")
@@ -372,14 +388,15 @@ class PolymarketClient:
             raise RuntimeError("L2 API credentials required")
 
         try:
-            # Build params
-            params = {}
-            if market:
-                params["market"] = market
-            if asset_id:
-                params["asset_id"] = asset_id
+            # ClobClient.get_orders expects a single OpenOrderParams object
+            # (positional), not keyword arguments (py-clob-client 0.34).
+            params = OpenOrderParams()
+            if market is not None:
+                params.market = market
+            if asset_id is not None:
+                params.asset_id = asset_id
 
-            orders = self.client.get_orders(**params)
+            orders = self.client.get_orders(params)
             return orders
 
         except Exception as e:
@@ -389,6 +406,10 @@ class PolymarketClient:
     async def get_positions(self) -> List[Dict[str, Any]]:
         """
         Get user's positions.
+
+        Positions are served by Polymarket's public Data API
+        (https://data-api.polymarket.com/positions); the CLOB API does not
+        expose them. This mirrors the pattern used by tools/portfolio.py.
 
         Returns:
             List of positions
@@ -400,19 +421,32 @@ class PolymarketClient:
             raise RuntimeError("L2 API credentials required")
 
         try:
-            positions = self.client.get_positions(self.address)
-            return positions
+            await get_rate_limiter().acquire(EndpointCategory.DATA_API)
+
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    "https://data-api.polymarket.com/positions",
+                    params={"user": self.address},
+                    timeout=10.0,
+                )
+                response.raise_for_status()
+                return response.json()
 
         except Exception as e:
             logger.error(f"Failed to fetch positions: {e}")
             raise
 
-    async def get_balance(self) -> Dict[str, float]:
+    async def get_balance(self) -> Dict[str, Any]:
         """
         Get user's USDC balance.
 
+        Queries the CLOB /balance-allowance endpoint via
+        get_balance_allowance() and normalizes the raw USDC units
+        (6 decimals on Polygon) into USD.
+
         Returns:
-            Dictionary with balance info
+            Dictionary with "balance" in USD (float, normalized from the
+            6-decimal raw units reported by the CLOB) and "allowances".
 
         Raises:
             RuntimeError: If L2 credentials not available
@@ -421,8 +455,14 @@ class PolymarketClient:
             raise RuntimeError("L2 API credentials required")
 
         try:
-            balance_data = self.client.get_balance(self.address)
-            return balance_data
+            balance_data = self.client.get_balance_allowance(
+                BalanceAllowanceParams(asset_type=AssetType.COLLATERAL)
+            )
+            balance = float(balance_data.get("balance", 0)) / 1_000_000
+            return {
+                "balance": balance,
+                "allowances": balance_data.get("allowances", {}),
+            }
 
         except Exception as e:
             logger.error(f"Failed to fetch balance: {e}")
