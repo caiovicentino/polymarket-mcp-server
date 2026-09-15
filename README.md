@@ -4,6 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![MCP Protocol](https://img.shields.io/badge/MCP-1.0-purple.svg)](https://modelcontextprotocol.io)
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](#testing)
+[![AgentSeal MCP](https://agentseal.org/api/v1/mcp/polymarket-mcp/badge)](https://agentseal.org/mcp/polymarket-mcp)
 
 **Complete AI-Powered Trading Platform for Polymarket Prediction Markets**
 
