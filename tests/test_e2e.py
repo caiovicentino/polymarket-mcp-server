@@ -59,7 +59,7 @@ class TestServerInitialization:
         import sys
         sys.path.insert(0, "src")
 
-        os.environ["POLYGON_PRIVATE_KEY"] = "0" * 64
+        os.environ["POLYGON_PRIVATE_KEY"] = "0" * 63 + "1"
         os.environ["POLYGON_ADDRESS"] = "0x" + "0" * 40
 
         try:
@@ -199,7 +199,7 @@ class TestResourceAccess:
         import sys
         sys.path.insert(0, "src")
 
-        os.environ["POLYGON_PRIVATE_KEY"] = "0" * 64
+        os.environ["POLYGON_PRIVATE_KEY"] = "0" * 63 + "1"
         os.environ["POLYGON_ADDRESS"] = "0x" + "0" * 40
 
         try:
@@ -227,7 +227,7 @@ class TestResourceAccess:
         import sys
         sys.path.insert(0, "src")
 
-        os.environ["POLYGON_PRIVATE_KEY"] = "0" * 64
+        os.environ["POLYGON_PRIVATE_KEY"] = "0" * 63 + "1"
         os.environ["POLYGON_ADDRESS"] = "0x" + "0" * 40
 
         try:
@@ -299,7 +299,7 @@ class TestErrorScenarios:
 
         from polymarket_mcp.server import call_tool
 
-        os.environ["POLYGON_PRIVATE_KEY"] = "0" * 64
+        os.environ["POLYGON_PRIVATE_KEY"] = "0" * 63 + "1"
         os.environ["POLYGON_ADDRESS"] = "0x" + "0" * 40
 
         try:
@@ -460,7 +460,7 @@ async def test_complete_e2e_flow():
     import sys
     sys.path.insert(0, "src")
 
-    os.environ["POLYGON_PRIVATE_KEY"] = "0" * 64
+    os.environ["POLYGON_PRIVATE_KEY"] = "0" * 63 + "1"
     os.environ["POLYGON_ADDRESS"] = "0x" + "0" * 40
 
     try:

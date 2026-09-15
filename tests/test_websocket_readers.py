@@ -19,7 +19,7 @@ from polymarket_mcp.utils.websocket_manager import WebSocketManager
 @pytest.fixture
 def config():
     return PolymarketConfig(
-        POLYGON_PRIVATE_KEY="0" * 64,
+        POLYGON_PRIVATE_KEY="0" * 63 + "1",
         POLYGON_ADDRESS="0x" + "0" * 40,
         POLYMARKET_CHAIN_ID=137,
     )
