@@ -156,6 +156,15 @@ class PolymarketConfig(BaseSettings):
         except ValueError:
             # from None: the inner int() error would leak key material context.
             raise ValueError("POLYGON_PRIVATE_KEY must be valid hex") from None
+        # An all-zero key passes the format checks (64 hex chars) but is the
+        # scalar 0, which eth-account rejects at signing time with a cryptic
+        # error. Reject it here with an actionable message before it ever
+        # reaches the signer. The value itself is never echoed (key material).
+        if int(v, 16) == 0:
+            raise ValueError(
+                "POLYGON_PRIVATE_KEY is all zeros - not a valid private key. "
+                "Set a real key in .env or set DEMO_MODE=true for read-only access"
+            )
         return v
 
     @field_validator("POLYGON_ADDRESS")
