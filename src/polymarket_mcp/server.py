@@ -521,8 +521,7 @@ async def call_tool(name: str, arguments: Dict[str, Any]) -> list[types.TextCont
                       "unsubscribe_realtime"]:
             if not websocket_manager:
                 raise ValueError("WebSocket manager not initialized")
-            result = await realtime.handle_tool(name, arguments, websocket_manager, server)
-            return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
+            return await realtime.handle_tool_call(name, arguments)
 
         # Route to trading tools
         elif trading_tools:
@@ -656,6 +655,9 @@ async def initialize_server() -> None:
         # Initialize WebSocket manager
         logger.info("Initializing WebSocket manager...")
         websocket_manager = WebSocketManager(config)
+        # Register the manager with the realtime tools module (the tools layer
+        # owns its own global, see tools/realtime.set_websocket_manager).
+        realtime.set_websocket_manager(websocket_manager)
         # Connect WebSocket (non-blocking). The background loop must be started
         # after connecting, otherwise subscriptions never receive messages.
         _websocket_startup_task = asyncio.create_task(_start_websocket(websocket_manager))
