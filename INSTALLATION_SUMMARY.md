@@ -359,7 +359,7 @@ Everything in DEMO mode PLUS:
 
 ### Code Quality
 
-- ✅ No mocks - all functionality is real
+- ✅ Real functionality - installers wrap the production package; tests are layered (offline tier uses hermetic fakes, live-API tiers are integration-marked)
 - ✅ Error handling throughout
 - ✅ Input validation
 - ✅ Security considerations
@@ -592,7 +592,7 @@ Successfully transformed Polymarket MCP Server installation from a complex 10+ s
 - ✅ Comprehensive error handling
 - ✅ Professional documentation
 - ✅ Security best practices
-- ✅ Zero mocks - all real functionality
+- ✅ Real functionality - installers wrap the production package; test suite is layered (offline tier uses hermetic fakes, live-API tiers are integration-marked)
 
 **User Impact:**
 - 60x faster installation
