@@ -4,7 +4,7 @@ Validates orders against configured limits before execution.
 """
 import logging
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -238,7 +238,7 @@ class SafetyLimits:
     def get_position_summary(
         self,
         current_positions: List[Position]
-    ) -> Dict[str, any]:
+    ) -> Dict[str, Any]:
         """
         Get summary of current positions and exposure.
 
