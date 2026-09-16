@@ -14,7 +14,7 @@ import os
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, cast
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
@@ -129,10 +129,10 @@ async def load_mcp_config():
 @app.get("/", response_class=HTMLResponse)
 async def dashboard_home(request: Request):
     """Dashboard home page"""
-    stats["requests_total"] += 1
+    stats["requests_total"] = cast(int, stats["requests_total"]) + 1
 
     # Calculate uptime
-    uptime = datetime.now() - stats["uptime_start"]
+    uptime = datetime.now() - cast(datetime, stats["uptime_start"])
 
     # Get MCP status
     mcp_status = {
@@ -157,7 +157,7 @@ async def dashboard_home(request: Request):
 @app.get("/config", response_class=HTMLResponse)
 async def config_page(request: Request):
     """Configuration management page"""
-    stats["requests_total"] += 1
+    stats["requests_total"] = cast(int, stats["requests_total"]) + 1
 
     current_config = None
     if config and safety_limits:
@@ -191,7 +191,7 @@ async def config_page(request: Request):
 @app.get("/markets", response_class=HTMLResponse)
 async def markets_page(request: Request):
     """Markets discovery and analysis page"""
-    stats["requests_total"] += 1
+    stats["requests_total"] = cast(int, stats["requests_total"]) + 1
 
     return templates.TemplateResponse(request, "markets.html")
 
@@ -199,7 +199,7 @@ async def markets_page(request: Request):
 @app.get("/monitoring", response_class=HTMLResponse)
 async def monitoring_page(request: Request):
     """System monitoring and analytics page"""
-    stats["requests_total"] += 1
+    stats["requests_total"] = cast(int, stats["requests_total"]) + 1
 
     # Get rate limiter status
     rate_limiter = get_rate_limiter()
@@ -213,7 +213,7 @@ async def monitoring_page(request: Request):
         "python_version": sys.version.split()[0],
         "platform": platform.platform(),
         "mcp_version": __version__,
-        "uptime": str(datetime.now() - stats["uptime_start"]).split('.')[0],
+        "uptime": str(datetime.now() - cast(datetime, stats["uptime_start"])).split('.')[0],
     }
 
     return templates.TemplateResponse(
@@ -283,11 +283,11 @@ async def test_connection():
 @app.get("/api/markets/trending")
 async def get_trending_markets(limit: int = 10):
     """Get trending markets"""
-    stats["api_calls"] += 1
+    stats["api_calls"] = cast(int, stats["api_calls"]) + 1
 
     try:
         result = await market_discovery.handle_tool("get_trending_markets", {"limit": limit})
-        stats["markets_viewed"] += 1
+        stats["markets_viewed"] = cast(int, stats["markets_viewed"]) + 1
 
         # Extract text content from MCP response
         if result and len(result) > 0:
@@ -298,7 +298,7 @@ async def get_trending_markets(limit: int = 10):
         return JSONResponse({"markets": []})
 
     except Exception as e:
-        stats["errors"] += 1
+        stats["errors"] = cast(int, stats["errors"]) + 1
         logger.error(f"Failed to get trending markets: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
@@ -306,14 +306,14 @@ async def get_trending_markets(limit: int = 10):
 @app.get("/api/markets/search")
 async def search_markets(q: str, limit: int = 20):
     """Search markets by query"""
-    stats["api_calls"] += 1
+    stats["api_calls"] = cast(int, stats["api_calls"]) + 1
 
     try:
         result = await market_discovery.handle_tool("search_markets", {
             "query": q,
             "limit": limit
         })
-        stats["markets_viewed"] += 1
+        stats["markets_viewed"] = cast(int, stats["markets_viewed"]) + 1
 
         if result and len(result) > 0:
             import json
@@ -323,7 +323,7 @@ async def search_markets(q: str, limit: int = 20):
         return JSONResponse({"markets": []})
 
     except Exception as e:
-        stats["errors"] += 1
+        stats["errors"] = cast(int, stats["errors"]) + 1
         logger.error(f"Search failed: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
@@ -331,7 +331,7 @@ async def search_markets(q: str, limit: int = 20):
 @app.get("/api/markets/{market_id}")
 async def get_market_details(market_id: str):
     """Get detailed market information"""
-    stats["api_calls"] += 1
+    stats["api_calls"] = cast(int, stats["api_calls"]) + 1
 
     try:
         result = await market_analysis.handle_tool("get_market_details", {
@@ -346,7 +346,7 @@ async def get_market_details(market_id: str):
         raise HTTPException(status_code=404, detail="Market not found")
 
     except Exception as e:
-        stats["errors"] += 1
+        stats["errors"] = cast(int, stats["errors"]) + 1
         logger.error(f"Failed to get market details: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
@@ -354,7 +354,7 @@ async def get_market_details(market_id: str):
 @app.get("/api/markets/{market_id}/analyze")
 async def analyze_market(market_id: str):
     """Analyze market opportunity"""
-    stats["api_calls"] += 1
+    stats["api_calls"] = cast(int, stats["api_calls"]) + 1
 
     try:
         result = await market_analysis.handle_tool("analyze_market_opportunity", {
@@ -369,7 +369,7 @@ async def analyze_market(market_id: str):
         raise HTTPException(status_code=404, detail="Market not found")
 
     except Exception as e:
-        stats["errors"] += 1
+        stats["errors"] = cast(int, stats["errors"]) + 1
         logger.error(f"Market analysis failed: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
@@ -377,14 +377,14 @@ async def analyze_market(market_id: str):
 @app.post("/api/config")
 async def update_config(config_update: ConfigUpdateRequest):
     """Update configuration (saves to .env file)"""
-    stats["api_calls"] += 1
+    stats["api_calls"] = cast(int, stats["api_calls"]) + 1
 
     try:
         # Update environment file
         env_file = Path(".env")
 
         if not env_file.exists():
-            stats["errors"] += 1
+            stats["errors"] = cast(int, stats["errors"]) + 1
             raise HTTPException(status_code=404, detail=".env file not found")
 
         # Read current .env
@@ -425,7 +425,7 @@ async def update_config(config_update: ConfigUpdateRequest):
         })
 
     except Exception as e:
-        stats["errors"] += 1
+        stats["errors"] = cast(int, stats["errors"]) + 1
         logger.error(f"Config update failed: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
@@ -510,7 +510,7 @@ def start(host: str | None = None, port: int | None = None):
     routable interface hands control of the wallet to anyone who can reach the
     port. Override with WEB_HOST only on a trusted, isolated network.
     """
-    host = host or os.getenv("WEB_HOST", "127.0.0.1")
+    host = cast(str, host or os.getenv("WEB_HOST", "127.0.0.1"))
     port = port or int(os.getenv("WEB_PORT", "8080"))
 
     if host not in ("127.0.0.1", "localhost", "::1"):
