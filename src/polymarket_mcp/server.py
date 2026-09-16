@@ -6,6 +6,7 @@ Provides MCP server for Polymarket trading integration with Claude Desktop.
 import asyncio
 import logging
 import os
+import re
 import signal
 from typing import Any, Dict, Final, Optional, Union
 
@@ -50,6 +51,25 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+_HEX_RUN_RE = re.compile(r"[0-9a-fA-F]{16,}")
+
+
+def _safe_error_message(exc: BaseException) -> str:
+    """Redact hex runs of 16+ chars from an exception message before logging.
+
+    str(pydantic.ValidationError) echoes a truncated copy of the invalid
+    input_value (pydantic 2.13.5: two ~23-hex-char runs around '...' for a
+    64-char key), so a malformed POLYGON_PRIVATE_KEY would otherwise put
+    184 bits of key material into the server log (L-0155/T-0061). Plain
+    messages - and every message without a 16+ hex run - pass through
+    byte-identically, keeping the lifecycle compat pin green. Pinned by
+    tests/test_init_error_sanitization_offline.py.
+    """
+    return _HEX_RUN_RE.sub(
+        lambda match: f"[REDACTED:{len(match.group(0))} hex chars]", str(exc)
+    )
+
 
 # Global instances
 # version=__version__ keeps serverInfo consistent between the initialize
@@ -678,7 +698,7 @@ async def initialize_server() -> None:
             logger.info("Trading and Portfolio tools require API credentials")
 
     except Exception as e:
-        logger.error(f"Failed to initialize server: {e}")
+        logger.error(f"Failed to initialize server: {_safe_error_message(e)}")
         raise
 
 
