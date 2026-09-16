@@ -115,25 +115,75 @@ refactor: improve orderbook parsing logic
 
 ## 🧪 Testing
 
+### Test Strategy
+
+Tests are organized in tiers:
+
+- **Offline suites (default)** — every test file without a tier marker. These are hermetic:
+  deterministic fakes at module seams (fail-loud stubs, `httpx.MockTransport`, fake clocks)
+  instead of live calls. Many are named `tests/test_*_offline.py`; they cover config, tools,
+  server, and web modules.
+- **`integration`** — exercise the live Polymarket API (e.g. `tests/test_e2e.py`,
+  `tests/test_integration.py`, `tests/test_market_tools.py`, `tests/test_websocket.py`).
+- **`real_api`** — require a funded wallet and place real orders (e.g. `tests/test_trading_tools.py`,
+  `tests/test_portfolio_tools.py`).
+- **`performance`** — benchmark the live API (e.g. `tests/test_performance.py`).
+
+Wallet-dependent tests — modules listed in `CREDENTIAL_ONLY_MODULES` and tests marked
+`@pytest.mark.requires_credentials` — are skipped automatically when `POLYGON_PRIVATE_KEY`
+and `POLYGON_ADDRESS` are not set (see `pytest_collection_modifyitems` in `tests/conftest.py`).
+
 ### Run Tests
 
 ```bash
-# Run all tests
-pytest
+# Offline suites (default for day-to-day development)
+pytest -m "not integration and not slow and not real_api and not performance"
 
-# Run specific test file
-pytest tests/test_trading_tools.py -v
+# Run a specific file
+pytest tests/test_config_security.py -v
 
-# Run with coverage
-pytest --cov=polymarket_mcp --cov-report=html
+# Offline suites with coverage
+pytest -m "not integration and not slow and not real_api and not performance" --cov=polymarket_mcp --cov-report=html
 
-# Run only fast tests (skip integration tests)
+# CI runs these selections (source: .github/workflows/tests.yml):
+pytest tests/ -m "not integration and not slow and not real_api"  # unit step
+pytest tests/ -m "not real_api"  # demo step: includes the integration tier; needs network
+pytest tests/ -m "integration"  # integration-test job
+
+# Skip slow tests only — note: this does NOT exclude real_api (or integration/performance) suites
 pytest -m "not slow"
 ```
 
+Notes:
+
+- Bare `pytest` runs every tier, including suites that hit the live Polymarket API — don't
+  use it as the default local command.
+- The offline command excludes all four tier markers, so it runs only the offline tier.
+- The CI unit step does not exclude `performance`, so its selection also runs live-API
+  benchmarks (source: `.github/workflows/tests.yml`).
+
+### Test Markers
+
+Markers are registered in `pyproject.toml` (`[tool.pytest.ini_options]`) and
+`tests/conftest.py` (`pytest_configure`):
+
+| Marker | Meaning |
+| ------ | ------- |
+| `integration` | Integration tests with real API |
+| `slow` | Slow tests (>5 seconds) |
+| `real_api` | Tests requiring real API access |
+| `performance` | Performance benchmarks |
+| `requires_credentials` | Needs a funded wallet (POLYGON_PRIVATE_KEY) |
+
 ### Writing Tests
 
-- **All tests must use real Polymarket APIs** (NO MOCKS per project policy)
+- Offline tests first: cover new behavior with deterministic fakes at module seams —
+  fail-loud stubs (e.g. `tests/test_market_analysis_offline.py`), `httpx.MockTransport`
+  (e.g. `tests/test_client_auth_offline.py`), fake clocks (e.g. `tests/test_rate_limiter.py`)
+- Tests that exercise the real API are marked `integration`, `real_api`, or `performance`
+  (e.g. `pytestmark = pytest.mark.integration` at module level)
+- Wallet-dependent tests are marked `@pytest.mark.requires_credentials` (auto-skipped
+  without credentials)
 - Use `pytest` framework
 - Place tests in `/tests/` directory
 - Name test files `test_*.py`
