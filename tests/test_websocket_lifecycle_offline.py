@@ -52,16 +52,31 @@ connection guards (:447-448, :451-452) leaves an orphan subscription plus
 registry entries behind. The contract draft asserted "NADA armazenado";
 the code stores first — divergence declared here and in the report.
 
-Hermeticity (P-0029): zero network, zero real sleep. ``websockets.connect``
-is stubbed on the module object BEFORE any call (L-0118 — the module holds
-the same ``websockets`` object, so the patch is observed at the seam); the
-auth ``wait_for(..., timeout=5.0)`` never waits — the fake recv raises
-``asyncio.TimeoutError`` synchronously (L-0014). Every test builds its own
-manager/sockets (order-independent; no shared mutable state).
+Hermeticity (P-0029, BOTH directions): zero network, zero real sleep.
+``websockets.connect`` is stubbed on the module object BEFORE any call
+(L-0118 — the module holds the same ``websockets`` object, so the patch is
+observed at the seam); the auth ``wait_for(..., timeout=5.0)`` never waits —
+the fake recv raises ``asyncio.TimeoutError`` synchronously (L-0014). Every
+test builds its own manager/sockets (order-independent; no shared mutable
+state). Direction 2 — hostile host env (r2, P1-01): the autouse ``clean_env``
+fixture strips every ``POLYGON_*``/``POLYMARKET_*`` (plus the other
+config-sourced names/prefixes of the same settings class: ``DEMO_MODE``,
+``LOG_LEVEL``, ``MAX_``, ``MIN_``, ``ENABLE_``, ``REQUIRE_``, ``AUTO_``)
+process env var — house pattern of tests/test_config_security.py (T-0042).
+PolymarketConfig is a pydantic ``BaseSettings`` (config.py:11,17-18):
+``_env_file=None`` disables only the .env file; host env vars are still read
+for every field NOT passed explicitly. Before r2 the ``fallback_creds_config``
+fixture omitted POLYMARKET_API_SECRET on purpose (it IS the fallback test), so
+a host secret leaked into the auth message and could print a real credential
+in the assertion diff. Now the host environment is NEUTRAL by construction:
+configuration comes only from explicit kwargs, ``_env_file=None`` kills the
+.env file, and the fixture kills env reads (the fallback then flows
+deterministically from None→passphrase).
 """
 import asyncio
 import json
 import logging
+import os
 import uuid
 from datetime import datetime
 
@@ -80,6 +95,42 @@ from polymarket_mcp.utils.websocket_manager import (
 MANAGER_LOGGER = "polymarket_mcp.utils.websocket_manager"
 
 CREATED_AT = datetime(2026, 9, 15, 12, 0, 0)
+
+# Process env prefixes/names that feed PolymarketConfig fields; stripped by
+# the autouse fixture so tests never observe the host environment (P1-01 r2,
+# direction 2 of P-0029 — house pattern of tests/test_config_security.py).
+_ENV_PREFIXES = (
+    "POLYGON_",
+    "POLYMARKET_",
+    "DEMO_MODE",
+    "LOG_LEVEL",
+    "MAX_",
+    "MIN_",
+    "ENABLE_",
+    "REQUIRE_",
+    "AUTO_",
+)
+
+
+# ---------------------------------------------------------------------------
+# Hermeticity — env neutralization (autouse; P1-01 r2)
+# ---------------------------------------------------------------------------
+@pytest.fixture(autouse=True)
+def clean_env(monkeypatch):
+    """Strip config-sourced env vars so tests never see the host environment.
+
+    Every test (autouse) gets a host-neutral environment: pydantic
+    ``BaseSettings`` still reads env vars for fields not passed explicitly
+    even with ``_env_file=None`` (config.py:11,17-18), so without this
+    fixture a host ``POLYMARKET_API_SECRET``/``POLYMARKET_API_KEY`` etc.
+    would change results (non-hermetic) and leak real credentials into
+    assertion diffs. All configs are built with explicit kwargs, so the
+    delenv changes no pin; the secret fallback flows deterministically from
+    None→passphrase (websocket_manager.py:283-286).
+    """
+    for name in list(os.environ):
+        if any(name.startswith(prefix) for prefix in _ENV_PREFIXES):
+            monkeypatch.delenv(name, raising=False)
 
 
 # ---------------------------------------------------------------------------
