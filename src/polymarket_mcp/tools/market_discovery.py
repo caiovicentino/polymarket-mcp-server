@@ -13,7 +13,7 @@ Provides 8 tools for discovering and filtering markets:
 """
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, cast
 
 import httpx
@@ -203,7 +203,7 @@ async def get_trending_markets(
         )
 
         # Filter out markets with end_date_iso in the past
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         current_markets = []
         for m in markets:
             end_date = m.get("end_date_iso") or m.get("endDate")
@@ -334,7 +334,7 @@ async def get_featured_markets(limit: int = 10) -> List[Dict[str, Any]]:
         markets = await _fetch_gamma_markets("/markets", params, limit)
 
         # Filter out markets with end_date_iso in the past
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         current_markets = []
         for m in markets:
             end_date = m.get("end_date_iso") or m.get("endDate")
@@ -380,7 +380,7 @@ async def get_closing_soon_markets(
     """
     try:
         # Calculate cutoff time
-        cutoff_time = datetime.utcnow() + timedelta(hours=hours)
+        cutoff_time = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=hours)
 
         # Fetch active, non-closed markets
         markets = await _fetch_gamma_markets("/markets", {"active": "true", "closed": "false"}, limit=100)
