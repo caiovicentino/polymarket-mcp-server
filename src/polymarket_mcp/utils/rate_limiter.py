@@ -90,7 +90,13 @@ class TokenBucket:
     def _refill(self) -> None:
         """Refill tokens based on elapsed time"""
         now = time.monotonic()
-        elapsed = now - self.last_refill
+        # Clamp at zero: time.monotonic() never moves backwards in production,
+        # but a singleton bucket whose last_refill was captured under a patched
+        # clock (e.g. test fakes) sees a negative elapsed on the next real
+        # refill. Without the clamp, tokens go negative and acquire() computes
+        # sleep_time = tokens_needed / refill_rate on the order of hours --
+        # the observed 60s pytest-timeout hang (PR #49 CI, 2026-09-16).
+        elapsed = max(0.0, now - self.last_refill)
 
         # Add tokens based on elapsed time
         new_tokens = elapsed * self.refill_rate

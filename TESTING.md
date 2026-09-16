@@ -16,38 +16,50 @@ Comprehensive testing documentation for the Polymarket MCP Server.
 
 The Polymarket MCP Server uses a comprehensive testing strategy with multiple test categories:
 
-- **Unit Tests**: Fast, isolated tests of individual components
-- **Integration Tests**: Tests with real API interactions (NO MOCKS)
+- **Offline (Unit) Tests**: Fast, isolated tests of individual components using deterministic fakes (hermetic — no network)
+- **Integration Tests**: Tests with real API interactions (marked `integration`)
 - **End-to-End Tests**: Complete workflow testing
 - **Performance Tests**: Benchmarks and stress testing
 - **Smoke Tests**: Quick validation of basic functionality
 
 ### Test Philosophy
 
-**NO MOCKS** - All tests use real services and data. This ensures:
-- Tests reflect actual behavior
-- API changes are caught early
-- Integration issues are discovered quickly
+**Layered strategy** - The suite is organized in tiers:
+
+- **Offline tier (default)**: every test file without a tier marker is hermetic —
+  deterministic fakes at module seams (fail-loud stubs, `httpx.MockTransport`,
+  fake clocks) instead of live calls. Most are named `tests/test_*_offline.py`.
+  This is the tier day-to-day development runs (see [Unit Tests](#unit-tests-offline-tier)).
+- **Real-API tiers**: tests marked `integration`, `real_api`, or `performance`
+  exercise the live Polymarket APIs (Gamma, CLOB, WebSocket) and run only when
+  credentials/network are available — they are excluded from the offline selection.
+- **Wallet-dependent tests**: modules listed in `CREDENTIAL_ONLY_MODULES` and tests
+  marked `@pytest.mark.requires_credentials` are skipped automatically when
+  `POLYGON_PRIVATE_KEY`/`POLYGON_ADDRESS` are not set (see
+  `pytest_collection_modifyitems` in `tests/conftest.py`).
+
+This ensures offline tests are fast, deterministic, and network-free, while the
+real-API tiers catch actual behavior changes early.
 
 ## Test Categories
 
-### Unit Tests
+### Unit Tests (Offline Tier)
 
 Fast tests of individual functions and classes.
 
 ```bash
-# Run unit tests only
-pytest tests/ -m "not integration and not slow and not real_api"
+# Run the offline tier (default for day-to-day development)
+pytest tests/ -m "not integration and not slow and not real_api and not performance"
 
 # Run with parallel execution
-pytest tests/ -m "not integration and not slow" -n auto
+pytest tests/ -m "not integration and not slow and not real_api and not performance" -n auto
 ```
 
 **Characteristics:**
 - Execution time: <1 second per test
-- No external dependencies
+- Hermetic: deterministic fakes at module seams — fail-loud stubs, `httpx.MockTransport`, fake clocks; no network access
 - Test individual functions/classes
-- Use test markers to exclude
+- Most offline suites are named `tests/test_*_offline.py`
 
 ### Integration Tests
 
@@ -142,7 +154,11 @@ python smoke_test.py
 # Install test dependencies
 pip install -e ".[dev]"
 
-# Run all tests (except slow ones)
+# Run the offline tier (default for day-to-day development)
+pytest tests/ -m "not integration and not slow and not real_api and not performance"
+
+# Run everything except slow tests (note: this still includes the
+# integration, real_api, and performance tiers — they hit the live API)
 pytest tests/ -m "not slow"
 
 # Run with coverage
@@ -181,13 +197,14 @@ pytest tests/ -vv
 
 ### Test Markers
 
-Available test markers:
+Available test markers (registered in `pyproject.toml` and `tests/conftest.py`):
 
 ```python
 @pytest.mark.integration  # Integration test with real API
-@pytest.mark.slow        # Test takes >5 seconds
-@pytest.mark.real_api    # Requires real API access
-@pytest.mark.performance # Performance benchmark
+@pytest.mark.slow         # Test takes >5 seconds
+@pytest.mark.real_api     # Requires real API access
+@pytest.mark.performance  # Performance benchmark
+@pytest.mark.requires_credentials  # Needs a funded wallet (POLYGON_PRIVATE_KEY)
 ```
 
 Filter tests:
@@ -196,12 +213,20 @@ Filter tests:
 # Only integration tests
 pytest -m integration
 
+# Offline tier (default): excludes all real-API/benchmark tiers
+pytest -m "not integration and not slow and not real_api and not performance"
+
 # Exclude slow tests
 pytest -m "not slow"
 
 # Integration but not slow
 pytest -m "integration and not slow"
 ```
+
+Wallet-dependent tests — modules listed in `CREDENTIAL_ONLY_MODULES` and tests
+marked `@pytest.mark.requires_credentials` — are skipped automatically when
+`POLYGON_PRIVATE_KEY` and `POLYGON_ADDRESS` are not set (see
+`pytest_collection_modifyitems` in `tests/conftest.py`).
 
 ### Environment Variables
 
@@ -289,18 +314,40 @@ async def test_api_call():
        pass
    ```
 
-5. **NO MOCKS - Use real APIs**
+5. **Pick the right tier: fakes for offline tests, real APIs for integration tests**
    ```python
-   # Good - real API
+   # Offline test (default tier) - deterministic fake at the module seam,
+   # fail-loud: an unexpected endpoint raises AssertionError instead of
+   # falling back to the real network
+   class FakeGamma:
+       """Synthetic stand-in for market_analysis._fetch_gamma_api."""
+
+       def __init__(self, markets):
+           self.markets = markets  # {market_id: payload}
+           self.calls = []
+
+       async def __call__(self, endpoint, params=None):
+           market_id = endpoint.removeprefix("/markets/")
+           if market_id not in self.markets:
+               raise AssertionError(f"no synthetic gamma payload for {market_id!r}")
+           self.calls.append((endpoint, params))
+           return self.markets[market_id]
+
+   async def test_get_market_details(monkeypatch):
+       gamma = FakeGamma(markets={"m2": {"question": "Will it pass?"}})
+       monkeypatch.setattr(market_analysis, "_fetch_gamma_api", gamma)
+       details = await market_analysis.get_market_details(market_id="m2")
+       assert details["question"] == "Will it pass?"
+       assert gamma.calls == [("/markets/m2", {})]
+
+   # Real-API test - explicitly marked, runs outside the offline selection
+   @pytest.mark.integration
    async def test_real_api():
        async with httpx.AsyncClient() as client:
-           response = await client.get("https://api.polymarket.com/...")
+           response = await client.get(
+               "https://gamma-api.polymarket.com/markets?limit=1"
+           )
            assert response.status_code == 200
-
-   # Bad - mock
-   @patch('httpx.AsyncClient')
-   def test_with_mock(mock_client):  # DON'T DO THIS
-       pass
    ```
 
 ### Async Tests

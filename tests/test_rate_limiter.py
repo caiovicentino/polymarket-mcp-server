@@ -289,7 +289,15 @@ async def test_rate_limiter_skips_backoff_when_retry_disabled(fake_clock):
     assert limiter.get_status()[cat.value]["is_throttled"] is False
 
 
-def test_get_rate_limiter_returns_singleton(fake_clock):
+def test_get_rate_limiter_returns_singleton():
+    # NO fake_clock here: this is the only test that calls the real
+    # get_rate_limiter(), and when it is the FIRST creation in a worker
+    # process, TokenBucket.last_refill must come from the real clock -- under
+    # the fake clock it captured clock.t (1000.0), and a later real-clock
+    # refill computed a negative elapsed, driving tokens to ~-20M and making
+    # acquire() sleep for hours (the PR #49 CI 60s-timeout hang, 2026-09-16).
+    # The identity check needs no clock; the rate_limiter._refill clamp
+    # (max(0.0, elapsed)) is the second line of defense.
     first = get_rate_limiter()
     second = get_rate_limiter()
     assert isinstance(first, RateLimiter)

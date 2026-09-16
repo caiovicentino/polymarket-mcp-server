@@ -515,7 +515,7 @@ The Polymarket MCP Web Dashboard is a complete, production-ready web application
 ✅ **Interactive Configuration** - Visual controls
 ✅ **Market Discovery** - Search and filtering
 ✅ **System Monitoring** - Charts and statistics
-✅ **No Mocks** - Real Polymarket API data
+✅ **Real data** - live Polymarket API when connected; tests: offline suite `tests/test_web_app_offline.py` (hermetic fakes at module seams — repo-wide strategy in TESTING.md)
 ✅ **Well Documented** - Comprehensive guides
 ✅ **Easy to Use** - One-command startup
 

@@ -1,6 +1,20 @@
 # Polymarket MCP Server - Tools Reference
 
-## Complete Tool Inventory (30 Tools)
+## Complete Tool Inventory
+
+The server exposes **45 tools** across five families:
+
+| Family | Tools | Credentials required |
+| ------ | ----- | -------------------- |
+| Market Discovery | 8 | No (public API) |
+| Market Analysis | 10 | No (public API) |
+| Trading | 12 | Yes (L2 auth) |
+| Portfolio Management | 8 | Yes (API credentials) |
+| Real-time WebSocket | 7 | Partial (user feeds need auth) |
+
+**Scope note**: this reference documents the Trading and Market Discovery &
+Analysis families in detail (30 tools, below). The Portfolio Management and
+Real-time WebSocket families are listed by name at the end of this inventory.
 
 ### Phase 1: Trading Tools (12 tools) ✅
 Previously implemented by other agents.
@@ -354,6 +368,39 @@ Compare multiple markets side-by-side.
 }
 ```
 
+### Portfolio Management (8 tools)
+
+Available with API credentials (`get_all_positions`, `get_position_details`,
+`get_portfolio_value`, `get_pnl_summary`, `get_trade_history`,
+`get_activity_log`, `analyze_portfolio_risk`, `suggest_portfolio_actions`):
+
+| Tool | Purpose |
+| ---- | ------- |
+| `get_all_positions` | Get all user positions with filtering and sorting options |
+| `get_position_details` | Get detailed view of a specific position including market data and suggestions |
+| `get_portfolio_value` | Get total portfolio value with optional market breakdown |
+| `get_pnl_summary` | Get profit/loss summary for specified timeframe |
+| `get_trade_history` | Get historical trades with filtering options |
+| `get_activity_log` | Get on-chain activity log (trades, splits, merges, redeems) |
+| `analyze_portfolio_risk` | Analyze portfolio risk including concentration, liquidity, and correlation |
+| `suggest_portfolio_actions` | Get AI-powered portfolio optimization suggestions based on investment goal |
+
+### Real-time WebSocket (7 tools)
+
+Price/orderbook/resolution subscriptions work without credentials; user
+subscriptions (`subscribe_user_orders`, `subscribe_user_trades`) require
+CLOB authentication:
+
+| Tool | Purpose |
+| ---- | ------- |
+| `subscribe_market_prices` | Subscribe to real-time price changes for one or more markets |
+| `subscribe_orderbook_updates` | Subscribe to real-time orderbook updates for one or more tokens |
+| `subscribe_user_orders` | Subscribe to real-time updates for user's orders (requires auth) |
+| `subscribe_user_trades` | Subscribe to real-time updates for user's trades (requires auth) |
+| `subscribe_market_resolution` | Subscribe to market resolution alerts |
+| `get_realtime_status` | Get status of all real-time WebSocket subscriptions |
+| `unsubscribe_realtime` | Unsubscribe from a real-time data feed by subscription ID |
+
 ---
 
 ## Usage Workflows
@@ -473,7 +520,7 @@ if analysis.recommendation == "BUY":
 
 ---
 
-**Total Tools**: 30 (12 trading + 18 market)
+**Total Tools**: 45 (12 trading + 8 portfolio + 8 discovery + 10 analysis + 7 real-time)
 **Status**: Production Ready ✅
-**API**: Real Polymarket integration (NO MOCKS)
+**API**: Real Polymarket integration (live Gamma/CLOB APIs); tests are layered — the offline tier uses hermetic fakes (see TESTING.md)
 **Tests**: Comprehensive coverage
