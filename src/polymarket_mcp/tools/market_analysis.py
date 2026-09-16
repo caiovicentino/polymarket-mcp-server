@@ -31,6 +31,24 @@ GAMMA_API_URL = "https://gamma-api.polymarket.com"
 CLOB_API_URL = "https://clob.polymarket.com"
 
 
+def _utcnow_naive() -> "datetime":
+    """Naive UTC "now" — drop-in replacement for the deprecated datetime.utcnow().
+
+    `datetime.now(timezone.utc).replace(tzinfo=None)` has BYTE-IDENTICAL naive
+    semantics (naive UTC wall clock; Python 3.12 deprecates utcnow() and
+    schedules it for removal). The LOCAL imports keep the helper immune to
+    module-level patching of the `datetime` name: the offline suites shim
+    `market_analysis.datetime` with a frozen clock that only implements
+    utcnow(), so a factory resolving the module-level name would raise
+    AttributeError under that shim — this helper cannot (it imports the
+    stdlib module directly, see test_market_analysis_utcnow_factory_offline.py).
+    """
+    from datetime import datetime as _dt
+    from datetime import timezone as _tz
+
+    return _dt.now(_tz.utc).replace(tzinfo=None)
+
+
 # Data Models
 class PriceData(BaseModel):
     """Price information for a token"""
@@ -39,7 +57,7 @@ class PriceData(BaseModel):
     ask: Optional[float] = None
     mid: Optional[float] = None
     last: Optional[float] = None
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=_utcnow_naive)
 
 
 class OrderBookEntry(BaseModel):
@@ -53,7 +71,7 @@ class OrderBook(BaseModel):
     token_id: str
     bids: List[OrderBookEntry]
     asks: List[OrderBookEntry]
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=_utcnow_naive)
 
 
 class VolumeData(BaseModel):
@@ -80,7 +98,7 @@ class MarketOpportunity(BaseModel):
     recommendation: str  # "BUY", "SELL", "HOLD", "AVOID"
     confidence_score: float  # 0-100
     reasoning: str
-    last_updated: datetime = Field(default_factory=datetime.utcnow)
+    last_updated: datetime = Field(default_factory=_utcnow_naive)
 
 
 async def _fetch_gamma_api(endpoint: str, params: Optional[Dict] = None) -> Any:
