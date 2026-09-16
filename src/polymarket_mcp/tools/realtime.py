@@ -10,7 +10,7 @@ Provides 6 tools for real-time market data subscriptions:
 6. get_realtime_status - Status of all subscriptions
 """
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 import mcp.types as types
 
@@ -280,8 +280,9 @@ async def _subscribe_market_prices(arguments: Dict[str, Any]) -> List[types.Text
             text="Error: market_ids required"
         )]
 
+    manager = cast(WebSocketManager, websocket_manager)
     try:
-        subscription_id = await websocket_manager.subscribe(
+        subscription_id = await manager.subscribe(
             event_type=EventType.PRICE_CHANGE,
             channel=ChannelType.CLOB_MARKET,
             market_ids=market_ids,
@@ -326,8 +327,9 @@ async def _subscribe_orderbook_updates(arguments: Dict[str, Any]) -> List[types.
             text="Error: token_ids required"
         )]
 
+    manager = cast(WebSocketManager, websocket_manager)
     try:
-        subscription_id = await websocket_manager.subscribe(
+        subscription_id = await manager.subscribe(
             event_type=EventType.AGG_ORDERBOOK,
             channel=ChannelType.CLOB_MARKET,
             token_ids=token_ids,
@@ -366,8 +368,9 @@ async def _subscribe_user_orders(arguments: Dict[str, Any]) -> List[types.TextCo
     market_ids = arguments.get("market_ids")
     callback_type = arguments.get("callback_type", "notification")
 
+    manager = cast(WebSocketManager, websocket_manager)
     try:
-        subscription_id = await websocket_manager.subscribe(
+        subscription_id = await manager.subscribe(
             event_type=EventType.ORDER,
             channel=ChannelType.CLOB_USER,
             market_ids=market_ids,
@@ -415,8 +418,9 @@ async def _subscribe_user_trades(arguments: Dict[str, Any]) -> List[types.TextCo
     market_ids = arguments.get("market_ids")
     callback_type = arguments.get("callback_type", "notification")
 
+    manager = cast(WebSocketManager, websocket_manager)
     try:
-        subscription_id = await websocket_manager.subscribe(
+        subscription_id = await manager.subscribe(
             event_type=EventType.TRADE,
             channel=ChannelType.CLOB_USER,
             market_ids=market_ids,
@@ -470,8 +474,9 @@ async def _subscribe_market_resolution(arguments: Dict[str, Any]) -> List[types.
             text="Error: market_ids required"
         )]
 
+    manager = cast(WebSocketManager, websocket_manager)
     try:
-        subscription_id = await websocket_manager.subscribe(
+        subscription_id = await manager.subscribe(
             event_type=EventType.MARKET_RESOLVED,
             channel=ChannelType.CLOB_MARKET,
             market_ids=market_ids,
@@ -507,8 +512,9 @@ async def _get_realtime_status(arguments: Dict[str, Any]) -> List[types.TextCont
     Returns:
         List of TextContent with detailed status
     """
+    manager = cast(WebSocketManager, websocket_manager)
     try:
-        status = websocket_manager.get_status()
+        status = manager.get_status()
 
         # Format connection status
         clob_status = "CONNECTED & AUTHENTICATED" if status["connections"]["clob"]["authenticated"] else (
@@ -587,8 +593,9 @@ async def _unsubscribe_realtime(arguments: Dict[str, Any]) -> List[types.TextCon
             text="Error: subscription_id required"
         )]
 
+    manager = cast(WebSocketManager, websocket_manager)
     try:
-        success = await websocket_manager.unsubscribe(subscription_id)
+        success = await manager.unsubscribe(subscription_id)
 
         if success:
             return [types.TextContent(
