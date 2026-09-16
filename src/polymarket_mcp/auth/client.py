@@ -3,7 +3,7 @@ Polymarket CLOB client with authentication.
 Handles L1 (private key) and L2 (API key) authentication.
 """
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 import httpx
 from py_clob_client.client import ClobClient
@@ -146,7 +146,7 @@ class PolymarketClient:
             logger.info("Creating API credentials...")
 
             # Use the client's built-in method to create credentials
-            creds = self.client.create_api_key()
+            creds = self.get_client().create_api_key()
 
             # Store credentials
             self.api_creds = ApiCreds(
@@ -182,8 +182,8 @@ class PolymarketClient:
         """
         try:
             # Use simplified markets endpoint
-            markets = self.client.get_markets(next_cursor=next_cursor)
-            return markets
+            markets = self.get_client().get_markets(next_cursor=next_cursor)
+            return cast(Dict[str, Any], markets)
 
         except Exception as e:
             logger.error(f"Failed to fetch markets: {e}")
@@ -200,8 +200,8 @@ class PolymarketClient:
             Market data dictionary
         """
         try:
-            market = self.client.get_market(condition_id)
-            return market
+            market = self.get_client().get_market(condition_id)
+            return cast(Dict[str, Any], market)
 
         except Exception as e:
             logger.error(f"Failed to fetch market {condition_id}: {e}")
@@ -221,8 +221,8 @@ class PolymarketClient:
             Order book with bids and asks
         """
         try:
-            orderbook = self.client.get_order_book(token_id)
-            return orderbook
+            orderbook = self.get_client().get_order_book(token_id)
+            return cast(Dict[str, Any], orderbook)
 
         except Exception as e:
             logger.error(f"Failed to fetch orderbook for {token_id}: {e}")
@@ -244,7 +244,7 @@ class PolymarketClient:
             Price as float
         """
         try:
-            price_data = self.client.get_price(token_id, side.upper())
+            price_data = self.get_client().get_price(token_id, side.upper())
             return float(price_data.get("price", 0))
 
         except Exception as e:
@@ -301,8 +301,8 @@ class PolymarketClient:
                 order_args.expiration = int(expiration)
 
             # create_order only signs the order; post_order submits it.
-            signed = self.client.create_order(order_args)
-            response = self.client.post_order(
+            signed = self.get_client().create_order(order_args)
+            response = self.get_client().post_order(
                 signed, orderType=getattr(OrderType, order_type)
             )
 
@@ -311,7 +311,7 @@ class PolymarketClient:
                 f"(token: {token_id}, order_id: {response.get('orderID')})"
             )
 
-            return response
+            return cast(Dict[str, Any], response)
 
         except Exception as e:
             logger.error(f"Failed to post order: {e}")
@@ -334,10 +334,10 @@ class PolymarketClient:
             raise RuntimeError("L2 API credentials required for canceling orders")
 
         try:
-            response = self.client.cancel(order_id)
+            response = self.get_client().cancel(order_id)
 
             logger.info(f"Order cancelled: {order_id}")
-            return response
+            return cast(Dict[str, Any], response)
 
         except Exception as e:
             logger.error(f"Failed to cancel order {order_id}: {e}")
@@ -357,10 +357,10 @@ class PolymarketClient:
             raise RuntimeError("L2 API credentials required")
 
         try:
-            response = self.client.cancel_all()
+            response = self.get_client().cancel_all()
 
             logger.info("All orders cancelled")
-            return response
+            return cast(Dict[str, Any], response)
 
         except Exception as e:
             logger.error(f"Failed to cancel all orders: {e}")
@@ -396,8 +396,8 @@ class PolymarketClient:
             if asset_id is not None:
                 params.asset_id = asset_id
 
-            orders = self.client.get_orders(params)
-            return orders
+            orders = self.get_client().get_orders(params)
+            return cast(List[Dict[str, Any]], orders)
 
         except Exception as e:
             logger.error(f"Failed to fetch orders: {e}")
@@ -430,7 +430,7 @@ class PolymarketClient:
                     timeout=10.0,
                 )
                 response.raise_for_status()
-                return response.json()
+                return cast(List[Dict[str, Any]], response.json())
 
         except Exception as e:
             logger.error(f"Failed to fetch positions: {e}")
@@ -455,7 +455,7 @@ class PolymarketClient:
             raise RuntimeError("L2 API credentials required")
 
         try:
-            balance_data = self.client.get_balance_allowance(
+            balance_data = self.get_client().get_balance_allowance(
                 BalanceAllowanceParams(asset_type=AssetType.COLLATERAL)
             )
             balance = float(balance_data.get("balance", 0)) / 1_000_000

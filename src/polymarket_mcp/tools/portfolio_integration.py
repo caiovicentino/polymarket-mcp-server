@@ -3,6 +3,8 @@ Portfolio tools integration for server.py.
 
 This module provides helper functions to integrate portfolio tools into the MCP server.
 """
+from typing import Any, Callable, Optional, cast
+
 import mcp.types as types
 
 from .portfolio import PORTFOLIO_TOOLS
@@ -19,9 +21,9 @@ def get_portfolio_tool_definitions() -> list[types.Tool]:
 
     for tool_def in PORTFOLIO_TOOLS:
         tools.append(types.Tool(
-            name=tool_def["name"],
-            description=tool_def["description"],
-            inputSchema=tool_def["inputSchema"]
+            name=cast(str, tool_def["name"]),
+            description=cast(str, tool_def["description"]),
+            inputSchema=cast(dict[str, Any], tool_def["inputSchema"])
         ))
 
     return tools
@@ -45,10 +47,10 @@ async def call_portfolio_tool(name: str, arguments: dict, polymarket_client, rat
         ValueError: If tool name is unknown
     """
     # Find the tool handler
-    tool_handler = None
+    tool_handler: Optional[Callable[..., Any]] = None
     for tool_def in PORTFOLIO_TOOLS:
         if tool_def["name"] == name:
-            tool_handler = tool_def["handler"]
+            tool_handler = cast(Callable[..., Any], tool_def["handler"])
             break
 
     if not tool_handler:
@@ -62,4 +64,4 @@ async def call_portfolio_tool(name: str, arguments: dict, polymarket_client, rat
         **arguments
     )
 
-    return result
+    return cast(list[types.TextContent], result)

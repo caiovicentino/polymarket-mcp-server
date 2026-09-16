@@ -162,37 +162,37 @@ pytest tests/ -m "not integration and not slow and not real_api and not performa
 pytest tests/ -m "not slow"
 
 # Run with coverage
-pytest tests/ --cov=src/polymarket_mcp --cov-report=html
+pytest tests/ -m "not integration and not slow and not real_api and not performance" --cov=src/polymarket_mcp --cov-report=html
 ```
 
 ### Common Commands
 
 ```bash
-# Run specific test file
-pytest tests/test_integration.py
+# Run specific test file (offline suite)
+pytest tests/test_trading_offline.py
 
-# Run specific test function
-pytest tests/test_integration.py::test_api_connectivity
+# Run specific test function (offline suite)
+pytest tests/test_trading_offline.py::test_market_order_uses_best_ask_for_buy
 
 # Run with specific markers
-pytest -m integration  # Only integration tests
-pytest -m "not slow"   # Exclude slow tests
-pytest -m "real_api"   # Only tests requiring API
+pytest -m integration  # Only integration tests (network — hits the live API)
+pytest -m "not slow"   # Excludes slow tests; still includes the integration, real_api, and performance tiers — they hit the live API
+pytest -m "real_api"   # Only tests requiring API (network — hits the live API)
 
 # Parallel execution (faster)
-pytest tests/ -n auto
+pytest tests/ -m "not integration and not slow and not real_api and not performance" -n auto
 
 # Stop on first failure
-pytest tests/ -x
+pytest tests/ -m "not integration and not slow and not real_api and not performance" -x
 
 # Show print statements
-pytest tests/ -s
+pytest tests/ -m "not integration and not slow and not real_api and not performance" -s
 
 # Verbose output
-pytest tests/ -v
+pytest tests/ -m "not integration and not slow and not real_api and not performance" -v
 
 # Extra verbose (show test names)
-pytest tests/ -vv
+pytest tests/ -m "not integration and not slow and not real_api and not performance" -vv
 ```
 
 ### Test Markers
@@ -211,16 +211,16 @@ Filter tests:
 
 ```bash
 # Only integration tests
-pytest -m integration
+pytest -m integration  # network — hits the live API
 
 # Offline tier (default): excludes all real-API/benchmark tiers
 pytest -m "not integration and not slow and not real_api and not performance"
 
 # Exclude slow tests
-pytest -m "not slow"
+pytest -m "not slow"  # still includes the integration, real_api, and performance tiers — they hit the live API
 
 # Integration but not slow
-pytest -m "integration and not slow"
+pytest -m "integration and not slow"  # network — hits the live API
 ```
 
 Wallet-dependent tests — modules listed in `CREDENTIAL_ONLY_MODULES` and tests
@@ -441,16 +441,16 @@ Hooks include:
 
 ```bash
 # HTML report
-pytest tests/ --cov=src/polymarket_mcp --cov-report=html
+pytest tests/ -m "not integration and not slow and not real_api and not performance" --cov=src/polymarket_mcp --cov-report=html
 
 # Open in browser
 open htmlcov/index.html
 
 # Terminal report
-pytest tests/ --cov=src/polymarket_mcp --cov-report=term-missing
+pytest tests/ -m "not integration and not slow and not real_api and not performance" --cov=src/polymarket_mcp --cov-report=term-missing
 
 # XML report (for CI)
-pytest tests/ --cov=src/polymarket_mcp --cov-report=xml
+pytest tests/ -m "not integration and not slow and not real_api and not performance" --cov=src/polymarket_mcp --cov-report=xml
 ```
 
 ### Coverage Requirements
@@ -562,10 +562,10 @@ Results are saved to `benchmark.json`:
 
 ```bash
 # Watch mode - rerun on changes
-pytest-watch tests/
+pytest-watch tests/ -m "not integration and not slow and not real_api and not performance"
 
 # Or use pytest-xdist
-pytest tests/ -f  # Fail fast mode
+pytest tests/ -m "not integration and not slow and not real_api and not performance" -f  # Fail fast mode
 ```
 
 ### Pre-Push Checklist
@@ -577,14 +577,14 @@ Before pushing code:
 python smoke_test.py
 
 # 2. Run fast tests
-pytest tests/ -m "not slow" --maxfail=3
+pytest tests/ -m "not slow" --maxfail=3  # includes the integration, real_api, and performance tiers — they hit the live API
 
 # 3. Run linting
 ruff check src/
 black --check src/
 
 # 4. Check coverage
-pytest tests/ --cov=src/polymarket_mcp --cov-fail-under=80
+pytest tests/ -m "not integration and not slow and not real_api and not performance" --cov=src/polymarket_mcp --cov-fail-under=80
 ```
 
 ### Daily Testing
@@ -622,19 +622,19 @@ export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
 **Slow tests:**
 ```bash
 # Skip slow tests
-pytest tests/ -m "not slow"
+pytest tests/ -m "not slow"  # still includes the integration, real_api, and performance tiers — they hit the live API
 
 # Or use parallel execution
-pytest tests/ -n auto
+pytest tests/ -m "not integration and not slow and not real_api and not performance" -n auto
 ```
 
 **Coverage too low:**
 ```bash
 # See what's missing
-pytest tests/ --cov=src/polymarket_mcp --cov-report=term-missing
+pytest tests/ -m "not integration and not slow and not real_api and not performance" --cov=src/polymarket_mcp --cov-report=term-missing
 
 # Focus on specific module
-pytest tests/ --cov=src/polymarket_mcp/tools
+pytest tests/ -m "not integration and not slow and not real_api and not performance" --cov=src/polymarket_mcp/tools
 ```
 
 ### Debug Mode
@@ -643,16 +643,16 @@ Run tests with debugging:
 
 ```bash
 # Show all output
-pytest tests/ -v -s
+pytest tests/ -m "not integration and not slow and not real_api and not performance" -v -s
 
 # Stop on first failure
-pytest tests/ -x
+pytest tests/ -m "not integration and not slow and not real_api and not performance" -x
 
 # Drop into debugger on failure
-pytest tests/ --pdb
+pytest tests/ -m "not integration and not slow and not real_api and not performance" --pdb
 
 # Show locals on failure
-pytest tests/ -l
+pytest tests/ -m "not integration and not slow and not real_api and not performance" -l
 ```
 
 ## Resources

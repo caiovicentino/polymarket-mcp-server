@@ -13,8 +13,8 @@ Provides 8 tools for discovering and filtering markets:
 """
 import json
 import logging
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional, cast
 
 import httpx
 import mcp.types as types
@@ -72,7 +72,8 @@ async def _fetch_gamma_markets(
             elif isinstance(data, dict):
                 # Some endpoints return {data: [...], next_cursor: ...}
                 if "data" in data:
-                    return data["data"][:limit] if limit else data["data"]
+                    rows = cast(List[Dict[str, Any]], data["data"])
+                    return rows[:limit] if limit else rows
                 # Others return the market directly
                 return [data]
 
@@ -119,7 +120,7 @@ async def _search_gamma_markets(
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            search_params = {
+            search_params: Dict[str, Any] = {
                 "q": query,
                 "events_status": "active",
                 "keep_closed_markets": 0,
@@ -202,7 +203,7 @@ async def get_trending_markets(
         )
 
         # Filter out markets with end_date_iso in the past
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         current_markets = []
         for m in markets:
             end_date = m.get("end_date_iso") or m.get("endDate")
@@ -301,6 +302,7 @@ async def get_event_markets(
             event_data = await _fetch_gamma_markets(f"/events/{event_id}")
 
         # Extract markets from event
+        event: Any
         if isinstance(event_data, list) and len(event_data) > 0:
             event = event_data[0]
         else:
@@ -309,7 +311,7 @@ async def get_event_markets(
         markets = event.get("markets", [])
 
         logger.info(f"Found {len(markets)} markets for event: {event_slug or event_id}")
-        return markets
+        return cast(List[Dict[str, Any]], markets)
 
     except Exception as e:
         logger.error(f"Failed to get event markets: {e}")
@@ -332,7 +334,7 @@ async def get_featured_markets(limit: int = 10) -> List[Dict[str, Any]]:
         markets = await _fetch_gamma_markets("/markets", params, limit)
 
         # Filter out markets with end_date_iso in the past
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         current_markets = []
         for m in markets:
             end_date = m.get("end_date_iso") or m.get("endDate")
@@ -378,7 +380,7 @@ async def get_closing_soon_markets(
     """
     try:
         # Calculate cutoff time
-        cutoff_time = datetime.utcnow() + timedelta(hours=hours)
+        cutoff_time = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=hours)
 
         # Fetch active, non-closed markets
         markets = await _fetch_gamma_markets("/markets", {"active": "true", "closed": "false"}, limit=100)
