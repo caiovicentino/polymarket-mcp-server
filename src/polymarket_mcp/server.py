@@ -7,15 +7,28 @@ import asyncio
 import logging
 import os
 import signal
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Final, Optional, Union
 
 import mcp.server.stdio
 import mcp.types as types
+from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
 from mcp.server import Server
+from mcp.server.lowlevel.server import NotificationOptions
+from mcp.shared.message import SessionMessage
 
 from . import __version__
 from .auth import PolymarketClient, create_polymarket_client
 from .config import PolymarketConfig, load_config
+from .discover import (
+    DEFAULT_PROTOCOL_REVISION,
+    SUPPORTED_PROTOCOL_REVISIONS,
+    UNSUPPORTED_PROTOCOL_VERSION_CODE,
+    build_discover_result,
+    cached_discover_result,
+    declared_request_version,
+    ensure_sdk_supports_declared_revisions,
+    unsupported_version_error,
+)
 from .tools import (
     TradingTools,
     get_tool_definitions,
@@ -39,7 +52,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Global instances
-server = Server("polymarket-trading")
+# version=__version__ keeps serverInfo consistent between the initialize
+# handshake and server/discover (issue #39 R4): without it the SDK falls back
+# to the mcp package version (lowlevel/server.py:183) and the two paths would
+# report different identities.
+server = Server("polymarket-trading", version=__version__)
 config: Optional[PolymarketConfig] = None
 polymarket_client: Optional[PolymarketClient] = None
 safety_limits: Optional[SafetyLimits] = None
@@ -50,6 +67,225 @@ _shutdown_event: Optional[asyncio.Event] = None
 # Strong references to fire-and-forget tasks, so they are not garbage collected
 # mid-flight (asyncio only keeps weak references to running tasks).
 _background_tasks: set = set()
+
+# Pre-handshake method served before any initialize (spec 2026-07-28,
+# issue #39): the MCP session never sees it - the interceptor below answers it
+# at the transport boundary.
+DISCOVER_METHOD: Final[str] = "server/discover"
+
+# JSON-RPC error code for the discover error fallback (never leave a client
+# waiting: any failure answering discover is answered, not dropped).
+DISCOVER_INTERNAL_ERROR_CODE: Final[int] = types.INTERNAL_ERROR
+
+
+def _synthetic_initialized_notification() -> SessionMessage:
+    """Server-internal era bridge for the 2026-07-28 sessionless model.
+
+    The SDK-era session refuses ordinary requests before initialization
+    (mcp/server/session.py:203-205); the 2026-07-28 revision has no handshake
+    at all - the session concept is replaced by per-request versions. When a
+    request declares a servable version in _meta, this notification is
+    injected into the session's READ path (mcp/server/session.py:210-211 sets
+    the session to the initialized state on it) so the request is served. It
+    is never written to the client-bound stream, so the wire stays clean.
+    """
+    return SessionMessage(
+        message=types.JSONRPCMessage(
+            types.JSONRPCNotification(jsonrpc="2.0", method="notifications/initialized")
+        )
+    )
+
+
+def _server_capabilities_dict() -> dict[str, Any]:
+    """Capabilities mirror of what ``initialize`` declares.
+
+    Single source of truth: ``Server.get_capabilities`` - the same call
+    ``create_initialization_options`` makes (mcp/server/lowlevel/server.py:184),
+    so ``server/discover`` and the handshake never disagree (issue #39 R4).
+    """
+    return server.get_capabilities(NotificationOptions(), {}).model_dump(
+        exclude_none=True, by_alias=True
+    )
+
+
+def _build_discover_payload() -> dict[str, Any]:
+    """Fresh discover payload for the cache (deterministic within the TTL)."""
+    return build_discover_result(
+        server_name=server.name,
+        server_version=__version__,
+        capabilities=_server_capabilities_dict(),
+    )
+
+
+class _PreHandshakeStream:
+    """Read-stream interceptor serving pre-handshake requests.
+
+    Installed in :func:`main` between the stdio transport and ``Server.run``:
+    - ``server/discover`` is answered here (before any session exists), so the
+      request never reaches the SDK union validation that produced -32602, nor
+      the pre-handshake ``RuntimeError`` that drops it on some SDK versions
+      (seam map: polymarket_mcp.discover docstring, issues #39/#40).
+    - A version-less ``initialize`` is served on this server's declared default
+      revision by injecting the version before session validation (issue #39
+      R7 / issue #40: "a version-less request must be served", never timeout).
+    - A request whose per-request ``_meta`` declares an unsupported protocol
+      version is refused with ``-32022`` and the supported list (2026-07-28
+      negotiation model; mcp-spec-test: "an unsupported version is rejected
+      with the supported list"). A well-declared version passes through.
+    Everything else passes through byte-identical, so the stock official-SDK
+    handshake keeps its exact semantics (issue #39 R9).
+    """
+
+    def __init__(
+        self,
+        read_stream: MemoryObjectReceiveStream[Union[SessionMessage, Exception]],
+        write_stream: MemoryObjectSendStream[SessionMessage],
+    ) -> None:
+        self._read_stream = read_stream
+        self._write_stream = write_stream
+        self._iterator: Any = None
+        # Sessionless serving bridge (2026-07-28 model): set once the synthetic
+        # ``notifications/initialized`` has been queued for this session, so a
+        # later real initialize still runs its full negotiation path.
+        self._sessionless_bridge_installed = False
+        # A request stashed while its synthetic-initialized bridge is emitted
+        # first (see _intercept); delivered on the following __anext__ call.
+        self._queued_message: Optional[SessionMessage] = None
+        # Serve the declared revisions at handshake time (see discover.py).
+        ensure_sdk_supports_declared_revisions()
+
+    def __aiter__(self) -> "_PreHandshakeStream":
+        return self
+
+    async def __anext__(self) -> Union[SessionMessage, Exception]:
+        if self._iterator is None:
+            self._iterator = self._read_stream.__aiter__()
+        while True:
+            if self._queued_message is not None:
+                message, self._queued_message = self._queued_message, None
+                return message
+            message = await self._iterator.__anext__()
+            bridged = await self._intercept(message)
+            if bridged is True:
+                continue  # consumed (answered by the interceptor)
+            if isinstance(bridged, SessionMessage):
+                # Emit the era bridge first; the original request follows on
+                # the next call (the session processes messages in order).
+                self._queued_message = message
+                return bridged
+            return message
+
+    async def __aenter__(self) -> "_PreHandshakeStream":
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        # Mirror the contract the raw stream had with the session
+        # (mcp/shared/session.py:351-356 closes both stream ends on exit).
+        await self._read_stream.aclose()
+
+    async def _intercept(
+        self,
+        message: Union[SessionMessage, Exception],
+    ) -> Union[bool, SessionMessage, None]:
+        """Handle pre-handshake requests.
+
+        Returns:
+            True: consumed (answered at the transport boundary). A
+            SessionMessage: the era bridge to emit BEFORE the original
+            message (queued). None: pass through byte-identical.
+        """
+        if isinstance(message, Exception):
+            return None
+        root = message.message.root
+        if not isinstance(root, types.JSONRPCRequest):
+            return None
+        if root.method == DISCOVER_METHOD:
+            await self._respond_discover(request_id=root.id)
+            return True
+        if root.method == "initialize":
+            # The handshake carries the version in params (older revisions);
+            # _meta version validation below still applies to it.
+            self._default_initialize_version(root)
+        version = declared_request_version(root.params)
+        if version is not None and version not in SUPPORTED_PROTOCOL_REVISIONS:
+            # 2026-07-28 per-request version model: refuse with the supported
+            # list instead of echoing or serving (issue #39 R8 recusa path,
+            # mcp-spec-test -32022 UnsupportedProtocolVersion case).
+            await self._send_discover_error(
+                request_id=root.id,
+                code=UNSUPPORTED_PROTOCOL_VERSION_CODE,
+                message_text=f"Unsupported protocol version: {version}",
+                data=unsupported_version_error(version),
+            )
+            return True
+        if version is not None and not self._sessionless_bridge_installed:
+            # 2026-07-28 is sessionless: a request declaring a servable
+            # version per-request is era-valid with no handshake, but the
+            # SDK-era session refuses it before initialization
+            # (mcp/server/session.py:203-205). Bridge the eras by moving the
+            # session into the initialized state with a server-internal
+            # synthetic notification - it enters the session's read path only
+            # and is never written to the client-bound stream.
+            self._sessionless_bridge_installed = True
+            return _synthetic_initialized_notification()
+        return None
+
+    def _default_initialize_version(self, request: types.JSONRPCRequest) -> None:
+        """Serve a version-less handshake on the declared default revision.
+
+        Absent, null or empty protocolVersion all mean "no version declared";
+        anything else (including non-dict params) passes through untouched -
+        the SDK session answers those with a JSON-RPC error response, never a
+        dropped message (issue #39 R7 / issue #40: "must be served").
+        """
+        params = request.params
+        if params is None:
+            params = {}
+            request.params = params
+        if not isinstance(params, dict):
+            return
+        if not params.get("protocolVersion"):
+            params["protocolVersion"] = DEFAULT_PROTOCOL_REVISION
+
+    async def _respond_discover(self, request_id: Union[str, int]) -> None:
+        """Answer ``server/discover`` with the cached CacheableResult envelope."""
+        try:
+            result = cached_discover_result(_build_discover_payload)
+            await self._write_stream.send(
+                SessionMessage(
+                    message=types.JSONRPCMessage(
+                        types.JSONRPCResponse(jsonrpc="2.0", id=request_id, result=result)
+                    )
+                )
+            )
+        except Exception as exc:
+            # The interceptor must never leave a client waiting: answer with a
+            # JSON-RPC error instead of dropping the request (issue #39 R1).
+            logger.error(f"server/discover failed: {exc}")
+            await self._send_discover_error(
+                request_id=request_id,
+                code=DISCOVER_INTERNAL_ERROR_CODE,
+                message_text=f"server/discover failed: {exc}",
+            )
+
+    async def _send_discover_error(
+        self,
+        request_id: Union[str, int],
+        code: int,
+        message_text: str,
+        data: Any = None,
+    ) -> None:
+        await self._write_stream.send(
+            SessionMessage(
+                message=types.JSONRPCMessage(
+                    types.JSONRPCError(
+                        jsonrpc="2.0",
+                        id=request_id,
+                        error=types.ErrorData(code=code, message=message_text, data=data),
+                    )
+                )
+            )
+        )
 
 
 async def _start_websocket(manager: WebSocketManager) -> None:
@@ -465,6 +701,11 @@ async def main() -> None:
         # Run MCP server with stdio transport
         logger.info("Starting MCP server...")
         async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
+            # Pre-handshake protocol layer (issues #39/#40): answer
+            # server/discover and serve version-less handshakes on the
+            # declared default before the SDK session exists. See
+            # polymarket_mcp.discover for the SDK seam map.
+            read_stream = _PreHandshakeStream(read_stream, write_stream)
             # Run server alongside shutdown watcher
             server_task = asyncio.create_task(
                 server.run(
