@@ -55,6 +55,7 @@ from pydantic import ValidationError
 import polymarket_mcp.config as config_module
 import polymarket_mcp.server as server_module
 import polymarket_mcp.tools.trading as trading_module
+import polymarket_mcp.utils.rate_limiter as rate_limiter_module
 import polymarket_mcp.utils.safety_limits as safety_limits_module
 from polymarket_mcp.auth.client import PolymarketClient
 from polymarket_mcp.config import PolymarketConfig
@@ -509,9 +510,36 @@ async def test_portfolio_route_fails_closed_preinit(monkeypatch):
     -m "not real_api") persists module-level globals and made this test
     order-dependent (CI run 35044525737 hit an initialized server - a state
     this test does not exercise). monkeypatch restores the globals at
-    teardown, so no state leaks either way."""
+    teardown, so no state leaks either way.
+
+    Hermetic guarantees added 2026-09-16 (PR #49 CI hang, run 35093019841):
+    (1) the route reads server_module.get_rate_limiter() -- the REAL
+    singleton, which on a fresh worker process is first created by
+    test_rate_limiter.py's fake_clock suite; when the real clock trails the
+    fake creation time, the DATA_API bucket goes negative and acquire()
+    sleeps for hours -> the observed >60s pytest-timeout. The seam is patched
+    to a fresh limiter (L-0123: patch the seam, never the singleton), making
+    this test order-independent regardless of global limiter state.
+    (2) portfolio's httpx seam is guarded: if a future refactor ever makes
+    the direct fetch reachable in the pre-init state, the guard raises
+    immediately (surfaced in the fail-closed error text) -- no network, no
+    hang, instead of touching data-api.polymarket.com."""
     monkeypatch.setattr(server_module, "polymarket_client", None)
     monkeypatch.setattr(server_module, "config", None)
+    monkeypatch.setattr(
+        server_module, "get_rate_limiter", lambda: rate_limiter_module.RateLimiter()
+    )
+
+    class _ProhibitNetworkAsyncClient:
+        def __init__(self, *args, **kwargs):
+            raise AssertionError(
+                "SEC-ADVR: pre-init portfolio route performed network I/O "
+                "(httpx.AsyncClient constructed) - the fail-closed path must not fetch"
+            )
+
+    import polymarket_mcp.tools.portfolio as portfolio_module
+
+    monkeypatch.setattr(portfolio_module.httpx, "AsyncClient", _ProhibitNetworkAsyncClient)
 
     contents = await server_module.call_tool("get_all_positions", {})
 

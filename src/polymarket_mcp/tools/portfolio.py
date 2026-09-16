@@ -83,7 +83,7 @@ async def get_all_positions(
             positions_data = cached_data
         else:
             # Fetch positions using direct HTTP call to Data API
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=30.0) as client:
                 params = {
                     "user": config.POLYGON_ADDRESS.lower()
                 }
@@ -236,7 +236,7 @@ async def get_position_details(
 
         # Fetch position data
         await rate_limiter.acquire(EndpointCategory.DATA_API)
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             params = {
                 "user": config.POLYGON_ADDRESS.lower(),
                 "market": market_id

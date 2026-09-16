@@ -132,12 +132,16 @@ class FakeAsyncClient:
     """Stub of the httpx.AsyncClient seam used by every Data API call.
 
     State lives on the CLASS because each function under test builds a fresh
-    instance (`async with httpx.AsyncClient()`); the autouse fixture resets it
-    before every test. Routes are EXACT URLs; anything else fails loud.
+    instance (`async with httpx.AsyncClient(timeout=30.0)`); the autouse
+    fixture resets it before every test. Routes are EXACT URLs; anything else
+    fails loud. __init__ accepts the documented timeout kwarg only (L-0121).
     """
 
     calls = []
     responses = {}
+
+    def __init__(self, timeout=30.0):
+        self.timeout = timeout
 
     async def __aenter__(self):
         return self
