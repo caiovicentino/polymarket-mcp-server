@@ -492,8 +492,8 @@ Expected response:
 # Activate virtual environment
 source venv/bin/activate
 
-# Run tests
-pytest tests/ -v
+# Run tests (offline tier — validates the install without credentials)
+pytest tests/ -m "not integration and not slow and not real_api and not performance"
 
 # Run demo
 python demo_mcp_tools.py
@@ -764,8 +764,8 @@ source venv/bin/activate
 # Update package
 pip install -e . --upgrade
 
-# Run tests
-pytest
+# Run tests (offline tier — validates the install without credentials)
+pytest tests/ -m "not integration and not slow and not real_api and not performance"
 
 # Check configuration
 python -c "from polymarket_mcp.config import load_config; print(load_config().to_dict())"
