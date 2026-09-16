@@ -294,10 +294,15 @@ cd /Users/caiovicentino/Desktop/poly/polymarket-mcp
 /opt/anaconda3/bin/python3 -m polymarket_mcp.server
 ```
 
-3. Execute os testes:
+3. Execute os testes (seleção offline — não requer credenciais):
 ```bash
-pytest tests/ -v
+pytest tests/ -m "not integration and not slow and not real_api and not performance"
 ```
+
+Um comando `pytest` sem seleção executa todos os tiers, incluindo os testes que
+falam com as APIs reais da Polymarket — eles falham sem credenciais e geram
+tráfego de rede. A seleção acima roda apenas as suítes offline; detalhes em
+CONTRIBUTING.md (seção Testing).
 
 ---
 
