@@ -10,7 +10,7 @@ Implements 8 tools for portfolio management:
 import logging
 from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple, cast
 
 import httpx
 import mcp.types as types
@@ -433,8 +433,8 @@ async def get_portfolio_value(
             orders = []
 
         # Calculate position values
-        position_value = 0
-        market_breakdown = defaultdict(lambda: {'value': 0, 'positions': []})
+        position_value: float = 0
+        market_breakdown: Dict[str, Dict[str, Any]] = defaultdict(lambda: {'value': 0, 'positions': []})
 
         for pos in positions:
             size = float(pos.get('size', 0))
@@ -466,7 +466,7 @@ async def get_portfolio_value(
             })
 
         # Calculate pending order value
-        pending_value = 0
+        pending_value: float = 0
         for order in orders:
             order_size = float(order.get('size', 0))
             order_price = float(order.get('price', 0))
@@ -558,7 +558,7 @@ async def get_pnl_summary(
             'all': None
         }
 
-        start_time = None if timeframe == 'all' else int((now - timeframe_map[timeframe]).timestamp())
+        start_time = None if timeframe == 'all' else int((now - cast(timedelta, timeframe_map[timeframe])).timestamp())
 
         # Fetch trades
         await rate_limiter.acquire(EndpointCategory.DATA_API)
@@ -591,13 +591,13 @@ async def get_pnl_summary(
 
         # Calculate realized P&L from trades
         # Group trades by market and outcome to match buys with sells
-        market_trades = defaultdict(lambda: defaultdict(list))
+        market_trades: Dict[str, Dict[str, List[Any]]] = defaultdict(lambda: defaultdict(list))
         for trade in trades:
             market_id = trade.get('market')
             outcome = trade.get('outcome')
             market_trades[market_id][outcome].append(trade)
 
-        realized_pnl = 0
+        realized_pnl: float = 0
         wins = 0
         losses = 0
 
@@ -644,7 +644,7 @@ async def get_pnl_summary(
                                 remaining_size = 0
 
         # Calculate unrealized P&L from current positions
-        unrealized_pnl = 0
+        unrealized_pnl: float = 0
         best_performer = None
         worst_performer = None
 
@@ -819,7 +819,7 @@ async def get_trade_history(
             ""
         ]
 
-        total_volume = 0
+        total_volume: float = 0
 
         for trade in trades[:limit]:
             timestamp = int(trade.get('timestamp', 0))
@@ -1001,10 +1001,10 @@ async def analyze_portfolio_risk(
 
         # Calculate position metrics
         position_values = []
-        market_exposures = defaultdict(float)
+        market_exposures: Dict[str, float] = defaultdict(float)
         low_liquidity_positions = []
 
-        total_exposure = 0
+        total_exposure: float = 0
 
         for pos in positions:
             size = float(pos.get('size', 0))
@@ -1240,7 +1240,7 @@ async def suggest_portfolio_actions(
         # Analyze positions and generate suggestions
         suggestions = []
 
-        total_value = 0
+        total_value: float = 0
         position_data = []
 
         for pos in positions:

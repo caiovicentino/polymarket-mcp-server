@@ -16,7 +16,7 @@ Provides 10 tools for analyzing markets:
 import json
 import logging
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 import httpx
 import mcp.types as types
@@ -146,9 +146,9 @@ async def get_market_details(
 
         # Handle list response
         if isinstance(data, list) and len(data) > 0:
-            return data[0]
+            return cast(Dict[str, Any], data[0])
 
-        return data
+        return cast(Dict[str, Any], data)
 
     except Exception as e:
         logger.error(f"Failed to get market details: {e}")
@@ -266,7 +266,7 @@ async def get_spread(token_id: str) -> Dict[str, float]:
 
         logger.info(f"Spread for {token_id}: {spread_value:.4f} ({spread_pct:.2f}%)")
 
-        return result
+        return cast(Dict[str, float], result)
 
     except Exception as e:
         logger.error(f"Failed to get spread: {e}")
@@ -798,8 +798,12 @@ async def handle_tool(name: str, arguments: Dict[str, Any]) -> List[types.TextCo
     """
     try:
         # Route to appropriate function
+        # `result` is polymorphic by design: each route assigns either a dict,
+        # a list, or a Pydantic model (the 4 model-dump routes re-assign the
+        # dumped dict). The single `Any` annotation preserves the exact
+        # runtime behavior (JSON serialization of whatever the route produced).
         if name == "get_market_details":
-            result = await get_market_details(**arguments)
+            result: Any = await get_market_details(**arguments)
         elif name == "get_current_price":
             result = await get_current_price(**arguments)
             # Convert Pydantic model to dict
