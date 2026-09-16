@@ -4,7 +4,7 @@ Loads and validates environment variables with proper defaults.
 """
 from typing import Optional
 
-from pydantic import Field, field_validator
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -24,7 +24,8 @@ class PolymarketConfig(BaseSettings):
     # DEMO MODE - Run without real credentials (read-only)
     DEMO_MODE: bool = Field(
         default=False,
-        description="Run in demo mode without real wallet (read-only, no trading)"
+        description="Run in demo mode without real wallet (read-only, no trading)",
+        validation_alias=AliasChoices("DEMO_MODE", "POLYMARKET_DEMO_MODE"),
     )
 
     # Required Polygon Wallet Configuration (optional in DEMO_MODE)
