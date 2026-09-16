@@ -556,4 +556,5 @@ Contributions welcome! Please:
 **Dashboard Version**: 0.1.0
 **Last Updated**: January 2025
 **Built with**: FastAPI, Vanilla JS, Chart.js
-**No Mocks**: All data is real from Polymarket API
+**Data source**: live Polymarket API (read-only) when connected
+**Tests**: offline suite `tests/test_web_app_offline.py` — hermetic fakes at module seams, no network (repo-wide test strategy in TESTING.md)

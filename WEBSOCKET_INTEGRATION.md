@@ -388,7 +388,7 @@ pytest tests/test_websocket.py -v -m "not slow"
 pytest tests/test_websocket.py -v -m "slow"
 ```
 
-Tests use REAL WebSocket connections (no mocks) to ensure the integration works with actual Polymarket endpoints.
+Tests in `tests/test_websocket.py` use REAL WebSocket connections (integration-marked) to ensure the integration works with actual Polymarket endpoints. The offline layer — `tests/test_websocket_messages.py` (message routing and reconnect backoff), `tests/test_websocket_lifecycle_offline.py`, and `tests/test_websocket_readers.py` — covers the same manager logic with fakes, and is what the default gate selection (`not integration and not slow and not real_api and not performance`) runs.
 
 ## Configuration
 

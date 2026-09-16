@@ -128,7 +128,7 @@ pre-commit run --all-files
 ### 3. Test Suites
 
 #### Integration Tests (tests/test_integration.py)
-**Comprehensive real API testing - NO MOCKS:**
+**Comprehensive real API testing (integration-marked tier):**
 
 - **TestAPIConnectivity** (4 tests)
   - Gamma API market discovery
@@ -293,7 +293,7 @@ python smoke_test.py
 - Common commands
 - Test markers
 - Environment variables
-- Best practices (NO MOCKS policy)
+- Best practices (layered strategy: offline fakes by default, real APIs for integration-marked tests)
 - Async testing
 - Parametrized tests
 - Pre-commit hooks
@@ -382,18 +382,27 @@ timeout = 120
 
 ## Testing Strategy
 
-### NO MOCKS Policy
-All tests use real services:
-- Real Polymarket APIs
-- Real WebSocket connections
-- Real HTTP clients
-- No mocked responses
+### Layered Test Strategy
+
+The suite is organized in tiers:
+
+- **Offline tier (default)** — every test file without a tier marker is hermetic:
+  deterministic fakes at module seams (fail-loud stubs, `httpx.MockTransport`,
+  fake clocks) instead of live calls. Most are named `tests/test_*_offline.py`.
+  This is the tier the default selection runs:
+  `-m "not integration and not slow and not real_api and not performance"`.
+- **Real-API tiers** — tests marked `integration`, `real_api`, or `performance`
+  exercise the live Polymarket APIs (Gamma, CLOB, WebSocket) and run only when
+  credentials/network are available.
+- **Wallet-dependent** — modules listed in `CREDENTIAL_ONLY_MODULES` (see
+  `tests/conftest.py`) and tests marked `requires_credentials` are skipped
+  automatically without `POLYGON_PRIVATE_KEY`/`POLYGON_ADDRESS`.
 
 **Benefits:**
-- Tests reflect actual behavior
-- API changes caught immediately
-- Integration issues discovered early
-- Realistic performance data
+- Offline suites are fast, deterministic, and network-free
+- Real-API tiers reflect actual service behavior
+- API changes caught by the integration tier
+- Realistic performance data from the benchmark tier
 
 ### Test Pyramid
 
@@ -417,9 +426,9 @@ python smoke_test.py
 ```
 Quick validation before commits
 
-**Level 2: Fast Unit Tests** (~30s)
+**Level 2: Offline Suite** (~3s measured)
 ```bash
-pytest -m "not slow and not integration"
+pytest -m "not integration and not slow and not real_api and not performance"
 ```
 Pre-push validation
 
@@ -560,8 +569,8 @@ git push origin v1.0.0
 
 ## Benefits Delivered
 
-✅ **Comprehensive Testing** - 53+ tests across 4 categories
-✅ **NO MOCKS** - All real API testing
+✅ **Comprehensive Testing** - layered suites: offline tier by default; integration, E2E, performance tiers
+✅ **Hermetic Offline Suites** - deterministic fakes at module seams (no network); real-API suites marked `integration`/`real_api`/`performance`
 ✅ **Fast Feedback** - Smoke test in 10s
 ✅ **Quality Gates** - 80% coverage enforced
 ✅ **Security** - Automated scanning (bandit, safety)
