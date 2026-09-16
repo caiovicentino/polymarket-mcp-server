@@ -662,7 +662,7 @@ class TradingTools:
             ]
 
             # Organize by market
-            by_market = {}
+            by_market: Dict[str, List[Dict[str, Any]]] = {}
             for order in open_orders:
                 market = order.get('market', 'unknown')
                 if market not in by_market:
@@ -831,6 +831,15 @@ class TradingTools:
 
             for order in open_orders:
                 order_id = order.get('id') or order.get('orderID')
+                if order_id is None:
+                    logger.error(
+                        "Order without id/orderID cannot be cancelled"
+                    )
+                    failed.append({
+                        "order_id": None,
+                        "error": "order has no id/orderID field",
+                    })
+                    continue
                 try:
                     await self.client.cancel_order(order_id)
                     cancelled.append(order_id)

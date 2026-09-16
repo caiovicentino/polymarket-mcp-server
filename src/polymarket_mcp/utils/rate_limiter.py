@@ -8,7 +8,7 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -250,7 +250,7 @@ class RateLimiter:
                 f"Setting backoff for {backoff_time:.2f}s"
             )
 
-    def get_status(self) -> Dict[str, Dict[str, any]]:
+    def get_status(self) -> Dict[str, Dict[str, Any]]:
         """
         Get current status of all rate limit buckets.
 
