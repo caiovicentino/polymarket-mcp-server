@@ -494,7 +494,7 @@ async def test_trading_route_fail_closed_without_tools():
     assert payload["tool"] == "create_limit_order"
 
 
-async def test_portfolio_route_fails_closed_preinit():
+async def test_portfolio_route_fails_closed_preinit(monkeypatch):
     """SEC-ADVR-C2 (refuted with observation): the portfolio route
     (server.py:270-280) runs BEFORE the trading gate (:292) and is reachable
     with polymarket_client=None and config=None (pre-initialize state). The
@@ -503,7 +503,16 @@ async def test_portfolio_route_fails_closed_preinit():
     unprotected-route aspect (reachable regardless of credentials) is a P3
     observation recorded in the audit doc, not machine-verifiable further
     offline because the live path performs a direct data-api HTTP call
-    (portfolio.py:86-97) which these tests never trigger."""
+    (portfolio.py:86-97) which these tests never trigger. The pre-init state
+    is pinned explicitly: initialize_server() (test_e2e.py, collected before
+    this file in the same pytest process under the CI selection
+    -m "not real_api") persists module-level globals and made this test
+    order-dependent (CI run 35044525737 hit an initialized server - a state
+    this test does not exercise). monkeypatch restores the globals at
+    teardown, so no state leaks either way."""
+    monkeypatch.setattr(server_module, "polymarket_client", None)
+    monkeypatch.setattr(server_module, "config", None)
+
     contents = await server_module.call_tool("get_all_positions", {})
 
     assert "Error fetching positions" in contents[0].text
