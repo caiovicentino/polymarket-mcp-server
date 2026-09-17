@@ -3,9 +3,11 @@
 Test script to fetch real data from Polymarket APIs
 Demonstrates that the MCP server integration works with live data
 """
-import httpx
-import json
 import asyncio
+import json
+
+import httpx
+
 
 async def test_polymarket_apis():
     print('🔍 Testando APIs da Polymarket (dados reais)...\n')
@@ -40,7 +42,7 @@ async def test_polymarket_apis():
             if token_id:
                 async with httpx.AsyncClient() as client:
                     response = await client.get(
-                        f'https://clob.polymarket.com/book',
+                        'https://clob.polymarket.com/book',
                         params={'token_id': token_id}
                     )
                     book = response.json()
@@ -51,11 +53,11 @@ async def test_polymarket_apis():
                     bids = book.get('bids', [])
                     asks = book.get('asks', [])
 
-                    print(f'\n   💚 Top 3 Bids (compradores):')
+                    print('\n   💚 Top 3 Bids (compradores):')
                     for bid in bids[:3]:
                         print(f'      ${bid.get("price"):.4f} - Size: {bid.get("size", 0):.2f}')
 
-                    print(f'\n   ❤️  Top 3 Asks (vendedores):')
+                    print('\n   ❤️  Top 3 Asks (vendedores):')
                     for ask in asks[:3]:
                         print(f'      ${ask.get("price"):.4f} - Size: {ask.get("size", 0):.2f}')
 
@@ -78,7 +80,7 @@ async def test_polymarket_apis():
                 async with httpx.AsyncClient() as client:
                     # Midpoint price
                     response = await client.get(
-                        f'https://clob.polymarket.com/midpoint',
+                        'https://clob.polymarket.com/midpoint',
                         params={'token_id': token_id}
                     )
                     mid_data = response.json()
@@ -95,7 +97,7 @@ async def test_polymarket_apis():
         )
         events = response.json()
 
-        print(f'✅ Top 3 eventos por volume:')
+        print('✅ Top 3 eventos por volume:')
         for i, event in enumerate(events[:3], 1):
             print(f'\n   Evento #{i}:')
             print(f'   🎯 {event.get("title", "N/A")}')
@@ -131,7 +133,7 @@ async def test_polymarket_apis():
         response = await client.get('https://gamma-api.polymarket.com/tags')
         tags = response.json()
 
-        print(f'✅ Categorias populares:')
+        print('✅ Categorias populares:')
         for tag in tags[:10]:
             print(f'   🏷️  {tag.get("label", "N/A")} (id: {tag.get("id", "N/A")})')
 

@@ -3,8 +3,9 @@
 Script de teste para verificar se o MCP está configurado corretamente
 Execute: python3 test_mcp_connection.py
 """
-import sys
 import os
+import sys
+from pathlib import Path
 
 sys.path.insert(0, 'src')
 
@@ -16,10 +17,16 @@ print()
 # 1. Verificar imports
 print("1️⃣ Testando imports...")
 try:
-    from polymarket_mcp import server, config
+    from polymarket_mcp import config, server
     from polymarket_mcp.auth import client
+    from polymarket_mcp.tools import (
+        market_analysis,
+        market_discovery,
+        portfolio_integration,
+        realtime,
+        trading,
+    )
     from polymarket_mcp.utils import rate_limiter, safety_limits
-    from polymarket_mcp.tools import market_discovery, market_analysis, trading, portfolio_integration, realtime
     print("   ✅ Todos os imports funcionando!\n")
 except Exception as e:
     print(f"   ❌ Erro nos imports: {e}\n")
@@ -31,14 +38,14 @@ try:
     # Tentar carregar config (vai falhar se não tiver .env, mas tudo bem)
     try:
         cfg = config.load_config()
-        print(f"   ✅ Config carregada!")
+        print("   ✅ Config carregada!")
         print(f"   📍 Address: {cfg.POLYGON_ADDRESS}")
         print(f"   ⛓️  Chain ID: {cfg.POLYMARKET_CHAIN_ID}")
         print(f"   🛡️  Max Order Size: ${cfg.MAX_ORDER_SIZE_USD:,.0f}")
         print(f"   🛡️  Max Exposure: ${cfg.MAX_TOTAL_EXPOSURE_USD:,.0f}\n")
     except Exception as e:
-        print(f"   ⚠️  Config não carregada (normal se não tiver .env ainda)")
-        print(f"   💡 Edite claude_desktop_config.json com suas credenciais\n")
+        print("   ⚠️  Config não carregada (normal se não tiver .env ainda)")
+        print("   💡 Edite claude_desktop_config.json com suas credenciais\n")
 except Exception as e:
     print(f"   ❌ Erro na config: {e}\n")
 
@@ -111,11 +118,11 @@ if os.path.exists(claude_config_path):
             # Check credentials
             env = pm_config.get('env', {})
             if env.get('POLYGON_ADDRESS') == '0xYourAddressHere':
-                print(f"\n   ⚠️  ATENÇÃO: Credenciais ainda não configuradas!")
-                print(f"   💡 Edite o arquivo e adicione suas credenciais:\n")
-                print(f"      code ~/Library/Application\\ Support/Claude/claude_desktop_config.json\n")
+                print("\n   ⚠️  ATENÇÃO: Credenciais ainda não configuradas!")
+                print("   💡 Edite o arquivo e adicione suas credenciais:\n")
+                print("      code ~/Library/Application\\ Support/Claude/claude_desktop_config.json\n")
             else:
-                print(f"   ✅ Credenciais configuradas!\n")
+                print("   ✅ Credenciais configuradas!\n")
         else:
             print("   ❌ Polymarket MCP NÃO encontrado no config do Claude")
             print("   💡 Execute novamente o script de instalação\n")
@@ -129,6 +136,7 @@ else:
 print("6️⃣ Testando conexão com Polymarket API (sem auth)...")
 try:
     import asyncio
+
     import httpx
 
     async def test_api():
@@ -170,8 +178,8 @@ print("   3. No Claude, pergunte: 'Mostre os 5 markets com mais volume na Polyma
 print()
 
 print("📚 DOCUMENTAÇÃO:")
-print("   • Guia de setup: /Users/caiovicentino/Desktop/poly/polymarket-mcp/SETUP_GUIDE.md")
-print("   • README: /Users/caiovicentino/Desktop/poly/polymarket-mcp/README.md")
+print(f"   • Guia de setup: {Path(__file__).resolve().parent / 'SETUP_GUIDE.md'}")
+print(f"   • README: {Path(__file__).resolve().parent / 'README.md'}")
 print()
 
 print("🎉 MCP PRONTO PARA USO!")

@@ -5,8 +5,8 @@ This file demonstrates common usage patterns for the 18 new tools.
 """
 
 import asyncio
-from polymarket_mcp.tools import market_discovery, market_analysis
 
+from polymarket_mcp.tools import market_analysis, market_discovery
 
 # ============================================
 # MARKET DISCOVERY EXAMPLES
@@ -140,7 +140,7 @@ async def example_price_analysis():
         # Get spread
         spread = await market_analysis.get_spread(token_id=token_id)
 
-        print(f"\nSpread Analysis:")
+        print("\nSpread Analysis:")
         print(f"  Spread: {spread['spread_value']:.4f}")
         print(f"  Spread %: {spread['spread_percentage']:.2f}%")
 
@@ -159,11 +159,11 @@ async def example_orderbook():
         )
 
         print("Order Book:")
-        print(f"\nTop 5 Bids:")
+        print("\nTop 5 Bids:")
         for bid in orderbook.bids[:5]:
             print(f"  {bid.price:.4f} - Size: {bid.size:.2f}")
 
-        print(f"\nTop 5 Asks:")
+        print("\nTop 5 Asks:")
         for ask in orderbook.asks[:5]:
             print(f"  {ask.price:.4f} - Size: {ask.size:.2f}")
 

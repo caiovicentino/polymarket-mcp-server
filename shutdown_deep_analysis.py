@@ -4,13 +4,16 @@ ULTRA DEEP ANALYSIS - Government Shutdown Markets
 Análise completa de todos os markets relacionados ao shutdown
 """
 import sys
+
 sys.path.insert(0, 'src')
 
 import asyncio
-import httpx
 import json
-from datetime import datetime
 from collections import defaultdict
+from datetime import datetime
+
+import httpx
+
 
 async def deep_shutdown_analysis():
     """Análise profunda dos markets de government shutdown"""
@@ -145,14 +148,14 @@ async def deep_shutdown_analysis():
         # A soma das probabilidades de eventos mutuamente exclusivos deve ser ~100%
         if cumulative_prob > 110:
             print(f"🔴 ALERTA: Probabilidade acumulada = {cumulative_prob:.1f}%")
-            print(f"   Isso está ACIMA de 100%! Possível arbitragem:")
-            print(f"   → Vender YES em todos os markets simultaneamente")
+            print("   Isso está ACIMA de 100%! Possível arbitragem:")
+            print("   → Vender YES em todos os markets simultaneamente")
             print(f"   → Apenas UM pode ser verdadeiro, mas mercado precifica {cumulative_prob:.0f}%")
             print(f"   → Edge potencial: {cumulative_prob - 100:.1f}%\n")
         elif cumulative_prob < 90:
             print(f"🟢 OPORTUNIDADE: Probabilidade acumulada = {cumulative_prob:.1f}%")
-            print(f"   Isso está ABAIXO de 100%! Possível arbitragem:")
-            print(f"   → Comprar YES nos markets mais underpriced")
+            print("   Isso está ABAIXO de 100%! Possível arbitragem:")
+            print("   → Comprar YES nos markets mais underpriced")
             print(f"   → Edge potencial: {100 - cumulative_prob:.1f}%\n")
         else:
             print(f"✅ Mercado razoavelmente eficiente: Probabilidade acumulada = {cumulative_prob:.1f}%\n")
@@ -209,7 +212,7 @@ async def deep_shutdown_analysis():
                 print(f"  YES: {m['yes_probability']:.1f}% (${m['yes_price']:.4f})")
                 print(f"  Odds implícitas: {implied_odds:.1f}x retorno")
                 print(f"  Volume: ${m['volume_24h']:,.0f}")
-                print(f"  💡 Análise: Possível underpricing - mercado subestima probabilidade")
+                print("  💡 Análise: Possível underpricing - mercado subestima probabilidade")
                 print()
 
         if overpriced:
@@ -220,7 +223,7 @@ async def deep_shutdown_analysis():
                 print(f"• {m['question'][:70]}...")
                 print(f"  YES: {m['yes_probability']:.1f}% | NO: {m['no_probability']:.1f}%")
                 print(f"  Volume: ${m['volume_24h']:,.0f}")
-                print(f"  💡 Análise: NO pode estar underpriced - considerar vender YES")
+                print("  💡 Análise: NO pode estar underpriced - considerar vender YES")
                 print()
 
         # 7. Análise de sentimento do mercado
@@ -231,7 +234,7 @@ async def deep_shutdown_analysis():
         # Calcular sentimento agregado
         weighted_sentiment = sum(m['yes_probability'] * m['volume_24h'] for m in market_data) / total_volume
 
-        print(f"🎯 SENTIMENTO AGREGADO DO MERCADO (ponderado por volume):")
+        print("🎯 SENTIMENTO AGREGADO DO MERCADO (ponderado por volume):")
         print(f"   Probabilidade média de shutdown continuar: {weighted_sentiment:.1f}%")
         print()
 
@@ -272,8 +275,8 @@ async def deep_shutdown_analysis():
             print(f"1️⃣  POSIÇÃO CONSERVADORA (${allocation}):")
             print(f"   Market: {best_early['question'][:65]}...")
             print(f"   Lado: NO @ ${best_early['no_price']:.4f}")
-            print(f"   Lógica: Alta probabilidade de resolução rápida")
-            print(f"   Retorno esperado: 3-5% em 1-3 dias")
+            print("   Lógica: Alta probabilidade de resolução rápida")
+            print("   Retorno esperado: 3-5% em 1-3 dias")
             print()
 
         if mid_markets:
@@ -286,12 +289,12 @@ async def deep_shutdown_analysis():
 
             if best_mid['yes_probability'] < 30:
                 print(f"   Lado: YES @ ${best_mid['yes_price']:.4f}")
-                print(f"   Lógica: Underpriced - melhor risk/reward")
+                print("   Lógica: Underpriced - melhor risk/reward")
             else:
                 print(f"   Lado: NO @ ${best_mid['no_price']:.4f}")
-                print(f"   Lógica: Seguir consenso do mercado")
+                print("   Lógica: Seguir consenso do mercado")
 
-            print(f"   Retorno esperado: 10-20% em 3-7 dias")
+            print("   Retorno esperado: 10-20% em 3-7 dias")
             print()
 
         if late_markets:
@@ -302,15 +305,15 @@ async def deep_shutdown_analysis():
             print(f"3️⃣  POSIÇÃO ESPECULATIVA (${allocation}):")
             print(f"   Market: {best_late['question'][:65]}...")
             print(f"   Lado: YES @ ${best_late['yes_price']:.4f}")
-            print(f"   Lógica: Lottery ticket - baixa probabilidade, alto retorno")
-            print(f"   Retorno esperado: 1000%+ se vencer (ou -100%)")
+            print("   Lógica: Lottery ticket - baixa probabilidade, alto retorno")
+            print("   Retorno esperado: 1000%+ se vencer (ou -100%)")
             print()
 
         cash_reserve = 1000 - total_allocation
         if cash_reserve > 0:
             print(f"4️⃣  CASH RESERVE (${cash_reserve}):")
-            print(f"   Manter em USDC para oportunidades emergentes")
-            print(f"   Usar se surgirem notícias que mudem probabilidades\n")
+            print("   Manter em USDC para oportunidades emergentes")
+            print("   Usar se surgirem notícias que mudem probabilidades\n")
 
         # 9. Catalisadores e monitoramento
         print("\n" + "="*90)
@@ -362,7 +365,7 @@ async def deep_shutdown_analysis():
         print("3️⃣  RISCO/RECOMPENSA:")
         print(f"   Volume total: ${total_volume:,.0f}/dia indica alta convicção")
         print(f"   Liquidez: ${total_liquidity:,.0f} permite entrada/saída fácil")
-        print(f"   Timing: Resolução em 1-14 dias = retorno rápido do capital")
+        print("   Timing: Resolução em 1-14 dias = retorno rápido do capital")
         print()
 
         print("💡 RECOMENDAÇÃO FINAL:")

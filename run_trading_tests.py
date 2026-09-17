@@ -12,10 +12,10 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from polymarket_mcp.config import load_config
 from polymarket_mcp.auth import create_polymarket_client
-from polymarket_mcp.utils import create_safety_limits_from_config
+from polymarket_mcp.config import load_config
 from polymarket_mcp.tools import TradingTools
+from polymarket_mcp.utils import create_safety_limits_from_config
 
 
 async def main():

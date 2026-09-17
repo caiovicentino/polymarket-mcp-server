@@ -4,12 +4,15 @@ Análise completa dos top 10 markets da Polymarket
 Com recomendações de investimento
 """
 import sys
+
 sys.path.insert(0, 'src')
 
 import asyncio
-import httpx
 import json
 from datetime import datetime
+
+import httpx
+
 
 async def get_top_markets_with_analysis():
     """Busca e analisa os top 10 markets"""
@@ -68,7 +71,7 @@ async def get_top_markets_with_analysis():
                 try:
                     # Get orderbook
                     book_response = await client.get(
-                        f'https://clob.polymarket.com/book',
+                        'https://clob.polymarket.com/book',
                         params={'token_id': token_id}
                     )
                     book = book_response.json()
@@ -121,12 +124,12 @@ async def get_top_markets_with_analysis():
             print(f"{'='*80}")
             print(f"#{i} - {question}")
             print(f"{'='*80}")
-            print(f"\n💰 MÉTRICAS FINANCEIRAS:")
+            print("\n💰 MÉTRICAS FINANCEIRAS:")
             print(f"   Volume 24h: ${volume_24h:,.0f}")
             print(f"   Liquidez: ${liquidity:,.0f}")
             print(f"   Profundidade Orderbook: {depth_score:.0f} contratos")
 
-            print(f"\n📈 PREÇOS ATUAIS:")
+            print("\n📈 PREÇOS ATUAIS:")
             print(f"   YES: ${yes_price:.4f} ({yes_price*100:.1f}%)")
             print(f"   NO:  ${no_price:.4f} ({no_price*100:.1f}%)")
             if best_bid > 0 and best_ask > 0:
@@ -134,16 +137,16 @@ async def get_top_markets_with_analysis():
                 print(f"   Melhor Ask: ${best_ask:.4f}")
                 print(f"   Spread: ${spread:.4f} ({spread_pct:.2f}%)")
 
-            print(f"\n🎯 ANÁLISE DE INVESTIMENTO:")
+            print("\n🎯 ANÁLISE DE INVESTIMENTO:")
             print(f"   Recomendação: {analysis['recommendation']} {get_recommendation_emoji(analysis['recommendation'])}")
             print(f"   Score de Confiança: {analysis['confidence_score']}/100")
             print(f"   Risk Level: {analysis['risk_level']} {get_risk_emoji(analysis['risk_level'])}")
 
-            print(f"\n💡 JUSTIFICATIVA:")
+            print("\n💡 JUSTIFICATIVA:")
             for reason in analysis['reasons']:
                 print(f"   • {reason}")
 
-            print(f"\n📊 FATORES CONSIDERADOS:")
+            print("\n📊 FATORES CONSIDERADOS:")
             for factor, score in analysis['factors'].items():
                 emoji = "✅" if score >= 70 else "⚠️" if score >= 40 else "❌"
                 print(f"   {emoji} {factor}: {score}/100")
@@ -198,7 +201,7 @@ async def get_top_markets_with_analysis():
             top_3 = buy_recommendations[:3]
             allocations = [0.4, 0.35, 0.25]  # 40%, 35%, 25%
 
-            for rec, allocation in zip(top_3, allocations):
+            for rec, allocation in zip(top_3, allocations, strict=False):
                 amount = 1000 * allocation
                 print(f"• ${amount:.0f} ({allocation*100:.0f}%) - {rec['question'][:55]}...")
                 print(f"  Lado: {rec['side']} @ ${rec['entry_price']:.4f}")

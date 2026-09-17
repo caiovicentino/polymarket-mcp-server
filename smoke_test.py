@@ -13,10 +13,10 @@ Returns: PASS/FAIL with details
 Usage:
     python smoke_test.py
 """
-import sys
-import os
-import time
 import asyncio
+import os
+import sys
+import time
 from pathlib import Path
 
 # Color codes for output
@@ -101,11 +101,8 @@ class SmokeTest:
             sys.path.insert(0, str(Path(__file__).parent / "src"))
 
             # Try main imports
-            from polymarket_mcp import server
-            from polymarket_mcp import config
-            from polymarket_mcp.tools import market_discovery
-            from polymarket_mcp.tools import market_analysis
-            from polymarket_mcp.tools import realtime
+            from polymarket_mcp import config, server
+            from polymarket_mcp.tools import market_analysis, market_discovery, realtime
             from polymarket_mcp.utils import RateLimiter, SafetyLimits
 
             self.print_pass("All modules imported")
@@ -186,7 +183,7 @@ class SmokeTest:
         self.print_test("Tool initialization")
 
         try:
-            from polymarket_mcp.tools import market_discovery, market_analysis, realtime
+            from polymarket_mcp.tools import market_analysis, market_discovery, realtime
 
             # Get tools
             discovery_tools = market_discovery.get_tools()
@@ -246,7 +243,7 @@ class SmokeTest:
         self.print_test("Rate limiter")
 
         try:
-            from polymarket_mcp.utils import RateLimiter, EndpointCategory
+            from polymarket_mcp.utils import EndpointCategory, RateLimiter
 
             limiter = RateLimiter()
 
