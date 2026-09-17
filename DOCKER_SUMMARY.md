@@ -4,7 +4,7 @@
 
 ### Core Docker Files
 
-1. **Dockerfile** (`/Users/caiovicentino/Desktop/poly/polymarket-mcp/Dockerfile`)
+1. **Dockerfile** (`polymarket-mcp-server/Dockerfile`)
    - Multi-stage build (builder + runtime)
    - Base image: Python 3.12 slim
    - Non-root user (polymarket:1000)
@@ -12,7 +12,7 @@
    - Security hardened
    - Health checks enabled
 
-2. **docker-compose.yml** (`/Users/caiovicentino/Desktop/poly/polymarket-mcp/docker-compose.yml`)
+2. **docker-compose.yml** (`polymarket-mcp-server/docker-compose.yml`)
    - Single service: polymarket-mcp
    - Environment variable loading from .env
    - Persistent volumes for logs and data
@@ -21,19 +21,19 @@
    - Auto-restart policy
    - Logging rotation (10MB max, 3 files)
 
-3. **.dockerignore** (`/Users/caiovicentino/Desktop/poly/polymarket-mcp/.dockerignore`)
+3. **.dockerignore** (`polymarket-mcp-server/.dockerignore`)
    - Excludes venv, cache, git, tests
    - Optimizes build context
    - Reduces image size
 
-4. **docker-start.sh** (`/Users/caiovicentino/Desktop/poly/polymarket-mcp/docker-start.sh`)
+4. **docker-start.sh** (`polymarket-mcp-server/docker-start.sh`)
    - Automated startup script
    - Environment validation
    - Creates .env if missing
    - Shows status and logs
    - User-friendly colored output
 
-5. **.env.example** (`/Users/caiovicentino/Desktop/poly/polymarket-mcp/.env.example`)
+5. **.env.example** (`polymarket-mcp-server/.env.example`)
    - Complete configuration template
    - All environment variables documented
    - Safe defaults
@@ -41,7 +41,7 @@
 
 ### Documentation
 
-6. **DOCKER.md** (`/Users/caiovicentino/Desktop/poly/polymarket-mcp/DOCKER.md`)
+6. **DOCKER.md** (`polymarket-mcp-server/DOCKER.md`)
    - Complete Docker deployment guide
    - Quick start in 1 command
    - Configuration reference
@@ -52,7 +52,7 @@
 
 ### Kubernetes Manifests
 
-7. **k8s/deployment.yaml** (`/Users/caiovicentino/Desktop/poly/polymarket-mcp/k8s/deployment.yaml`)
+7. **k8s/deployment.yaml** (`polymarket-mcp-server/k8s/deployment.yaml`)
    - Production-ready Kubernetes deployment
    - 1 replica by default
    - Resource requests and limits
@@ -60,23 +60,23 @@
    - Security context (non-root)
    - PersistentVolumeClaims for logs and data
 
-8. **k8s/configmap.yaml** (`/Users/caiovicentino/Desktop/poly/polymarket-mcp/k8s/configmap.yaml`)
+8. **k8s/configmap.yaml** (`polymarket-mcp-server/k8s/configmap.yaml`)
    - Non-sensitive configuration
    - Safety limits
    - API endpoints
    - Trading controls
 
-9. **k8s/secret.yaml.template** (`/Users/caiovicentino/Desktop/poly/polymarket-mcp/k8s/secret.yaml.template`)
+9. **k8s/secret.yaml.template** (`polymarket-mcp-server/k8s/secret.yaml.template`)
    - Template for sensitive data
    - Base64 encoded placeholders
    - Instructions for creating real secrets
 
-10. **k8s/service.yaml** (`/Users/caiovicentino/Desktop/poly/polymarket-mcp/k8s/service.yaml`)
+10. **k8s/service.yaml** (`polymarket-mcp-server/k8s/service.yaml`)
     - ClusterIP service
     - Session affinity
     - Ready for ingress
 
-11. **k8s/README.md** (`/Users/caiovicentino/Desktop/poly/polymarket-mcp/k8s/README.md`)
+11. **k8s/README.md** (`polymarket-mcp-server/k8s/README.md`)
     - Complete Kubernetes deployment guide
     - Quick start commands
     - Scaling instructions
@@ -85,7 +85,7 @@
 
 ### CI/CD
 
-12. **.github/workflows/docker-publish.yml** (`/Users/caiovicentino/Desktop/poly/polymarket-mcp/.github/workflows/docker-publish.yml`)
+12. **.github/workflows/docker-publish.yml** (`polymarket-mcp-server/.github/workflows/docker-publish.yml`)
     - Automated Docker image publishing
     - Multi-architecture builds (amd64 + arm64)
     - Triggers on releases and tags

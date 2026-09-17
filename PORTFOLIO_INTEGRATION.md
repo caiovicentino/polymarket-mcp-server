@@ -206,9 +206,10 @@ Tools handle:
 Run tests with:
 
 ```bash
-cd /Users/caiovicentino/Desktop/poly/polymarket-mcp
+cd polymarket-mcp-server
 source venv/bin/activate
-pytest tests/test_portfolio_tools.py -v
+# NOTE: this suite is real_api-marked -- it hits REAL Polymarket APIs (L2 credentials required)
+pytest tests/test_portfolio_tools.py -m "real_api" -v
 ```
 
 ## Example Usage

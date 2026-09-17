@@ -209,7 +209,7 @@ Real-time Updates:   3 types (stats, markets, websocket)
 ### 1. Install Dependencies
 
 ```bash
-cd /Users/caiovicentino/Desktop/poly/polymarket-mcp
+cd polymarket-mcp-server
 pip install -e .
 ```
 
