@@ -262,8 +262,13 @@ python setup_wizard.py
 
 **Auto Script:**
 ```bash
-./install.sh --upgrade-to-full
+./install.sh
 ```
+
+*Note: `install.sh` has no mode-switch flag (its options are `--demo`,
+`--skip-claude`, `--help`); a full install over an existing demo install is
+documented in [INSTALLATION.md](INSTALLATION.md#switching-from-demo-to-full-mode)
+-- "Switching from DEMO to Full Mode".*
 
 **Docker:**
 ```bash
@@ -284,7 +289,7 @@ nano .env
 
 ### GUI Wizard
 - **Issue**: "tkinter not found"
-  - **Fix**: `pip install tk` or use Auto Script
+  - **Fix**: `brew install python-tk` (macOS) / `sudo apt install python3-tk` (Debian/Ubuntu), or use Auto Script
 
 ### Auto Script
 - **Issue**: "Permission denied"
