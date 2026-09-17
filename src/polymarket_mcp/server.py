@@ -8,7 +8,7 @@ import logging
 import os
 import re
 import signal
-from typing import Any, Dict, Final, Optional, Union
+from typing import Any, Dict, Final, Optional, Union, cast
 
 import mcp.server.stdio
 import mcp.types as types
@@ -193,7 +193,7 @@ class _PreHandshakeStream:
                 # the next call (the session processes messages in order).
                 self._queued_message = message
                 return bridged
-            return message
+            return cast("SessionMessage | Exception", message)
 
     async def __aenter__(self) -> "_PreHandshakeStream":
         return self
@@ -412,19 +412,19 @@ async def list_resources() -> list[types.Resource]:
     """
     resources = [
         types.Resource(
-            uri="polymarket://status",
+            uri=cast(types.AnyUrl, "polymarket://status"),
             name="Connection Status",
             description="Check Polymarket connection and authentication status",
             mimeType="application/json"
         ),
         types.Resource(
-            uri="polymarket://config",
+            uri=cast(types.AnyUrl, "polymarket://config"),
             name="Configuration",
             description="View current safety limits and trading configuration",
             mimeType="application/json"
         ),
         types.Resource(
-            uri="polymarket://rate-limits",
+            uri=cast(types.AnyUrl, "polymarket://rate-limits"),
             name="Rate Limiter Status",
             description="Check API rate limit status across all endpoint categories",
             mimeType="application/json"
@@ -641,8 +641,8 @@ async def initialize_server() -> None:
                     "API credentials created successfully! "
                     "Save these to your .env file for future use."
                 )
-                api_key = polymarket_client.api_creds.api_key
-                passphrase = polymarket_client.api_creds.api_passphrase
+                api_key = cast(Any, polymarket_client.api_creds).api_key
+                passphrase = cast(Any, polymarket_client.api_creds).api_passphrase
                 logger.debug(f"POLYMARKET_API_KEY={api_key[:8]}...")
                 logger.debug(f"POLYMARKET_PASSPHRASE={passphrase[:8]}...")
             except Exception as e:
@@ -731,7 +731,10 @@ async def main() -> None:
             # Run server alongside shutdown watcher
             server_task = asyncio.create_task(
                 server.run(
-                    read_stream,
+                    cast(
+                        "MemoryObjectReceiveStream[SessionMessage | Exception]",
+                        read_stream,
+                    ),
                     write_stream,
                     server.create_initialization_options()
                 )
@@ -754,7 +757,7 @@ async def main() -> None:
 
             # If server task raised an exception, propagate it
             if server_task in done and server_task.exception():
-                raise server_task.exception()
+                raise cast(BaseException, server_task.exception())
 
     except KeyboardInterrupt:
         logger.info("Server stopped by user (KeyboardInterrupt)")
