@@ -378,14 +378,11 @@ The WebSocket manager implements auto-reconnect with exponential backoff:
 Run tests with:
 
 ```bash
-# All tests
-pytest tests/test_websocket.py -v
+# Offline suite (default gate selection -- no network needed)
+pytest tests/ -m "not integration and not slow and not real_api and not performance"
 
-# Skip slow integration tests
-pytest tests/test_websocket.py -v -m "not slow"
-
-# Run only integration tests
-pytest tests/test_websocket.py -v -m "slow"
+# Live WebSocket integration tests (REAL connections -- network required)
+pytest tests/test_websocket.py -m "integration"
 ```
 
 Tests in `tests/test_websocket.py` use REAL WebSocket connections (integration-marked) to ensure the integration works with actual Polymarket endpoints. The offline layer — `tests/test_websocket_messages.py` (message routing and reconnect backoff), `tests/test_websocket_lifecycle_offline.py`, and `tests/test_websocket_readers.py` — covers the same manager logic with fakes, and is what the default gate selection (`not integration and not slow and not real_api and not performance`) runs.
