@@ -23,53 +23,6 @@ CYAN='\033[0;36m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-# -----------------------------------------------------------------------------
-# Prompt safety (T-0224): every interactive prompt reads from the CONTROLLING
-# TERMINAL (/dev/tty), never from stdin. Under `curl ... | bash`, stdin IS the
-# script stream itself — a stdin read consumes (or is starved by) the very
-# bytes bash is parsing (proven pre-fix: the bare `read` swallowed the next
-# script line and the `read -n 1` stole a byte, killing the script with
-# "cho: command not found" on a fresh machine); under `bash quickstart.sh <
-# /dev/null` (CI) a bare `read` dies on EOF under `set -e`. /dev/tty reaches
-# the human in both cases. When no controlling terminal exists (curl|bash
-# without a ctty, CI, cron, headless), each prompt falls back to a SAFE
-# default instead of dying:
-#   - install confirmation: proceed (DEMO mode, read-only trading);
-#   - "remove and reinstall?": NO — `rm -rf` NEVER runs non-interactively.
-# -----------------------------------------------------------------------------
-
-# has_controlling_tty: succeeds iff /dev/tty can be opened right now. The
-# probe runs in a subshell so it never touches the caller's stdin.
-has_controlling_tty() {
-    ( : 2>/dev/null < /dev/tty )
-}
-
-# tty_read_line: read one line from /dev/tty into REPLY. Without a TTY,
-# print the non-interactive banner and continue with an empty REPLY.
-tty_read_line() {
-    if has_controlling_tty; then
-        read -r REPLY < /dev/tty
-    else
-        echo "non-interactive: proceeding with installation"
-        REPLY=""
-    fi
-}
-
-# tty_read_yn: read a single y/n character from /dev/tty into REPLY.
-# Without a TTY, default to "n" so the destructive `rm -rf` below NEVER
-# runs non-interactively (the existing directory is kept and reused).
-tty_read_yn() {
-    if has_controlling_tty; then
-        printf '%s' "$1"
-        local reply
-        read -r -n 1 reply < /dev/tty
-        REPLY="$reply"
-    else
-        echo "non-interactive: keeping existing installation directory"
-        REPLY="n"
-    fi
-}
-
 echo -e "${CYAN}"
 cat << "EOF"
   ____        _                          _        _
@@ -95,7 +48,7 @@ echo "  ✓ Real-time monitoring"
 echo "  ✗ Trading (read-only mode)"
 echo ""
 echo -e "${YELLOW}Press Ctrl+C to cancel, or Enter to continue...${NC}"
-tty_read_line
+read
 
 # Check if we're in the repo directory
 if [ ! -f "pyproject.toml" ]; then
@@ -105,7 +58,7 @@ if [ ! -f "pyproject.toml" ]; then
 
     if [ -d "$INSTALL_DIR" ]; then
         echo "Directory already exists: $INSTALL_DIR"
-        tty_read_yn "Remove and reinstall? (y/n): "
+        read -p "Remove and reinstall? (y/n): " -n 1 -r
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
             rm -rf "$INSTALL_DIR"
