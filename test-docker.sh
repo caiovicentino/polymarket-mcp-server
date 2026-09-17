@@ -28,6 +28,16 @@ echo -e "${NC}"
 TESTS_PASSED=0
 TESTS_FAILED=0
 
+# Cleanup (idempotent): removes the temporary .env.test and the test image.
+# Installed as a trap on EXIT/INT/TERM so it runs on EVERY exit path — including
+# an early death under set -e — and is also called explicitly at the end of the
+# script (before the summary).
+cleanup() {
+    rm -f .env.test
+    docker rmi polymarket-mcp:test > /dev/null 2>&1 || true
+}
+trap 'rc=$?; cleanup; exit $rc' EXIT INT TERM
+
 # Test function
 run_test() {
     local test_name="$1"
@@ -37,12 +47,12 @@ run_test() {
 
     if eval "$test_command" > /dev/null 2>&1; then
         print_success "$test_name"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED+1))
         return 0
     else
         print_error "$test_name"
-        ((TESTS_FAILED++))
-        return 1
+        TESTS_FAILED=$((TESTS_FAILED+1))
+        return 0
     fi
 }
 
@@ -82,7 +92,7 @@ EOF
 print_test "Building Docker image (this may take a minute)..."
 if docker build -t polymarket-mcp:test . > /tmp/docker-build.log 2>&1; then
     print_success "Docker build succeeded"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 
     # Test image properties
     echo ""
@@ -100,17 +110,17 @@ if docker build -t polymarket-mcp:test . > /tmp/docker-build.log 2>&1; then
     print_test "Testing image can start..."
     if timeout 10s docker run --rm --env-file .env.test polymarket-mcp:test python -c "from polymarket_mcp.config import load_config; print('OK')" > /tmp/docker-run.log 2>&1; then
         print_success "Image runs successfully"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED+1))
     else
         print_error "Image failed to run"
         echo "Check /tmp/docker-run.log for details"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED+1))
     fi
 
 else
     print_error "Docker build failed"
     echo "Check /tmp/docker-build.log for details"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
 
 # Kubernetes files test
@@ -148,17 +158,16 @@ echo ""
 print_info "Validating docker-compose.yml..."
 if docker compose config > /dev/null 2>&1; then
     print_success "docker-compose.yml is valid"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     print_error "docker-compose.yml has errors"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
 
 # Clean up
 echo ""
 print_info "Cleaning up test artifacts..."
-rm -f .env.test
-docker rmi polymarket-mcp:test > /dev/null 2>&1 || true
+cleanup
 print_success "Cleanup complete"
 
 # Summary
