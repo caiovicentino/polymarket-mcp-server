@@ -5,7 +5,6 @@ metadata:
   namespace: default
   labels:
     app: polymarket-mcp
-    version: v0.1.0
 spec:
   replicas: 1
   selector:
@@ -15,7 +14,6 @@ spec:
     metadata:
       labels:
         app: polymarket-mcp
-        version: v0.1.0
     spec:
       securityContext:
         runAsNonRoot: true

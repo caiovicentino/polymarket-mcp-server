@@ -23,11 +23,11 @@ docker tag polymarket-mcp:latest your-registry/polymarket-mcp:latest
 docker push your-registry/polymarket-mcp:latest
 ```
 
-### 2. Create Namespace (Optional)
+### 2. Namespace
 
-```bash
-kubectl create namespace polymarket
-```
+The bundled manifests declare `namespace: default`, so they deploy into the
+`default` namespace as-is. Use a separate namespace only if you customize the
+`namespace:` fields in the manifests yourself.
 
 ### 3. Create Secrets
 
@@ -37,20 +37,23 @@ kubectl create secret generic polymarket-mcp-secrets \
   --from-literal=POLYGON_PRIVATE_KEY=0x1234... \
   --from-literal=POLYGON_ADDRESS=0xABCD... \
   --from-literal=POLYMARKET_API_KEY=... \
+  --from-literal=POLYMARKET_API_SECRET=... \
   --from-literal=POLYMARKET_PASSPHRASE=... \
-  -n polymarket
+  -n default
+# Note: API_SECRET and PASSPHRASE are DIFFERENT values — do not reuse one for
+# both, or request signing will fail.
 
 # Or from .env file
 kubectl create secret generic polymarket-mcp-secrets \
   --from-env-file=../.env \
-  -n polymarket
+  -n default
 ```
 
 ### 4. Deploy
 
 ```bash
 # Apply all manifests
-kubectl apply -f k8s/ -n polymarket
+kubectl apply -f k8s/ -n default
 
 # Or apply individually
 kubectl apply -f k8s/configmap.yaml
@@ -62,13 +65,13 @@ kubectl apply -f k8s/service.yaml
 
 ```bash
 # Check pods
-kubectl get pods -n polymarket
+kubectl get pods -n default
 
 # Check logs
-kubectl logs -f deployment/polymarket-mcp -n polymarket
+kubectl logs -f deployment/polymarket-mcp -n default
 
 # Check status
-kubectl describe deployment polymarket-mcp -n polymarket
+kubectl describe deployment polymarket-mcp -n default
 ```
 
 ## Configuration
@@ -127,7 +130,7 @@ kubectl autoscale deployment polymarket-mcp \
   --cpu-percent=70 \
   --min=1 \
   --max=10 \
-  -n polymarket
+  -n default
 ```
 
 Or use manifest:
