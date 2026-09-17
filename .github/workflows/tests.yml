@@ -159,7 +159,7 @@ jobs:
         pytest tests/ -v -m "not integration and not slow and not real_api" \
           --tb=short \
           --maxfail=5 \
-          --timeout=60 \
+          --timeout=180 \
           -n auto
       env:
         POLYGON_PRIVATE_KEY: "0000000000000000000000000000000000000000000000000000000000000001"

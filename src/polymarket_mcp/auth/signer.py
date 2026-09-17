@@ -35,6 +35,12 @@ class OrderSigner:
     - Orders are cryptographically signed
     - Signatures can be verified on-chain
     - Protection against replay attacks
+
+    .. note::
+        Status: legacy/utility (dormant). Production order flow is signed by
+        ``ClobClient.create_order`` (py-clob-client); this module has no
+        in-repo callers and is kept for future use (e.g., EIP-712 flows the
+        CLOB client does not cover).
     """
 
     def __init__(self, private_key: str, chain_id: int = 137):
@@ -77,7 +83,8 @@ class OrderSigner:
         encoded_data = encode_typed_data(full_message=typed_data)
         signed_message = self.account.sign_message(encoded_data)
 
-        # Return signature as hex (with 0x prefix)
+        # Return signature as hex WITHOUT 0x prefix (eth-account .hex() output;
+        # callers add the prefix when the API requires it)
         signature = signed_message.signature.hex()
 
         logger.debug(f"Signed order: {self._get_order_hash(order)}")

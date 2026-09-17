@@ -3,6 +3,7 @@ Safety limits and risk management for Polymarket trading.
 Validates orders against configured limits before execution.
 """
 import logging
+import math
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -114,6 +115,10 @@ class SafetyLimits:
         """
         # 1. Validate order size
         order_value_usd = order.size * order.price
+        if not (isinstance(order_value_usd, (int, float)) and math.isfinite(order_value_usd)):
+            return False, (
+                f"Order value must be finite, got size={order.size!r} price={order.price!r}"
+            )
         if order_value_usd > self.max_order_size_usd:
             return False, (
                 f"Order size ${order_value_usd:.2f} exceeds maximum "
@@ -124,14 +129,27 @@ class SafetyLimits:
         total_exposure = self._calculate_total_exposure(current_positions)
         new_exposure = total_exposure
 
+        # 3. Validate order side explicitly (defense-in-depth: direct callers
+        # of validate_order bypass the tool-layer side check; anything not
+        # BUY/SELL must be rejected instead of silently hitting the SELL branch).
+        side = order.side.strip().upper() if isinstance(order.side, str) else None
+        if side not in ("BUY", "SELL"):
+            return False, f"Invalid side: {order.side!r} (must be BUY or SELL)"
+
         # Adjust exposure based on order side
-        if order.side.upper() == "BUY":
+        if side == "BUY":
             new_exposure += order_value_usd
         else:  # SELL
-            # Selling reduces exposure (unless it's a short)
+            # Selling an existing position reduces exposure by at most the
+            # position's value; an over-sell beyond what is held is a NEW
+            # short exposure and counts toward the total cap (understating
+            # it would hide real risk from the total-exposure limit).
             existing_position = self._get_position(current_positions, order.token_id)
             if existing_position:
-                new_exposure -= min(order_value_usd, existing_position.value_usd)
+                closed = min(order_value_usd, existing_position.value_usd)
+                new_exposure -= closed
+                if order_value_usd > closed:
+                    new_exposure += order_value_usd - closed  # over-sell = short
             else:
                 # Shorting increases exposure
                 new_exposure += order_value_usd

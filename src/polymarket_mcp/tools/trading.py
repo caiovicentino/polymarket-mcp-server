@@ -3,6 +3,7 @@ Trading tools for Polymarket MCP server.
 Implements 12 comprehensive tools for order management and smart trading.
 """
 import logging
+import math
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -140,6 +141,8 @@ class TradingTools:
             if not 0 < price <= 1.0:
                 raise ValueError(f"Price must be between 0 and 1, got {price}")
 
+            if not (isinstance(size, (int, float)) and math.isfinite(size)):
+                raise ValueError(f"Size must be a positive finite number, got {size}")
             if size <= 0:
                 raise ValueError(f"Size must be positive, got {size}")
 

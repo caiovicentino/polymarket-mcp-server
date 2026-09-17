@@ -198,10 +198,10 @@ def demo_config() -> PolymarketConfig:
 # =====================================================================
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="SEC-ADVR-A1: NaN size passes every guard and reaches post_order",
-)
+# SEC-ADVR-A1 flipped (human channel, item 67/P2-1): the NaN guard now
+# rejects non-finite size at the tool entry (trading.py) and validate_order
+# returns (False, "Order value must be finite…") — the bypass is closed;
+# the test below now runs as a regular PASS pinning the safe behavior.
 async def test_nan_size_bypasses_all_limits_and_reaches_post_order():
     """SEC-ADVR-A1: size=NaN defeats every numeric safety comparison.
 
