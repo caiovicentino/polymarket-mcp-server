@@ -3,6 +3,7 @@ Polymarket CLOB client with authentication.
 Handles L1 (private key) and L2 (API key) authentication.
 """
 import logging
+from dataclasses import asdict
 from typing import Any, Dict, List, Optional, cast
 
 import httpx
@@ -13,6 +14,7 @@ from py_clob_client.clob_types import (
     BalanceAllowanceParams,
     OpenOrderParams,
     OrderArgs,
+    OrderBookSummary,
     OrderType,
 )
 
@@ -222,6 +224,22 @@ class PolymarketClient:
         """
         try:
             orderbook = self.get_client().get_order_book(token_id)
+            if isinstance(orderbook, OrderBookSummary):
+                # py-clob-client 0.34.6 devolve OrderBookSummary dataclass (não-dict).
+                # Converter para dict (o contrato de consumo do repo) e normalizar a
+                # ordenação worst-first do CLOB (/book: bids ascendente, asks descendente)
+                # para best-first (bids desc, asks asc) — o padrão que TODOS os consumidores
+                # assumem (trading.py, portfolio.py). Dicts passam intocados por identidade.
+                orderbook = asdict(orderbook)
+                orderbook["bids"] = sorted(
+                    orderbook.get("bids") or [],
+                    key=lambda entry: float(entry["price"]),
+                    reverse=True,
+                )
+                orderbook["asks"] = sorted(
+                    orderbook.get("asks") or [],
+                    key=lambda entry: float(entry["price"]),
+                )
             return cast(Dict[str, Any], orderbook)
 
         except Exception as e:
