@@ -13,7 +13,7 @@
 │                    Polymarket MCP Server                         │
 │  ┌──────────────────────────────────────────────────────────┐   │
 │  │                   server.py (Main)                       │   │
-│  │  - Tool routing (30 tools total)                        │   │
+│  │  - Tool routing (canonical registry, see Tool Registry section) │   │
 │  │  - Resource management                                   │   │
 │  │  - Initialization & lifecycle                           │   │
 │  └──────────┬──────────────────┬──────────────┬─────────────┘   │
@@ -377,6 +377,74 @@ End-to-End Tests
 ├── Error recovery
 └── Rate limit handling
 ```
+
+---
+
+## Tool Registry (canonical)
+
+Derived from the live `get_tools()`/tool-definition surface;
+`tests/test_trading_architecture_offline.py` re-derives it on every run
+(anti-drift).
+
+### trading
+
+- `create_limit_order`
+- `create_market_order`
+- `create_batch_orders`
+- `suggest_order_price`
+- `get_order_status`
+- `get_open_orders`
+- `get_order_history`
+- `cancel_order`
+- `cancel_market_orders`
+- `cancel_all_orders`
+- `execute_smart_trade`
+- `rebalance_position`
+
+### portfolio
+
+- `get_all_positions`
+- `get_position_details`
+- `get_portfolio_value`
+- `get_pnl_summary`
+- `get_trade_history`
+- `get_activity_log`
+- `analyze_portfolio_risk`
+- `suggest_portfolio_actions`
+
+### market_discovery
+
+- `search_markets`
+- `get_trending_markets`
+- `filter_markets_by_category`
+- `get_event_markets`
+- `get_featured_markets`
+- `get_closing_soon_markets`
+- `get_sports_markets`
+- `get_crypto_markets`
+
+### market_analysis
+
+- `get_market_details`
+- `get_current_price`
+- `get_orderbook`
+- `get_spread`
+- `get_market_volume`
+- `get_liquidity`
+- `get_price_history`
+- `get_market_holders`
+- `analyze_market_opportunity`
+- `compare_markets`
+
+### realtime
+
+- `subscribe_market_prices`
+- `subscribe_orderbook_updates`
+- `subscribe_user_orders`
+- `subscribe_user_trades`
+- `subscribe_market_resolution`
+- `get_realtime_status`
+- `unsubscribe_realtime`
 
 ---
 

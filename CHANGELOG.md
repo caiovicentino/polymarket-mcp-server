@@ -195,8 +195,43 @@ The first public release of Polymarket MCP Server - a complete AI-powered tradin
 
 ## [Unreleased]
 
+### Fixed
+
+- **Safety layer hardened**: `validate_order` now requires an explicit
+  `BUY`/`SELL` side, over-sell quantities are treated as a short position (not
+  silently accepted), and NaN/inf sizes or prices are rejected before reaching
+  the exchange (PR #56).
+- **`get_orderbook` compatibility with py-clob-client**: the `OrderBookSummary`
+  dataclass is converted to a dict and normalized best-first (bids ascending,
+  asks descending); `market_analysis.get_orderbook` sorts before slicing to
+  `depth`. Previously live book data raised `AttributeError`, and best bid/ask
+  read the worst levels of the book (PR #60).
+- **Realtime tools reachable via MCP again**: tool routing now awaits
+  `realtime.handle_tool_call` (the previously referenced `handle_tool` did not
+  exist) and `initialize_server` registers the websocket manager, so all 7
+  realtime tools answer through MCP instead of an error envelope (lote PR #53).
+- **Credential redaction in startup error logs**: errors surfaced by
+  `initialize_server` are sanitized before logging (lote PR #53).
+- **Python 3.12 deprecation warnings removed**: `datetime.utcnow()` migrated in
+  `market_discovery` and `market_analysis` factories (naive semantics
+  preserved) (lote PR #53).
+- **Web dashboard XSS hardening**: external data is HTML-escaped before
+  interpolation, market actions use event delegation with data attributes,
+  confidence values are numerically clamped, and market-id fetch URLs are
+  encoded (PR #61).
+- **Web dashboard security**: `X-Frame-Options`, `X-Content-Type-Options` and
+  `Referrer-Policy` headers added; `POST /api/config` validates fields (NaN and
+  out-of-range values rejected) before persisting `.env` (PR #63).
+- **`test-docker.sh` reliability**: the script now runs the full suite to its
+  summary instead of dying at the first failing test, arithmetic footguns are
+  fixed, and a trap cleans up `.env.test` and the test image (PR #64).
+
+### Added
+
+- **`server/discover` MCP method**: connection-agnostic capability discovery
+  via a pre-handshake stream interceptor (lote PR #49).
+
 ### Planned Features
-- CI/CD pipeline (GitHub Actions)
 - Enhanced AI analysis tools
 - Portfolio strategy templates
 - Market alerts and notifications
