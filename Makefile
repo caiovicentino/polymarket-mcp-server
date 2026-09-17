@@ -141,7 +141,13 @@ update:
 ## backup: Backup volumes
 backup:
 	@echo "Backing up volumes..."
-	docker run --rm -v polymarket-mcp_polymarket-data:/data -v $(PWD)/backups:/backup alpine tar czf /backup/data-backup-$$(date +%Y%m%d-%H%M%S).tar.gz -C /data .
+	@VOLUME_NAME=$$(docker compose config --format json 2>/dev/null | python3 -c 'import json,sys; d=json.loads(sys.stdin.read() or "{}"); print(d.get("volumes",{}).get("polymarket-data",{}).get("name",""))' 2>/dev/null); \
+	if [ -z "$$VOLUME_NAME" ]; then \
+		echo "Error: could not resolve the data volume name"; \
+		exit 1; \
+	fi; \
+	mkdir -p backups; \
+	docker run --rm -v "$$VOLUME_NAME":/data -v $(CURDIR)/backups:/backup alpine tar czf /backup/data-backup-$$(date +%Y%m%d-%H%M%S).tar.gz -C /data .
 	@echo "Backup complete"
 
 ## restore: Restore volumes from latest backup
@@ -150,7 +156,12 @@ restore:
 		echo "No backups found"; \
 		exit 1; \
 	fi
-	@LATEST=$$(ls -t backups/*.tar.gz | head -1); \
+	@VOLUME_NAME=$$(docker compose config --format json 2>/dev/null | python3 -c 'import json,sys; d=json.loads(sys.stdin.read() or "{}"); print(d.get("volumes",{}).get("polymarket-data",{}).get("name",""))' 2>/dev/null); \
+	if [ -z "$$VOLUME_NAME" ]; then \
+		echo "Error: could not resolve the data volume name"; \
+		exit 1; \
+	fi; \
+	LATEST=$$(ls -t backups/*.tar.gz | head -1); \
 	echo "Restoring from $$LATEST..."; \
-	docker run --rm -v polymarket-mcp_polymarket-data:/data -v $(PWD)/backups:/backup alpine tar xzf /backup/$$(basename $$LATEST) -C /data
+	docker run --rm -v "$$VOLUME_NAME":/data -v $(CURDIR)/backups:/backup alpine tar xzf /backup/$$(basename $$LATEST) -C /data
 	@echo "Restore complete"
