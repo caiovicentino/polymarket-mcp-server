@@ -16,7 +16,7 @@ from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, cast
 
 import websockets
 from pydantic import BaseModel
@@ -193,7 +193,7 @@ class WebSocketManager:
 
         # Reconnect tracking
         self.reconnect_attempts = 0
-        self.last_reconnect_time = 0
+        self.last_reconnect_time: float = 0
 
         # Event statistics
         self.total_events_received = 0
@@ -288,11 +288,11 @@ class WebSocketManager:
                 }
             }
 
-            await self.clob_ws.send(json.dumps(auth_message))
+            await cast(Any, self.clob_ws).send(json.dumps(auth_message))
             logger.info("CLOB authentication message sent")
 
             # Wait for auth response
-            response = await asyncio.wait_for(self.clob_ws.recv(), timeout=5.0)
+            response = await asyncio.wait_for(cast(Any, self.clob_ws).recv(), timeout=5.0)
             response_data = json.loads(response)
 
             if response_data.get("type") == "authenticated":
@@ -317,14 +317,14 @@ class WebSocketManager:
 
         # Close CLOB connection
         if ws_is_open(self.clob_ws):
-            await self.clob_ws.close()
+            await cast(Any, self.clob_ws).close()
             logger.info("CLOB WebSocket disconnected")
         self.clob_connected = False
         self.authenticated = False
 
         # Close real-time connection
         if ws_is_open(self.realtime_ws):
-            await self.realtime_ws.close()
+            await cast(Any, self.realtime_ws).close()
             logger.info("Real-time WebSocket disconnected")
         self.realtime_connected = False
 
@@ -452,7 +452,7 @@ class WebSocketManager:
                 raise RuntimeError("Real-time WebSocket not connected")
 
         # Build subscription message
-        message = {
+        message: Dict[str, Any] = {
             "type": "subscribe",
             "channel": subscription.channel.value,
             "event": subscription.type.value
@@ -464,7 +464,7 @@ class WebSocketManager:
             message["assets"] = subscription.token_ids
 
         # Send message
-        await ws.send(json.dumps(message))
+        await cast(Any, ws).send(json.dumps(message))
         logger.debug(f"Subscription message sent: {message}")
 
     async def unsubscribe(self, subscription_id: str) -> bool:
@@ -519,7 +519,7 @@ class WebSocketManager:
             "event": subscription.type.value
         }
 
-        await ws.send(json.dumps(message))
+        await cast(Any, ws).send(json.dumps(message))
 
     async def handle_message(self, channel: str, message: Dict[str, Any]) -> None:
         """
@@ -910,7 +910,7 @@ class WebSocketManager:
             return
 
         try:
-            message = await self.clob_ws.recv()
+            message = await cast(Any, self.clob_ws).recv()
             data = json.loads(message)
             await self.handle_message("clob", data)
         except json.JSONDecodeError as e:
@@ -925,7 +925,7 @@ class WebSocketManager:
             return
 
         try:
-            message = await self.realtime_ws.recv()
+            message = await cast(Any, self.realtime_ws).recv()
             data = json.loads(message)
             await self.handle_message("realtime", data)
         except json.JSONDecodeError as e:
