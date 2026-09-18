@@ -138,7 +138,7 @@ if [ -f "$CONFIG_FILE" ]; then
     cp "$CONFIG_FILE" "${CONFIG_FILE}.backup"
 
     # Remove polymarket entry using Python
-    python3 << 'PYEOF'
+    python3 - "$CONFIG_FILE" << 'PYEOF' || true
 import json
 import sys
 
@@ -161,7 +161,7 @@ try:
 except Exception as e:
     print(f"⚠ Could not modify config: {e}")
     sys.exit(0)
-PYEOF "$CONFIG_FILE" || true
+PYEOF
 
     print_info "Config backup saved to ${CONFIG_FILE}.backup"
 else
