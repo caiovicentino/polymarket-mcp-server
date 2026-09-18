@@ -51,7 +51,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-import tomllib
+import pytest
+
+tomllib = pytest.importorskip("tomllib")
 
 _ROOT = Path(__file__).resolve().parent.parent
 _PYPROJECT = _ROOT / "pyproject.toml"
