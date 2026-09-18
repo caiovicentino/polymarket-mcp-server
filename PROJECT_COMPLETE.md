@@ -155,23 +155,23 @@ polymarket-web
 - ✅ setup_wizard.py - GUI wizard
 - ✅ docker-start.sh - Docker wrapper
 
-### **Testing Tools (5)**
-- ✅ smoke_test.py - Validação rápida (8 testes)
+### **Testing Tools (6)**
+- ✅ smoke_test.py - Validação rápida
 - ✅ test_web_dashboard.py - Testes do dashboard
 - ✅ test-docker.sh - Testes Docker
-- ✅ tests/test_integration.py - 20 integration tests
-- ✅ tests/test_e2e.py - 18 E2E tests
-- ✅ tests/test_performance.py - 15 performance tests
+- ✅ tests/test_integration.py - Integration tests
+- ✅ tests/test_e2e.py - E2E tests
+- ✅ tests/test_performance.py - Performance tests
 
 ### **Monitoring Tools (2)**
 - ✅ Web Dashboard (polymarket-web)
 - ✅ Makefile (20+ comandos úteis)
 
-### **CI/CD (3)**
+### **CI/CD & Quality (4)**
 - ✅ .github/workflows/tests.yml - Test pipeline
 - ✅ .github/workflows/release.yml - Release automation
 - ✅ .github/workflows/docker-publish.yml - Docker builds
-- ✅ .pre-commit-config.yaml - 17 pre-commit hooks
+- ✅ .pre-commit-config.yaml - automated pre-commit hooks
 
 ---
 
