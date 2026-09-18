@@ -6,6 +6,13 @@
 
 set -e
 
+# Requires Python >= 3.10 (pyproject requires-python)
+if ! python3 -c 'import sys; assert sys.version_info >= (3, 10)' 2>/dev/null; then
+    echo "ERROR: Python >= 3.10 required (found: $(python3 --version 2>&1))."
+    echo "Install a newer Python and ensure 'python3' points to it."
+    exit 1
+fi
+
 echo "=================================="
 echo "Polymarket MCP Web Dashboard"
 echo "=================================="
@@ -22,17 +29,18 @@ else
     source venv/bin/activate
 fi
 
-# Check if dependencies are installed
-if ! python -c "import fastapi" 2>/dev/null; then
-    echo "Installing web dashboard dependencies..."
-    pip install fastapi uvicorn jinja2
-fi
-
 # Check if .env file exists
 if [ ! -f ".env" ]; then
     echo "ERROR: .env file not found!"
     echo "Please copy .env.example to .env and configure your credentials."
     exit 1
+fi
+
+# Ensure the package (and its polymarket-web console script) is installed
+if ! command -v polymarket-web > /dev/null 2>&1; then
+    echo "Installing polymarket-mcp package (editable)..."
+    pip install --upgrade pip || true
+    pip install -e .
 fi
 
 echo "Starting web dashboard..."
