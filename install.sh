@@ -31,10 +31,6 @@ SKIP_CLAUDE_CONFIG=false
 INSTALL_DIR=$(pwd)
 VENV_DIR="$INSTALL_DIR/venv"
 PYTHON_MIN_VERSION="3.10"
-# Set to 1 by configure_env when THIS run created .env (as opposed to
-# overwriting a pre-existing one); rollback() uses it to remove only the
-# created file.
-ENV_CREATED=0
 
 ################################################################################
 # Helper Functions
@@ -199,29 +195,11 @@ validate_address() {
     return 1
 }
 
-# Preserve a pre-existing .env before configure_env overwrites it.
-# First-wins: the backup is created at most once and is NEVER overwritten by
-# a later run (an unconditional cp would replace the original user
-# configuration with the template written by the previous run). The name is
-# deliberately distinct from uninstall.sh's ".env.backup" to avoid cross-
-# rotation. ENV_CREATED marks that THIS run created .env, so rollback()
-# removes it instead of a pre-existing file.
-_preserve_env_before_write() {
-    if [ -f ".env" ]; then
-        if [ ! -f ".env.pre-install-backup" ]; then
-            cp .env .env.pre-install-backup
-        fi
-    else
-        ENV_CREATED=1
-    fi
-}
-
 configure_env() {
     print_step 4 "Configuration..."
 
     if [ "$DEMO_MODE" = true ]; then
         print_info "Running in DEMO mode (read-only, no trading)"
-        _preserve_env_before_write
         cat > .env << EOF
 # DEMO MODE - Read-only access, no wallet required
 DEMO_MODE=true
@@ -309,7 +287,6 @@ EOF
     fi
 
     # Write .env file
-    _preserve_env_before_write
     cat > .env << EOF
 # Polygon Wallet Configuration
 POLYGON_PRIVATE_KEY=$PRIVATE_KEY
@@ -361,17 +338,18 @@ configure_claude_desktop() {
     # Get Python path
     PYTHON_PATH=$(which python)
 
-    # Credentials for the config entry. In non-demo mode they are read from
-    # .env; the VALUES are passed to the python merge below as argv — the
-    # shell never interpolates inside JSON (paths with spaces would produce
-    # invalid JSON).
+    # Prepare env vars for config
     if [ "$DEMO_MODE" = true ]; then
-        PRIVATE_KEY=""
-        WALLET_ADDR=""
+        ENV_VARS='        "DEMO_MODE": "true"'
     else
         # Read from .env file
         PRIVATE_KEY=$(grep POLYGON_PRIVATE_KEY .env | cut -d= -f2)
         WALLET_ADDR=$(grep POLYGON_ADDRESS .env | cut -d= -f2)
+        ENV_VARS=$(cat << ENVEOF
+        "POLYGON_PRIVATE_KEY": "$PRIVATE_KEY",
+        "POLYGON_ADDRESS": "$WALLET_ADDR"
+ENVEOF
+)
     fi
 
     # Check if config file exists
@@ -381,58 +359,21 @@ configure_claude_desktop() {
         cp "$CONFIG_FILE" "${CONFIG_FILE}.backup"
     fi
 
-    # Merge (never clobber) the polymarket entry into the Claude Desktop
-    # config: only "mcpServers"."polymarket" is (re)written and every other
-    # MCP server configured by the user is preserved. The merge runs in
-    # python3 so the JSON is assembled entirely in python.
-    if python3 - "$CONFIG_FILE" "$PYTHON_PATH" "$INSTALL_DIR" "${PRIVATE_KEY:-}" "${WALLET_ADDR:-}" "$DEMO_MODE" << 'PYEOF'
-import json
-import sys
-
-config_file, python_path, install_dir, private_key, wallet_addr, demo_mode = sys.argv[1:7]
-
-if demo_mode == "true":
-    env_map = {"DEMO_MODE": "true"}
-else:
-    env_map = {
-        "POLYGON_PRIVATE_KEY": private_key,
-        "POLYGON_ADDRESS": wallet_addr,
+    # Create or update config
+    cat > "$CONFIG_FILE" << EOF
+{
+  "mcpServers": {
+    "polymarket": {
+      "command": "$PYTHON_PATH",
+      "args": ["-m", "polymarket_mcp.server"],
+      "cwd": "$INSTALL_DIR",
+      "env": {
+$ENV_VARS
+      }
     }
-
-entry = {
-    "command": python_path,
-    "args": ["-m", "polymarket_mcp.server"],
-    "cwd": install_dir,
-    "env": env_map,
+  }
 }
-
-try:
-    with open(config_file, "r", encoding="utf-8") as fh:
-        cfg = json.load(fh)
-except FileNotFoundError:
-    cfg = {}
-except (ValueError, OSError):
-    # Malformed/unreadable config: abort without touching it (preserving
-    # user data beats continuing) — bash below reports and rolls back.
-    sys.exit(3)
-
-cfg.setdefault("mcpServers", {})["polymarket"] = entry
-
-with open(config_file, "w", encoding="utf-8") as fh:
-    json.dump(cfg, fh, indent=2)
-    fh.write("\n")
-PYEOF
-    then
-        :
-    else
-        merge_rc=$?
-        if [ "$merge_rc" = "3" ]; then
-            print_warning "Claude Desktop config at $CONFIG_FILE is not valid JSON; file preserved intact (no changes written)"
-        else
-            print_error "Failed to merge Claude Desktop config (python3 exit $merge_rc)"
-        fi
-        return 1
-    fi
+EOF
 
     print_success "Claude Desktop configured"
     print_info "Config location: $CONFIG_FILE"
@@ -519,18 +460,10 @@ rollback() {
         print_info "Removed virtual environment"
     fi
 
-    # Restore or remove .env depending on how it came to exist:
-    #  - a backup of a PRE-EXISTING .env is restored (data > template);
-    #  - an .env created by THIS run is removed (ENV_CREATED=1);
-    #  - a pre-existing .env this run never touched is kept as-is.
-    if [ -f ".env.pre-install-backup" ]; then
-        mv .env.pre-install-backup .env
-        print_info "Restored pre-existing .env from .env.pre-install-backup"
-    elif [ "${ENV_CREATED:-0}" = "1" ] && [ -f ".env" ]; then
+    # Remove .env if created
+    if [ -f ".env" ]; then
         rm .env
-        print_info "Removed .env file (created by this install)"
-    elif [ -f ".env" ]; then
-        print_info "Pre-existing .env preserved (not created by this install)"
+        print_info "Removed .env file"
     fi
 
     echo ""
@@ -601,8 +534,5 @@ main() {
     show_completion
 }
 
-# Run main function. INSTALL_TEST_MODE=1 lets offline test suites source this
-# file to define its functions without running the interactive install flow.
-if [ "${INSTALL_TEST_MODE:-0}" != "1" ]; then
-    main "$@"
-fi
+# Run main function
+main "$@"
