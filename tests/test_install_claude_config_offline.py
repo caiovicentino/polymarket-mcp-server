@@ -526,7 +526,9 @@ def test_malformed_config_untouched_rc_ne0(tmp_path: Path) -> None:
     assert proc.returncode != 0, f"expected abort, got rc=0:\n{proc.stdout}"
     assert _sha256_file(cfg) == sha_before, "malformed config was overwritten"
     output = proc.stdout + proc.stderr
-    assert str(cfg) in output, "warning does not mention the config path"
+    assert str(cfg).replace("\\", "/") in output.replace("\\", "/"), (
+        "warning does not mention the config path"
+    )
     assert "preserved intact" in output, "warning does not state the file was preserved"
 
 
@@ -684,7 +686,8 @@ def test_win_env_merges_system_root_and_overrides(monkeypatch):
     # collide with os.pathsep on POSIX proof hosts -- L-0052-class care).
     assert env["PATH"].startswith(str(Path("C:/Program Files/Git/usr/bin")) + os.pathsep)
     home = Path("/T0215-sandbox-home")
-    env = _run_env(home, Path("/T0215-sandbox-bin"))
+    bin_dir = Path("/T0215-sandbox-bin")
+    env = _run_env(home, bin_dir)
     assert env["HOME"] == str(home), "HOME must be overridden to the sandbox"
     assert env["PYTHONIOENCODING"] == "utf-8"
     assert _env_get(env, "SystemRoot") == "C:\\Windows"
@@ -692,7 +695,7 @@ def test_win_env_merges_system_root_and_overrides(monkeypatch):
     assert env["PATH"].startswith(
         str(Path("C:/Program Files/Git/usr/bin"))
         + os.pathsep
-        + "/T0215-sandbox-bin"
+        + str(bin_dir)
         + os.pathsep
     )
 
