@@ -15,6 +15,8 @@ from typing import Any, Dict, List, Literal, Optional, Tuple, cast
 import httpx
 import mcp.types as types
 
+from ..utils.data_api_pagination import fetch_all_pages
+
 logger = logging.getLogger(__name__)
 
 
@@ -88,13 +90,11 @@ async def get_all_positions(
                     "user": config.POLYGON_ADDRESS.lower()
                 }
 
-                response = await client.get(
+                positions_data = await fetch_all_pages(
+                    client,
                     "https://data-api.polymarket.com/positions",
-                    params=params,
-                    timeout=10.0
+                    params
                 )
-                response.raise_for_status()
-                positions_data = response.json()
 
                 # Cache the result
                 _portfolio_cache.set(cache_key, positions_data)
@@ -242,13 +242,11 @@ async def get_position_details(
                 "market": market_id
             }
 
-            response = await client.get(
+            positions = await fetch_all_pages(
+                client,
                 "https://data-api.polymarket.com/positions",
-                params=params,
-                timeout=10.0
+                params
             )
-            response.raise_for_status()
-            positions = response.json()
 
         if not positions:
             return [types.TextContent(
@@ -416,13 +414,11 @@ async def get_portfolio_value(
         # Get all positions
         await rate_limiter.acquire(EndpointCategory.DATA_API)
         async with httpx.AsyncClient() as client:
-            response = await client.get(
+            positions = await fetch_all_pages(
+                client,
                 "https://data-api.polymarket.com/positions",
-                params={"user": config.POLYGON_ADDRESS.lower()},
-                timeout=10.0
+                {"user": config.POLYGON_ADDRESS.lower()}
             )
-            response.raise_for_status()
-            positions = response.json()
 
         # Get open orders
         try:
@@ -442,7 +438,7 @@ async def get_portfolio_value(
                 continue
 
             token_id = pos.get('asset_id')
-            market_id = pos.get('market')
+            market_id = str(pos.get('market', 'Unknown'))
 
             # Get current price
             try:
@@ -570,31 +566,27 @@ async def get_pnl_summary(
             if start_time:
                 params['start_time'] = start_time
 
-            response = await client.get(
+            trades = await fetch_all_pages(
+                client,
                 "https://data-api.polymarket.com/trades",
-                params=params,
-                timeout=10.0
+                params
             )
-            response.raise_for_status()
-            trades = response.json()
 
         # Fetch current positions for unrealized P&L
         await rate_limiter.acquire(EndpointCategory.DATA_API)
         async with httpx.AsyncClient() as client:
-            response = await client.get(
+            positions = await fetch_all_pages(
+                client,
                 "https://data-api.polymarket.com/positions",
-                params={"user": config.POLYGON_ADDRESS.lower()},
-                timeout=10.0
+                {"user": config.POLYGON_ADDRESS.lower()}
             )
-            response.raise_for_status()
-            positions = response.json()
 
         # Calculate realized P&L from trades
         # Group trades by market and outcome to match buys with sells
         market_trades: Dict[str, Dict[str, List[Any]]] = defaultdict(lambda: defaultdict(list))
         for trade in trades:
-            market_id = trade.get('market')
-            outcome = trade.get('outcome')
+            market_id = str(trade.get('market', ''))
+            outcome = str(trade.get('outcome', ''))
             market_trades[market_id][outcome].append(trade)
 
         realized_pnl: float = 0
@@ -985,13 +977,11 @@ async def analyze_portfolio_risk(
         # Fetch all positions
         await rate_limiter.acquire(EndpointCategory.DATA_API)
         async with httpx.AsyncClient() as client:
-            response = await client.get(
+            positions = await fetch_all_pages(
+                client,
                 "https://data-api.polymarket.com/positions",
-                params={"user": config.POLYGON_ADDRESS.lower()},
-                timeout=10.0
+                {"user": config.POLYGON_ADDRESS.lower()}
             )
-            response.raise_for_status()
-            positions = response.json()
 
         if not positions:
             return [types.TextContent(
@@ -1012,7 +1002,7 @@ async def analyze_portfolio_risk(
                 continue
 
             token_id = pos.get('asset_id')
-            market_id = pos.get('market')
+            market_id = str(pos.get('market', 'Unknown'))
             avg_price = float(pos.get('average_price', 0))
 
             # Get current price and liquidity

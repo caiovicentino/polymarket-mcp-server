@@ -18,6 +18,7 @@ from py_clob_client.clob_types import (
     OrderType,
 )
 
+from ..utils.data_api_pagination import fetch_all_pages
 from ..utils.rate_limiter import EndpointCategory, get_rate_limiter
 from .signer import OrderSigner
 
@@ -442,13 +443,12 @@ class PolymarketClient:
             await get_rate_limiter().acquire(EndpointCategory.DATA_API)
 
             async with httpx.AsyncClient() as client:
-                response = await client.get(
+                positions = await fetch_all_pages(
+                    client,
                     "https://data-api.polymarket.com/positions",
-                    params={"user": self.address},
-                    timeout=10.0,
+                    {"user": self.address},
                 )
-                response.raise_for_status()
-                return cast(List[Dict[str, Any]], response.json())
+                return cast(List[Dict[str, Any]], positions)
 
         except Exception as e:
             logger.error(f"Failed to fetch positions: {e}")
