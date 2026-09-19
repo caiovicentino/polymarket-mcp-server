@@ -485,6 +485,13 @@ class TestEventStatistics:
 
 
 # Integration test with real data (long-running)
+# [ci-unblock 2026-09-19, canal do dono]: a classe conecta no WebSocket REAL da Polymarket
+# mas so levava `slow` — o step "demo mode" do CI (tests.yml:171, selecao `-m "not real_api"`)
+# a executava contra a rede e falhava com CancelledError (run 35432758909). Marcadores
+# integration+real_api (taxonomia do pyproject.toml:85) movem a classe para o lane certo:
+# deselectionada no unit/demo, executada no step `-m "integration"` (:271).
+@pytest.mark.integration
+@pytest.mark.real_api
 class TestRealDataIntegration:
     """Integration tests with real WebSocket data"""
 
