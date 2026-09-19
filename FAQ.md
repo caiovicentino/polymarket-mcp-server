@@ -643,7 +643,7 @@ A: Yes! Create a new Python file:
 
 ```python
 # my_strategy.py
-from polymarket_mcp.tools import *
+from polymarket_mcp.tools.market_discovery import get_trending_markets
 
 async def my_strategy():
     # Get trending markets
@@ -668,7 +668,7 @@ A: Current version doesn't include backtesting, but you can:
 3. Simulate trades without executing
 4. Calculate hypothetical P&L
 
-Backtesting tools are planned for v0.2.0.
+Backtesting tools are planned for a future release.
 
 ---
 
