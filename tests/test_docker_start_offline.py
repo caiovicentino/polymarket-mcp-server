@@ -145,10 +145,18 @@ def test_template_byte_parity() -> None:
     (banner uses `cat << "EOF"` without `>` and must not match); the END anchor
     is the first bare `EOF` line after it (heredoc semantics; .env.example
     contains no `EOF` line and no `$` — probed — so the quoted heredoc is safe).
+
+    EOL normalization (CI evidence run 35432747368): the Git for Windows
+    checkout materializes LF blobs as CRLF (core.autocrlf); the anchors and
+    the block are compared AFTER normalization -- a no-op on POSIX, where the
+    comparison stays byte-exact.
     """
-    example_bytes = ENV_EXAMPLE.read_bytes()
+    def _lf(raw: bytes) -> bytes:
+        return raw.replace(b"\r\n", b"\n")
+
+    example_bytes = _lf(ENV_EXAMPLE.read_bytes())
     assert example_bytes, ".env.example missing/empty (source of truth)"
-    lines = SCRIPT.read_bytes().splitlines(keepends=True)
+    lines = [_lf(line) for line in SCRIPT.read_bytes().splitlines(keepends=True)]
     starts = [i for i, line in enumerate(lines) if line == b"        cat > .env << 'EOF'\n"]
     assert len(starts) == 1, "the .env-writing heredoc start anchor drifted"
     start = starts[0]
