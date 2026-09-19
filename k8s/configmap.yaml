@@ -17,7 +17,7 @@ data:
   POLYMARKET_API_KEY_NAME: ""
 
   # Safety limits (values match the code defaults in src/polymarket_mcp/config.py
-  # and .env.example — do not introduce divergence between them)
+  # and .env.example -- do not introduce divergence between them)
   MAX_ORDER_SIZE_USD: "1000"
   MAX_TOTAL_EXPOSURE_USD: "5000"
   REQUIRE_CONFIRMATION_ABOVE_USD: "500"
