@@ -88,7 +88,7 @@ assert len(MODEL_FIELDS) == 22, f"config model drifted: {len(MODEL_FIELDS)} fiel
 
 def _docs(path: Path) -> list:
     """safe_load_all with a dict guard; every doc must be a mapping."""
-    docs = [d for d in yaml.safe_load_all(path.read_text()) if isinstance(d, dict)]
+    docs = [d for d in yaml.safe_load_all(path.read_text(encoding="utf-8")) if isinstance(d, dict)]
     assert docs, f"{path.name}: no parseable YAML documents"
     return docs
 
@@ -134,7 +134,7 @@ def test_secret_template_covers_all_credentials():
 
 
 def test_secret_template_reuse_note():
-    text = SECRET_TEMPLATE.read_text()
+    text = SECRET_TEMPLATE.read_text(encoding="utf-8")
     header = text.split("apiVersion:", 1)[0]
     # the reuse note: API_SECRET and PASSPHRASE are DIFFERENT values —
     # reusing one for both breaks HMAC request signing (auth/client.py
@@ -153,7 +153,7 @@ def test_secret_template_reuse_note():
 
 
 def test_deployment_no_version_labels():
-    text = DEPLOYMENT.read_text()
+    text = DEPLOYMENT.read_text(encoding="utf-8")
     # paired positive: functional labels intact (parsed, not grep-counted —
     # L-0002), so a broken file cannot pass the negative below vacuously
     deployment = _docs(DEPLOYMENT)[0]
@@ -169,7 +169,7 @@ def test_deployment_no_version_labels():
 
 
 def test_readme_secret_route_includes_api_secret():
-    text = README.read_text()
+    text = README.read_text(encoding="utf-8")
     block = None
     for fence in text.split("```"):
         if "--from-literal" in fence and "create secret" in fence:
@@ -181,7 +181,7 @@ def test_readme_secret_route_includes_api_secret():
 
 
 def test_readme_namespace_consistent():
-    text = README.read_text()
+    text = README.read_text(encoding="utf-8")
     assert "-n polymarket" not in text
     # paired positive: the correct namespace IS used in README commands
     assert "-n default" in text

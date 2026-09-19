@@ -95,7 +95,7 @@ def test_every_registered_tool_is_documented():
     assert all(count > 0 for count in per_module.values()), (
         f"live registry derivation is broken (empty module lists): {per_module}"
     )
-    body = ARCHITECTURE_DOC.read_text()
+    body = ARCHITECTURE_DOC.read_text(encoding="utf-8")
     section = _registry_section(body)
     missing = [
         tool
@@ -110,7 +110,7 @@ def test_every_registered_tool_is_documented():
 
 
 def test_no_hardcoded_tool_counts():
-    body = ARCHITECTURE_DOC.read_text()
+    body = ARCHITECTURE_DOC.read_text(encoding="utf-8")
     # Positive pair (L-0056): proves the doc under test is the real one.
     assert CANONICAL_ROUTING_LINE in body
     # Paired negations: no hard counts of mutable tool state.
@@ -119,7 +119,7 @@ def test_no_hardcoded_tool_counts():
 
 
 def test_changelog_covers_merged_fixes():
-    body = CHANGELOG.read_text()
+    body = CHANGELOG.read_text(encoding="utf-8")
     for anchor in MERGED_FIX_ANCHORS:
         assert anchor in body, f"CHANGELOG.md missing merged-fix anchor: {anchor}"
     # Paired negation (L-0056): the false planned item is gone while genuine
