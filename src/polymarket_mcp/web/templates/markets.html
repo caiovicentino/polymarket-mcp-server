@@ -169,6 +169,29 @@
             // Implementation would call get_closing_soon_markets
         }
 
+        /**
+         * Parse the gamma wire's outcomePrices JSON string into numeric prices.
+         * Returns [] when absent/malformed (formatPrice(null) renders 'N/A').
+         */
+        function outcomePricesOf(market) {
+            try {
+                const parsed = JSON.parse(market.outcomePrices || '[]');
+                return Array.isArray(parsed) ? parsed.map(Number) : [];
+            } catch (error) {
+                return [];
+            }
+        }
+
+        /**
+         * Spread from the book levels the wire actually provides
+         * (bestAsk - bestBid); 0 when either level is absent.
+         */
+        function marketSpread(market) {
+            const ask = Number(market.bestAsk);
+            const bid = Number(market.bestBid);
+            return Number.isFinite(ask) && Number.isFinite(bid) ? ask - bid : 0;
+        }
+
         function displayMarkets(markets) {
             currentMarkets = markets;
             const container = document.getElementById('markets-container');
@@ -191,12 +214,12 @@
                                 <tr>
                                     <td class="market-question">${esc(market.question || 'Unknown')}</td>
                                     <td>
-                                        <span class="price-yes">${formatPrice(market.price_yes)}</span> /
-                                        <span class="price-no">${formatPrice(market.price_no)}</span>
+                                        <span class="price-yes">${formatPrice(outcomePricesOf(market)[0])}</span> /
+                                        <span class="price-no">${formatPrice(outcomePricesOf(market)[1])}</span>
                                     </td>
-                                    <td class="text-right">${formatCurrency(market.volume_24h || 0)}</td>
+                                    <td class="text-right">${formatCurrency(market.volume24hr || 0)}</td>
                                     <td class="text-right">${formatCurrency(market.liquidity || 0)}</td>
-                                    <td class="text-right">${formatPercent(market.spread || 0)}</td>
+                                    <td class="text-right">${formatPercent(marketSpread(market))}</td>
                                     <td>
                                         <div class="action-buttons">
                                             <button class="btn btn-sm" data-action="analyze" data-market-id="${esc(market.condition_id || market.id)}">
@@ -240,7 +263,7 @@
                             </div>
                             <div class="detail-item">
                                 <strong>Volume (24h):</strong>
-                                <span>${formatCurrency(market.volume_24h || 0)}</span>
+                                <span>${formatCurrency(market.volume24hr || 0)}</span>
                             </div>
                             <div class="detail-item">
                                 <strong>Liquidity:</strong>
@@ -248,15 +271,15 @@
                             </div>
                             <div class="detail-item">
                                 <strong>YES Price:</strong>
-                                <span class="price-yes">${formatPrice(market.price_yes)}</span>
+                                <span class="price-yes">${formatPrice(outcomePricesOf(market)[0])}</span>
                             </div>
                             <div class="detail-item">
                                 <strong>NO Price:</strong>
-                                <span class="price-no">${formatPrice(market.price_no)}</span>
+                                <span class="price-no">${formatPrice(outcomePricesOf(market)[1])}</span>
                             </div>
                             <div class="detail-item">
                                 <strong>Spread:</strong>
-                                <span>${formatPercent(market.spread || 0)}</span>
+                                <span>${formatPercent(marketSpread(market))}</span>
                             </div>
                         </div>
 
