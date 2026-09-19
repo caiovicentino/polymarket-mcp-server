@@ -59,10 +59,11 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            # {{branch}} is empty on a tag build, which yields the invalid tag
-            # "-<sha>". Use the branch prefix only when building a branch.
-            type=sha,prefix={{branch}}-,enable=${{ github.ref_type == 'branch' }}
-            type=sha,prefix=sha-,enable=${{ github.ref_type == 'tag' }}
+            # [ci-unblock 2026-09-19, canal do dono] tag invalida ":-f3b6c8c" (run 35432758859):
+            # o prefixo {{branch}}- ficou VAZIO mesmo com ref_type=branch (push de squash do GH),
+            # gerando "-<sha>" que o buildx rejeita. type=sha plain (prefixo padrao "sha-") e
+            # valido em TODOS os eventos — a tag de branch era nicle; latest cobre o default branch.
+            type=sha
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Docker image
