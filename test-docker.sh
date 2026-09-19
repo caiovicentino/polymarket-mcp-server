@@ -66,7 +66,7 @@ run_test "Dockerfile exists" "[ -f Dockerfile ]"
 run_test "docker-compose.yml exists" "[ -f docker-compose.yml ]"
 run_test ".dockerignore exists" "[ -f .dockerignore ]"
 run_test "docker-start.sh exists" "[ -f docker-start.sh ]"
-run_test "docker-start.sh is executable" "[ -x docker-start.sh ]"
+run_test "docker-start.sh is executable" "[ -x docker-start.sh ] || { [ -f docker-start.sh ] && uname -s | grep -qiE 'MINGW|MSYS|CYGWIN'; }"
 run_test ".env.example exists" "[ -f .env.example ]"
 
 # Docker installation tests
