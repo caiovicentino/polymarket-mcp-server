@@ -9,6 +9,7 @@ Provides web UI for:
 - Subscription management
 """
 import asyncio
+import json
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -451,6 +452,22 @@ async def get_stats():
     })
 
 
+
+
+def _json_safe(value):
+    """Return a JSON-serializable copy of ``value``.
+
+    The /ws frames are serialized by Starlette's ``send_json`` (plain
+    ``json.dumps``), which cannot encode datetimes (or any other
+    non-JSON-native object). The module-level ``stats`` dict carries
+    ``uptime_start: datetime`` -- sending it raw crashes the endpoint on the
+    FIRST frame, killing every dashboard WebSocket with a reconnect loop
+    (V-WSDT, proven live 2026-09-18). ``default=str`` converts any such value
+    deterministically (datetime -> "YYYY-MM-DD HH:MM:SS.ffffff").
+    """
+    return json.loads(json.dumps(value, default=str))
+
+
 # ============================================================================
 # WebSocket for Real-time Updates
 # ============================================================================
@@ -467,7 +484,7 @@ async def websocket_endpoint(websocket: WebSocket):
             "type": "status",
             "data": {
                 "connected": config is not None,
-                "stats": stats,
+                "stats": _json_safe(stats),
             }
         })
 
@@ -479,7 +496,7 @@ async def websocket_endpoint(websocket: WebSocket):
             await websocket.send_json({
                 "type": "stats_update",
                 "data": {
-                    "stats": stats,
+                    "stats": _json_safe(stats),
                     "timestamp": datetime.now().isoformat(),
                 }
             })
