@@ -8,6 +8,13 @@ services:
     container_name: polymarket-mcp
     image: polymarket-mcp:latest
 
+    # .env carries the full configuration (see DOCKER.md); required: false
+    # keeps the stack bootable without it. The environment block below takes
+    # precedence over env_file values (Compose semantics).
+    env_file:
+      - path: .env
+        required: false
+
     # Environment variables (loaded from .env file)
     environment:
       # Required for trading (read from .env)
