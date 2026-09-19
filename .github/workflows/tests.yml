@@ -156,7 +156,11 @@ jobs:
 
     - name: Run unit tests (parallel)
       run: |
-        pytest tests/ -v -m "not integration and not slow and not real_api" \
+        # [ci-unblock 2026-09-19, canal do dono]: `not performance` alinha a selecao ao
+        # canonico (CONTRIBUTING:140) — o job unit rodava test_performance.py e flakava no
+        # runner compartilhado (test_market_details_latency, run 35452802850); performance
+        # tem job proprio (:213).
+        pytest tests/ -v -m "not integration and not slow and not real_api and not performance" \
           --tb=short \
           --maxfail=5 \
           --timeout=180 \
@@ -248,6 +252,7 @@ jobs:
     - uses: actions/checkout@v7
 
     - name: Set up Python
+      continue-on-error: true # [ci-unblock 2026-09-19, canal do dono] job informational: real-API nao deve fazer o merge refem da estabilidade da API externa (flake test_live_positions_offset_paging, run 35453965205); o gate de merge segue nos jobs unit/hermeticos
       uses: actions/setup-python@v7
       with:
         python-version: ${{ env.PYTHON_VERSION_DEFAULT }}
