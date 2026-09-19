@@ -12,16 +12,17 @@ The server exposes **45 tools** across five families:
 | Portfolio Management | 8 | Yes (API credentials) |
 | Real-time WebSocket | 7 | Partial (user feeds need auth) |
 
-**Scope note**: this reference documents the Trading and Market Discovery &
-Analysis families in detail (30 tools, below). The Portfolio Management and
-Real-time WebSocket families are listed by name at the end of this inventory.
+**Scope note**: this reference documents the Market Discovery and Market
+Analysis families in detail and lists the Trading tools by name (see the
+Confirmation Flow note below). The Portfolio Management and Real-time
+WebSocket families are listed by name at the end of this inventory.
 
 ### Phase 1: Trading Tools (12 tools) ✅
 Previously implemented by other agents.
 
 #### Order Creation (4 tools)
-- `create_limit_order` - Create limit order with specified price
-- `create_market_order` - Create market order at best price
+- `create_limit_order` - Create limit order with specified price (supports `confirm`)
+- `create_market_order` - Create market order at best price (supports `confirm`)
 - `create_batch_orders` - Create multiple orders in one transaction
 - `suggest_order_price` - Get AI-suggested optimal order price
 
@@ -34,8 +35,47 @@ Previously implemented by other agents.
 - `cancel_all_orders` - Cancel all open orders
 
 #### Smart Trading (2 tools)
-- `execute_smart_trade` - AI-optimized trade execution
-- `rebalance_position` - Rebalance position to target allocation
+- `execute_smart_trade` - AI-optimized trade execution (supports `confirm`)
+- `rebalance_position` - Rebalance position to target allocation (supports `confirm`)
+
+### Confirmation Flow (Trading)
+
+`create_limit_order`, `create_market_order`, `execute_smart_trade` and
+`rebalance_position` (the order tools marked with "supports `confirm`" above)
+accept a `confirm` flag (bool, default `false`). An order is not placed when
+its value would exceed `REQUIRE_CONFIRMATION_ABOVE_USD` (default 500.0) or
+when `ENABLE_AUTONOMOUS_TRADING=false` (the default), which requires
+confirmation for every order. Instead of executing, the tool reports the
+order back for review (payload shown for the single-order tools;
+`execute_smart_trade` and `rebalance_position` surface the same
+`confirmation_required` status at their own level):
+
+```json
+{
+  "success": false,
+  "status": "confirmation_required",
+  "reason": "order value $750.00 exceeds the confirmation threshold of $500.00",
+  "message": "Review the details and call again with confirm=true to place this order.",
+  "details": {
+    "market_id": "0x...",
+    "token_id": "...",
+    "outcome": "Yes",
+    "side": "BUY",
+    "price": 0.55,
+    "size_shares": 1363.63,
+    "size_usd": 750.0,
+    "order_type": "GTC"
+  }
+}
+```
+
+Re-call the same tool with `confirm=true` to place the order. With
+`ENABLE_AUTONOMOUS_TRADING=false` the `reason` field reads "autonomous
+trading is disabled (ENABLE_AUTONOMOUS_TRADING=false)"; otherwise it names
+the threshold that was exceeded. `create_batch_orders` applies the same gate
+per entry: the batch result reports an `awaiting_confirmation` count, marks
+each gated entry with `confirmation_required`, and returns
+`status: "confirmation_required"` when no order was placed.
 
 ---
 
