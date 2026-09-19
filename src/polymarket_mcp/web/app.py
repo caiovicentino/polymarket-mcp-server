@@ -340,6 +340,38 @@ async def search_markets(q: str, limit: int = 20):
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+@app.get("/api/markets/closing-soon")
+async def get_closing_soon_markets_route(limit: int = 20, hours: int = 24):
+    """Get markets closing within the given window (dashboard Markets page).
+
+    Mirrors the trending/search routes: tool result is a bare market list,
+    wrapped as {"markets": [...]} for the dashboard frontend; dict payloads
+    (error envelopes from the tool) pass through unchanged (stub-compat).
+    """
+    stats["api_calls"] = cast(int, stats["api_calls"]) + 1
+
+    try:
+        result = await market_discovery.handle_tool("get_closing_soon_markets", {
+            "hours": hours,
+            "limit": limit,
+        })
+        stats["markets_viewed"] = cast(int, stats["markets_viewed"]) + 1
+
+        if result and len(result) > 0:
+            import json
+            data = json.loads(result[0].text)
+            if isinstance(data, list):
+                data = {"markets": data}
+            return JSONResponse(data)
+
+        return JSONResponse({"markets": []})
+
+    except Exception as e:
+        stats["errors"] = cast(int, stats["errors"]) + 1
+        logger.error(f"Failed to get closing soon markets: {e}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
 @app.get("/api/markets/{market_id}")
 async def get_market_details(market_id: str):
     """Get detailed market information"""

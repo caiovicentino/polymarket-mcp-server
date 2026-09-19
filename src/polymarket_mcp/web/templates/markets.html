@@ -118,10 +118,23 @@
 
             try {
                 const response = await fetch(`/api/markets/search?q=${encodeURIComponent(query)}&limit=20`);
+                if (!response.ok) {
+                    let detail = 'HTTP ' + response.status;
+                    try {
+                        const err = await response.json();
+                        if (err && err.detail) detail = String(err.detail);
+                    } catch (parseError) { /* non-JSON body: keep status */ }
+                    container.innerHTML = `<p class="text-error">Search failed: ${esc(detail)}</p>`;
+                    return;
+                }
                 const data = await response.json();
-
-                if (data.markets && data.markets.length > 0) {
-                    displayMarkets(data.markets);
+                if (data.error) {
+                    container.innerHTML = `<p class="text-error">Search failed: ${esc(String(data.error))}</p>`;
+                    return;
+                }
+                const rows = marketRowsOf(data);
+                if (rows.length > 0) {
+                    displayMarkets(rows);
                 } else {
                     container.innerHTML = '<p class="text-muted">No markets found</p>';
                 }
@@ -138,10 +151,23 @@
 
             try {
                 const response = await fetch('/api/markets/trending?limit=20');
+                if (!response.ok) {
+                    let detail = 'HTTP ' + response.status;
+                    try {
+                        const err = await response.json();
+                        if (err && err.detail) detail = String(err.detail);
+                    } catch (parseError) { /* non-JSON body: keep status */ }
+                    container.innerHTML = `<p class="text-error">Failed to load: ${esc(detail)}</p>`;
+                    return;
+                }
                 const data = await response.json();
-
-                if (data.markets && data.markets.length > 0) {
-                    displayMarkets(data.markets);
+                if (data.error) {
+                    container.innerHTML = `<p class="text-error">Failed to load: ${esc(String(data.error))}</p>`;
+                    return;
+                }
+                const rows = marketRowsOf(data);
+                if (rows.length > 0) {
+                    displayMarkets(rows);
                 } else {
                     container.innerHTML = '<p class="text-muted">No trending markets available</p>';
                 }
@@ -157,16 +183,43 @@
             document.getElementById('markets-title').textContent = `${category} Markets`;
 
             showNotification(`Loading ${category} markets...`, 'info');
-            // Note: This would use the filter_markets_by_category tool
-            // For now, we'll search by category name
-            await searchMarkets();
+            // Best the wire offers today: search by the category NAME as text
+            // (the gamma wire ignores the tag param -- items 155/186). Set the
+            // query FIRST so this search actually uses it.
             document.getElementById('search-input').value = category;
+            await searchMarkets();
         }
 
         async function loadClosingSoon() {
             showNotification('Loading markets closing soon...', 'info');
             document.getElementById('markets-title').textContent = 'Closing Soon';
-            // Implementation would call get_closing_soon_markets
+            const container = document.getElementById('markets-container');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading markets...</p></div>';
+            try {
+                const response = await fetch('/api/markets/closing-soon?limit=20');
+                if (!response.ok) {
+                    let detail = 'HTTP ' + response.status;
+                    try {
+                        const err = await response.json();
+                        if (err && err.detail) detail = String(err.detail);
+                    } catch (parseError) { /* non-JSON body: keep status */ }
+                    container.innerHTML = `<p class="text-error">Failed to load: ${esc(detail)}</p>`;
+                    return;
+                }
+                const data = await response.json();
+                if (data.error) {
+                    container.innerHTML = `<p class="text-error">Failed to load: ${esc(String(data.error))}</p>`;
+                    return;
+                }
+                const rows = marketRowsOf(data);
+                if (rows.length > 0) {
+                    displayMarkets(rows);
+                } else {
+                    container.innerHTML = '<p class="text-muted">No markets closing soon</p>';
+                }
+            } catch (error) {
+                container.innerHTML = `<p class="text-error">Failed to load: ${esc(error.message)}</p>`;
+            }
         }
 
         /**
