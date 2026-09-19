@@ -252,6 +252,7 @@ jobs:
     - uses: actions/checkout@v7
 
     - name: Set up Python
+      continue-on-error: true # [ci-unblock 2026-09-19, canal do dono] job informational: real-API nao deve fazer o merge refem da estabilidade da API externa (flake test_live_positions_offset_paging, run 35453965205); o gate de merge segue nos jobs unit/hermeticos
       uses: actions/setup-python@v7
       with:
         python-version: ${{ env.PYTHON_VERSION_DEFAULT }}
