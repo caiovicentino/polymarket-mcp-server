@@ -92,7 +92,7 @@ Comprehensive testing and CI/CD improvements for the Polymarket MCP Server.
 
 ### 2. Pre-commit Hooks (.pre-commit-config.yaml)
 
-**17 automated checks before commits:**
+**All checks are defined in `.pre-commit-config.yaml` (open it for the current hook list):**
 
 **File Checks:**
 - Trailing whitespace removal
@@ -130,116 +130,110 @@ pre-commit run --all-files
 #### Integration Tests (tests/test_integration.py)
 **Comprehensive real API testing (integration-marked tier):**
 
-- **TestAPIConnectivity** (4 tests)
+- **TestAPIConnectivity**
   - Gamma API market discovery
   - CLOB API ping
   - Trending markets endpoint
   - Market details retrieval
 
-- **TestMarketDiscovery** (3 tests)
+- **TestMarketDiscovery**
   - Market search functionality
   - Category filtering
   - Closing soon markets
 
-- **TestMarketAnalysis** (2 tests)
+- **TestMarketAnalysis**
   - Orderbook retrieval
   - Market volume data
 
-- **TestErrorHandling** (3 tests)
+- **TestErrorHandling**
   - Invalid market ID handling
   - Invalid token ID handling
   - Malformed request handling
 
-- **TestRateLimiting** (2 tests)
+- **TestRateLimiting**
   - Rapid request handling
   - Concurrent different endpoints
 
-- **TestDemoMode** (2 tests)
+- **TestDemoMode**
   - Demo mode initialization
   - No credentials operation
 
-- **TestWebSocketConnectivity** (1 test)
+- **TestWebSocketConnectivity**
   - WebSocket connection validation
 
-- **TestSafetyValidation** (2 tests)
+- **TestSafetyValidation**
   - Safety limits initialization
   - Order size validation
 
-- **Full Integration Flow** (1 test)
+- **Full Integration Flow**
   - Complete discover→analyze→validate workflow
-
-**Total: 20 integration tests**
 
 #### End-to-End Tests (tests/test_e2e.py)
 **Complete lifecycle testing:**
 
-- **TestServerInitialization** (3 tests)
+- **TestServerInitialization**
   - Package imports
   - Configuration loading
   - Tool availability
 
-- **TestToolExecution** (4 tests)
+- **TestToolExecution**
   - search_markets tool
   - get_trending_markets tool
   - filter_markets_by_category tool
   - get_market_details tool
 
-- **TestResourceAccess** (2 tests)
+- **TestResourceAccess**
   - Status resource reading
   - Config resource reading
 
-- **TestErrorScenarios** (3 tests)
+- **TestErrorScenarios**
   - Invalid arguments handling
   - Missing required arguments
   - Unknown tool calls
 
-- **TestFullWorkflow** (2 tests)
+- **TestFullWorkflow**
   - Market discovery workflow
   - Market analysis workflow
 
-- **TestInstallationFlow** (3 tests)
+- **TestInstallationFlow**
   - Package structure validation
   - pyproject.toml validation
   - README existence
 
-- **Complete E2E Flow** (1 test)
+- **Complete E2E Flow**
   - Initialize→List Tools→Execute→Validate→Cleanup
-
-**Total: 18 E2E tests**
 
 #### Performance Tests (tests/test_performance.py)
 **Comprehensive benchmarking:**
 
-- **TestAPIPerformance** (3 benchmarks)
+- **TestAPIPerformance**
   - Market search latency
   - Market details latency
   - CLOB API latency
 
-- **TestConcurrentPerformance** (2 tests)
+- **TestConcurrentPerformance**
   - Concurrent market searches
   - Mixed endpoint requests
 
-- **TestRateLimiterPerformance** (2 tests)
+- **TestRateLimiterPerformance**
   - Rate limiter overhead
   - Concurrent rate checking
 
-- **TestMemoryUsage** (2 tests)
+- **TestMemoryUsage**
   - Tool execution memory
   - Concurrent execution memory
 
-- **TestToolPerformance** (3 benchmarks)
+- **TestToolPerformance**
   - Search tool performance
   - Trending tool performance
   - Filter tool performance
 
-- **TestStressScenarios** (2 tests)
+- **TestStressScenarios**
   - Rapid tool execution (50 requests)
   - Sustained load (10 seconds)
 
-- **TestWebSocketPerformance** (1 test)
+- **TestWebSocketPerformance**
   - WebSocket connection time
-
-**Total: 15 performance tests**
 
 **Metrics tracked:**
 - Response times
@@ -257,7 +251,7 @@ Tests:
 2. Package imports
 3. Configuration loading
 4. API connectivity (Gamma + CLOB)
-5. Tool initialization (45 tools)
+5. Tool initialization
 6. Basic tool execution
 7. Rate limiter functionality
 8. Safety limits initialization
@@ -307,30 +301,7 @@ python smoke_test.py
 
 ```toml
 [project.optional-dependencies]
-dev = [
-    # Testing (6 packages)
-    "pytest>=8.0.0",
-    "pytest-asyncio>=0.23.0",
-    "pytest-cov>=4.1.0",
-    "pytest-xdist>=3.5.0",
-    "pytest-timeout>=2.2.0",
-    "pytest-benchmark>=4.0.0",
-
-    # Code quality (4 packages)
-    "black>=24.0.0",
-    "ruff>=0.3.0",
-    "mypy>=1.8.0",
-    "isort>=5.13.0",
-
-    # Security (2 packages)
-    "bandit>=1.7.0",
-    "safety>=3.0.0",
-
-    # Utilities (3 packages)
-    "httpx>=0.27.0",
-    "psutil>=5.9.0",
-    "websockets>=12.0",
-]
+dev = [ ... ]  # see pyproject.toml for the current list
 ```
 
 **Test configuration:**
@@ -408,13 +379,13 @@ The suite is organized in tiers:
 
 ```
          /\
-        /E2E\     18 tests - Complete workflows
+        /E2E\       Complete workflows
        /------\
-      /  INT  \   20 tests - Real API integration
+      /  INT  \    Real API integration (live)
      /--------\
     /   UNIT   \  Fast tests - Individual components
    /------------\
-  /   SMOKE     \ Quick validation - 8 tests
+  /   SMOKE     \ Quick validation
  /----------------\
 ```
 
@@ -426,22 +397,22 @@ python smoke_test.py
 ```
 Quick validation before commits
 
-**Level 2: Offline Suite** (~3s measured)
+**Level 2: Offline Suite** (fast, hermetic)
 ```bash
 pytest -m "not integration and not slow and not real_api and not performance"
 ```
 Pre-push validation
 
-**Level 3: Full Test Suite** (~5min)
+**Level 3: Full Test Suite** (includes live tiers - needs network)
 ```bash
-pytest tests/
+pytest -m "not integration and not slow and not real_api and not performance"
 ```
-Pre-release validation
+Pre-push validation (offline tier; `pytest tests/` includes live tiers)
 
-**Level 4: Complete + Benchmarks** (~10min)
+**Level 4: Complete + Benchmarks**
 ```bash
-pytest tests/ --benchmark-only
-pytest tests/ --cov --cov-report=html
+pytest tests/test_performance.py --benchmark-only
+pytest --cov=src/polymarket_mcp --cov-report=html
 ```
 Release validation
 
@@ -511,20 +482,19 @@ Release validation
 
 ## Files Created
 
-1. `.github/workflows/tests.yml` (468 lines)
-2. `.github/workflows/release.yml` (250 lines)
-3. `.pre-commit-config.yaml` (180 lines)
-4. `tests/test_integration.py` (450 lines)
-5. `tests/test_e2e.py` (550 lines)
-6. `tests/test_performance.py` (450 lines)
-7. `tests/conftest.py` (100 lines)
-8. `TESTING.md` (600 lines)
-9. `smoke_test.py` (250 lines)
-10. `.codecov.yml` (40 lines)
-11. `.secrets.baseline` (60 lines)
+1. `.github/workflows/tests.yml`
+2. `.github/workflows/release.yml`
+3. `.pre-commit-config.yaml`
+4. `tests/test_integration.py`
+5. `tests/test_e2e.py`
+6. `tests/test_performance.py`
+7. `tests/conftest.py`
+8. `TESTING.md`
+9. `smoke_test.py`
+10. `.codecov.yml`
+11. `.secrets.baseline`
 12. Updated `pyproject.toml` (coverage + test config)
 
-**Total: ~3,400 lines of testing infrastructure**
 
 ## Usage Examples
 
@@ -534,10 +504,10 @@ Release validation
 python smoke_test.py
 
 # Run tests during development
-pytest tests/ -m "not slow" -n auto
+pytest -m "not integration and not slow and not real_api and not performance" -n auto
 
 # Check coverage
-pytest tests/ --cov --cov-report=html
+pytest --cov=src/polymarket_mcp --cov-report=html
 open htmlcov/index.html
 
 # Run benchmarks
@@ -579,14 +549,14 @@ git push origin v1.0.0
 ✅ **Multi-version** - Python 3.10, 3.11, 3.12
 ✅ **Automated Release** - Tag-based deployment
 ✅ **Documentation** - Comprehensive guide
-✅ **Pre-commit Hooks** - 17 automated checks
+✅ **Pre-commit Hooks** - all checks defined in `.pre-commit-config.yaml`
 
 ## Next Steps
 
 1. **Run smoke test**: `python smoke_test.py`
 2. **Install pre-commit**: `pre-commit install`
-3. **Run full test suite**: `pytest tests/ -v`
-4. **Check coverage**: `pytest tests/ --cov`
+3. **Run offline suite**: `pytest -m "not integration and not slow and not real_api and not performance" -v`
+4. **Check coverage**: `pytest --cov=src/polymarket_mcp --cov-report=html`
 5. **Review TESTING.md** for detailed guide
 6. **Push to trigger CI**: Tests run automatically
 

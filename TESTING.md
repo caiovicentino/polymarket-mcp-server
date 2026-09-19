@@ -18,7 +18,7 @@ The Polymarket MCP Server uses a comprehensive testing strategy with multiple te
 
 - **Offline (Unit) Tests**: Fast, isolated tests of individual components using deterministic fakes (hermetic — no network)
 - **Integration Tests**: Tests with real API interactions (marked `integration`)
-- **End-to-End Tests**: Complete workflow testing
+- **End-to-End Tests**: Complete workflow testing (live API)
 - **Performance Tests**: Benchmarks and stress testing
 - **Smoke Tests**: Quick validation of basic functionality
 
@@ -87,10 +87,13 @@ pytest tests/test_integration.py -v
 
 ### End-to-End Tests
 
-Complete workflow testing from initialization to cleanup.
+Complete workflow testing from initialization to cleanup. These tests hit the live
+Polymarket APIs: `tests/test_e2e.py` sets `pytestmark = pytest.mark.integration` at
+module level, so they require network access and are excluded from the offline
+selection.
 
 ```bash
-# Run E2E tests
+# Run E2E tests (live API - needs network)
 pytest tests/test_e2e.py -v
 
 # With detailed output
