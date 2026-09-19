@@ -247,11 +247,55 @@ The first public release of Polymarket MCP Server - a complete AI-powered tradin
   the offline selection plus explicit live commands (PR #81); author paths
   removed from four root docs (PR #82); volatile line/count claims removed
   from DOCKER_INFRASTRUCTURE_COMPLETE and PROJECT_COMPLETE (PR #83).
+- **Uninstall reliability**: `uninstall.sh` no longer aborts mid-run with a
+  syntax error, and its embedded Python helper receives the config path
+  argument, so the `polymarket` entry is removed from the Claude Desktop
+  config while other MCP servers are preserved (PR #86).
+- **Install safety**: `install.sh` no longer overwrites an existing
+  `claude_desktop_config.json` (a Python merge preserves other MCP
+  servers), pre-existing `.env` files are backed up before any write and
+  restored on rollback, and interactive prompts fail loudly on closed
+  stdin instead of dying silently (PR #95).
+- **Web dashboard launcher**: `start_web_dashboard.sh` refuses ancient
+  Python interpreters up front and installs the package when the
+  `polymarket-web` console script is missing, instead of dying with
+  `command not found` on fresh checkouts (PR #90).
+- **Console entry point**: `polymarket-mcp` now resolves the synchronous
+  `run` wrapper instead of the bare async `main`, so the server starts
+  instead of exiting silently with a coroutine warning (PR #94).
+- **Docker startup template**: the `docker-start.sh` fallback `.env`
+  template matches `.env.example` (all 22 variables), address validation
+  accepts the template's placeholder, and prompts fail loudly on closed
+  stdin instead of killing the script mid-run (PR #98).
+- **docker-compose environment**: the compose file declares `env_file`
+  (required: false) so all 22 config variables reach the container,
+  closing the gap that left `POLYMARKET_API_SECRET` and other settings
+  unreachable in Docker deployments (PR #99).
+- **Windows CI suite**: target files are read with an explicit UTF-8
+  encoding and the Kubernetes suite hardens its reads, unblocking the
+  Comprehensive Tests workflow on windows runners (PR #100).
+- **Setup/testing docs claims**: TEST_SUMMARY and TESTING no longer carry
+  volatile test, line, or hook counts or unstated live-API assumptions;
+  commands follow the canonical offline selection (PR #101).
+- **Tick-size aware pricing**: `suggest_order_price` aligns suggested
+  prices to the market tick size using Decimal arithmetic from wire
+  strings, and `create_limit_order` fails loudly on prices the exchange
+  would reject instead of silently crossing the spread (PR #103).
+- **Realtime wire compatibility**: CLOB WebSocket handlers parse the
+  production frames (event_type discriminator, `book` event, dict levels,
+  ms-epoch timestamps, `price_changes` list, array envelopes) so market
+  subscriptions deliver data (PR #104).
+- **Quickstart non-interactive safety**: `quickstart.sh` reads prompts
+  from `/dev/tty` when available and falls back to safe defaults without
+  a TTY; the reinstall path never runs `rm -rf` unattended (PR #105).
 
 ### Added
 
 - **`py.typed` marker (PEP 561)**: the wheel now ships typing metadata so type
   checkers in consuming projects see the package annotations (PR #73).
+- **Production compose file**: `docker-compose.prod.yml` ships with the
+  repository, matching the production example documented in DOCKER.md
+  (PR #107).
 - **`server/discover` MCP method**: connection-agnostic capability discovery
   via a pre-handshake stream interceptor (lote PR #49).
 
@@ -260,6 +304,10 @@ The first public release of Polymarket MCP Server - a complete AI-powered tradin
 - **Pre-commit hook hygiene**: the broken `poetry-check` hook (which required
   a `[tool.poetry]` section this hatchling project never had) was removed and
   root-script lint debt closed (PR #76).
+- **Build context hygiene**: `.dockerignore` and `.gitignore` exclude
+  dot-prefixed virtual environments and caches (`.venv/`, `.worktrees/`,
+  `.mypy_cache/`), shrinking the Docker build context by roughly 2GB
+  (PR #106).
 
 ### Planned Features
 - Enhanced AI analysis tools
