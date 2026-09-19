@@ -23,6 +23,23 @@ from ..utils import (
 
 logger = logging.getLogger(__name__)
 
+async def _note_clob_429(rate_limiter: Any, exc: BaseException) -> None:
+    """Record a CLOB 429 on the rate limiter so the NEXT acquire() waits.
+
+    Wiring for the previously-dead 429 path: py_clob_client raises
+    PolyApiException carrying ``status_code`` from the wire response. A real
+    429 from the CLOB armed no backoff (``handle_429_error`` had ZERO callers
+    in src/, grep-proven) and immediate retries hammered the API. The error
+    envelope is returned UNCHANGED, so the offline envelope pins hold. The
+    Retry-After header is not exposed by PolyApiException (only the parsed
+    body), so the exponential default is used here.
+    """
+    if getattr(exc, "status_code", None) != 429:
+        return
+    await rate_limiter.handle_429_error(EndpointCategory.TRADING_BURST, None)
+
+
+
 
 def resolve_token_id(
     market: Dict[str, Any],
@@ -369,6 +386,7 @@ class TradingTools:
             return result
 
         except Exception as e:
+            await _note_clob_429(self.rate_limiter, e)
             logger.error(f"Failed to create limit order: {e}")
             return {
                 "success": False,
@@ -446,6 +464,7 @@ class TradingTools:
             return result
 
         except Exception as e:
+            await _note_clob_429(self.rate_limiter, e)
             logger.error(f"Failed to create market order: {e}")
             return {
                 "success": False,
