@@ -43,7 +43,10 @@ pre-fix (the bug is SEMANTIC, not syntactic — the script is valid bash today).
 """
 
 import hashlib
+import os
+import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -51,6 +54,65 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER_NAME = "start_web_dashboard.sh"
 LAUNCHER = REPO_ROOT / LAUNCHER_NAME
+
+# Cross-platform bash resolution (T-0214 r3 pattern, proven CI-green in the
+# three install/uninstall suites): POSIX keeps the generic "bash"; Windows
+# resolves the Git for Windows bash.exe EXPLICITLY -- a generic "bash" spawn
+# would hit System32\bash.exe (the WSL launcher: rc=1 with empty stderr and a
+# UTF-16LE wsl banner, CI-proven on PRs #62/#68). Absent everywhere ->
+# LOUD RuntimeError with the prescribed label, never silent.
+_IS_WIN = sys.platform.startswith("win")
+_WIN_BASH = None
+GIT_BASH_MISSING_LABEL = "Git Bash not found; WSL bash would fail"
+
+
+def _win_bash_candidates():
+    pf = os.environ.get("ProgramFiles", "C:\\Program Files")
+    pf86 = os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)")
+    return [
+        Path(pf) / "Git" / "bin" / "bash.exe",
+        Path(pf86) / "Git" / "bin" / "bash.exe",
+        Path(pf) / "Git" / "usr" / "bin" / "bash.exe",
+    ]
+
+
+def _resolve_win_bash(candidates=None, which_fn=shutil.which):
+    for cand in (candidates if candidates is not None else _win_bash_candidates()):
+        if Path(cand).is_file():
+            return Path(cand)
+    git = which_fn("git")
+    if git:
+        # No .resolve(): shutil.which already returns an absolute path and the
+        # root is pure parent arithmetic (T-0214 r3 provenance).
+        git_root = Path(git).parent.parent
+        cand = git_root / "bin" / "bash.exe"
+        if cand.is_file():
+            return cand
+    raise RuntimeError(
+        GIT_BASH_MISSING_LABEL
+        + " (System32\\bash.exe exits rc=1 without a WSL distro; install Git for Windows)"
+    )
+
+
+def _bash_exe():
+    """Full bash executable for subprocess spawns (T-0214 r3 P1-01).
+
+    POSIX deviation from the T-0214 r3 verbatim block, declared in the
+    T-0364 report (L-0025/L-0020): this suite's _run_launcher spawn passes
+    a SANDBOX-ONLY child PATH (the host PATH is never inherited -- module
+    header), and POSIX subprocess resolves argv[0] via os.get_exec_path(env)
+    i.e. the CHILD env PATH (first-hand probe, T-0364: FileNotFoundError on
+    bare "bash" with a bash-less child PATH; rc=0 with the inherited env).
+    The r1-proven absolute literal /bin/bash is therefore kept on POSIX --
+    the spawn is byte-identical to the pre-fix state (the contract's own
+    semantic guarantee); Windows resolves the full Git Bash path (the fix).
+    """
+    global _WIN_BASH
+    if not _IS_WIN:
+        return "/bin/bash"
+    if _WIN_BASH is None:
+        _WIN_BASH = _resolve_win_bash()
+    return str(_WIN_BASH)
 
 # The exact guard expression the fix must contain (shim pins this shape — a
 # guard whose code drifts fails the sandbox LOUD with SANDBOX-PY3-UNEXPECTED).
@@ -139,7 +201,7 @@ def _run_launcher(sb: Path, py_version: str) -> subprocess.CompletedProcess[str]
         "SANDBOX_FAKE_PY_VERSION": py_version,
     }
     return subprocess.run(
-        ["/bin/bash", str(sb / LAUNCHER_NAME)],
+        [_bash_exe(), str(sb / LAUNCHER_NAME)],
         capture_output=True,
         text=True,
         cwd=str(sb),
@@ -159,7 +221,7 @@ def test_bash_n_valid(tmp_path: Path) -> None:
     """bash -n on a byte-exact copy of the launcher must succeed (rc=0)."""
     sb = _make_sandbox(tmp_path, "3.12.0")
     proc = subprocess.run(
-        ["/bin/bash", "-n", str(sb / LAUNCHER_NAME)], capture_output=True, text=True
+        [_bash_exe(), "-n", str(sb / LAUNCHER_NAME)], capture_output=True, text=True
     )
     assert proc.returncode == 0, proc.stderr
 
