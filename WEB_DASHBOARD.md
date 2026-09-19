@@ -376,7 +376,7 @@ logging.basicConfig(level=logging.DEBUG)
 pip install -e ".[dev]"
 
 # Run tests
-pytest tests/test_web.py -v
+pytest tests/test_web_app_offline.py -v
 ```
 
 ## Customization
@@ -560,7 +560,7 @@ Contributions welcome! Please:
 
 ---
 
-**Dashboard Version**: 0.1.0
+**Dashboard Version**: 0.2.0
 **Last Updated**: January 2025
 **Built with**: FastAPI, Vanilla JS, Chart.js
 **Data source**: live Polymarket API (read-only) when connected

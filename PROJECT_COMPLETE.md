@@ -3,7 +3,7 @@
 ## ✅ Status: PRODUCTION READY & TOTALMENTE ACESSÍVEL
 
 **Repositório:** https://github.com/caiovicentino/polymarket-mcp-server
-**Versão:** v0.1.0 (com melhorias massivas)
+**Versão:** v0.2.0 (com melhorias massivas)
 **Data:** 11 de Novembro de 2025
 
 ---
