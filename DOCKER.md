@@ -479,7 +479,6 @@ docker system prune -a
 
 - Read [README.md](README.md) for API documentation
 - See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup
-- Check [examples/](examples/) for usage examples
 - Deploy to Kubernetes with [k8s/](k8s/) manifests
 
 ---
