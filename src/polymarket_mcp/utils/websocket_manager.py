@@ -13,7 +13,7 @@ import logging
 import time
 import uuid
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, cast
@@ -22,6 +22,31 @@ import websockets
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_ws_timestamp(value: Any) -> datetime:
+    """Parse a WebSocket timestamp field.
+
+    The CLOB market channel sends timestamps as millisecond-epoch strings
+    (e.g. ``"1789688342096"``), while tests and legacy payloads use ISO
+    strings. Digit strings are treated as UTC millisecond epochs; every other
+    value goes through ``datetime.fromisoformat`` unchanged (malformed values
+    keep raising, preserving the error-path pins).
+    """
+    if isinstance(value, str) and value.isdigit():
+        return datetime.fromtimestamp(int(value) / 1000.0, tz=timezone.utc).replace(tzinfo=None)
+    return datetime.fromisoformat(value)
+
+
+def _book_level(entry: Any) -> Tuple[Any, Any]:
+    """Return ``(price, size)`` from an orderbook level.
+
+    The CLOB market channel sends levels as dicts with ``price``/``size``
+    keys; tests and legacy payloads use ``[price, size]`` pairs.
+    """
+    if isinstance(entry, dict):
+        return entry.get("price"), entry.get("size")
+    return entry[0], entry[1]
 
 
 def ws_is_open(ws: Any) -> bool:
@@ -58,6 +83,7 @@ class EventType(str, Enum):
     # CLOB Market events (no auth)
     PRICE_CHANGE = "price_change"
     AGG_ORDERBOOK = "agg_orderbook"
+    BOOK = "book"
     LAST_TRADE_PRICE = "last_trade_price"
     TICK_SIZE_CHANGE = "tick_size_change"
     MARKET_CREATED = "market_created"
@@ -530,7 +556,7 @@ class WebSocketManager:
             message: Parsed message data
         """
         try:
-            event_type = message.get("type") or message.get("event")
+            event_type = message.get("type") or message.get("event") or message.get("event_type")
             if not event_type:
                 logger.warning(f"Message without event type: {message}")
                 return
@@ -542,7 +568,7 @@ class WebSocketManager:
             # Route to specific handler
             if event_type == EventType.PRICE_CHANGE.value:
                 await self._handle_price_change(message)
-            elif event_type == EventType.AGG_ORDERBOOK.value:
+            elif event_type in (EventType.AGG_ORDERBOOK.value, EventType.BOOK.value):
                 await self._handle_orderbook_update(message)
             elif event_type == EventType.ORDER.value:
                 await self._handle_order_update(message)
@@ -560,38 +586,46 @@ class WebSocketManager:
     async def _handle_price_change(self, data: Dict[str, Any]) -> None:
         """Handle price change event"""
         try:
-            event = PriceChangeEvent(
-                asset_id=data.get("asset_id", ""),
-                price=Decimal(str(data.get("price", 0))),
-                timestamp=datetime.fromisoformat(data.get("timestamp", datetime.now().isoformat())),
-                market=data.get("market")
+            timestamp = _parse_ws_timestamp(data.get("timestamp", datetime.now().isoformat()))
+            raw_changes = data.get("price_changes")
+            changes: List[Dict[str, Any]] = (
+                cast(List[Dict[str, Any]], raw_changes) if isinstance(raw_changes, list) else []
             )
+            if not changes and (data.get("asset_id") is not None or data.get("price") is not None):
+                changes = [data]
+            for change in changes:
+                event = PriceChangeEvent(
+                    asset_id=change.get("asset_id", ""),
+                    price=Decimal(str(change.get("price", 0))),
+                    timestamp=timestamp,
+                    market=data.get("market") or change.get("market")
+                )
 
-            # Find matching subscriptions
-            matching_subs = self._find_matching_subscriptions(
-                EventType.PRICE_CHANGE,
-                event.market,
-                event.asset_id
-            )
+                # Find matching subscriptions
+                matching_subs = self._find_matching_subscriptions(
+                    EventType.PRICE_CHANGE,
+                    event.market,
+                    event.asset_id
+                )
 
-            # Notify each subscription
-            for sub in matching_subs:
-                sub.events_received += 1
-                sub.last_event_at = datetime.now()
+                # Notify each subscription
+                for sub in matching_subs:
+                    sub.events_received += 1
+                    sub.last_event_at = datetime.now()
 
-                if sub.callback_type == "notification" and self.notification_callback:
-                    await self.notification_callback({
-                        "type": "price_change",
-                        "subscription_id": sub.id,
-                        "asset_id": event.asset_id,
-                        "price": float(event.price),
-                        "market": event.market,
-                        "timestamp": event.timestamp.isoformat()
-                    })
-                elif sub.callback_type == "log" and self.log_callback:
-                    await self.log_callback(
-                        f"Price change: {event.market or event.asset_id} -> {event.price}"
-                    )
+                    if sub.callback_type == "notification" and self.notification_callback:
+                        await self.notification_callback({
+                            "type": "price_change",
+                            "subscription_id": sub.id,
+                            "asset_id": event.asset_id,
+                            "price": float(event.price),
+                            "market": event.market,
+                            "timestamp": event.timestamp.isoformat()
+                        })
+                    elif sub.callback_type == "log" and self.log_callback:
+                        await self.log_callback(
+                            f"Price change: {event.market or event.asset_id} -> {event.price}"
+                        )
 
         except Exception as e:
             logger.error(f"Error handling price change: {e}")
@@ -599,15 +633,21 @@ class WebSocketManager:
     async def _handle_orderbook_update(self, data: Dict[str, Any]) -> None:
         """Handle orderbook update event"""
         try:
-            # Parse bids and asks
-            bids = [(Decimal(str(b[0])), Decimal(str(b[1]))) for b in data.get("bids", [])]
-            asks = [(Decimal(str(a[0])), Decimal(str(a[1]))) for a in data.get("asks", [])]
+            # Parse bids and asks (dict levels from the CLOB market channel,
+            # [price, size] pairs from tests and legacy payloads), then
+            # normalize to best-first: the real wire sends levels worst-first
+            # (bids ascending, asks descending), so bids[0]/asks[0] must be
+            # the best levels (same normalization as client.get_orderbook).
+            bids = [(Decimal(str(p)), Decimal(str(s))) for p, s in (_book_level(b) for b in data.get("bids", []))]
+            bids.sort(key=lambda level: level[0], reverse=True)
+            asks = [(Decimal(str(p)), Decimal(str(s))) for p, s in (_book_level(a) for a in data.get("asks", []))]
+            asks.sort(key=lambda level: level[0])
 
             event = OrderbookUpdate(
                 asset_id=data.get("asset_id", ""),
                 bids=bids,
                 asks=asks,
-                timestamp=datetime.fromisoformat(data.get("timestamp", datetime.now().isoformat()))
+                timestamp=_parse_ws_timestamp(data.get("timestamp", datetime.now().isoformat()))
             )
 
             matching_subs = self._find_matching_subscriptions(
@@ -912,7 +952,13 @@ class WebSocketManager:
         try:
             message = await cast(Any, self.clob_ws).recv()
             data = json.loads(message)
-            await self.handle_message("clob", data)
+            # The CLOB market channel sends some events (e.g. the initial
+            # book) wrapped in a JSON array; fan out to the handlers.
+            if isinstance(data, list):
+                for item in data:
+                    await self.handle_message("clob", item)
+            else:
+                await self.handle_message("clob", data)
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse CLOB message: {e}")
         except Exception as e:
@@ -927,7 +973,12 @@ class WebSocketManager:
         try:
             message = await cast(Any, self.realtime_ws).recv()
             data = json.loads(message)
-            await self.handle_message("realtime", data)
+            # Real-time payloads may also arrive as a JSON array; fan out.
+            if isinstance(data, list):
+                for item in data:
+                    await self.handle_message("realtime", item)
+            else:
+                await self.handle_message("realtime", data)
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse real-time message: {e}")
         except Exception as e:
