@@ -49,6 +49,32 @@ class PortfolioDataCache:
 _portfolio_cache = PortfolioDataCache()
 
 
+async def _note_clob_429(
+    rate_limiter: Any,
+    exc: BaseException,
+    category: Any,
+) -> None:
+    """Record a CLOB 429 on the rate limiter so the NEXT acquire() waits.
+
+    Wiring for the PolyApiException surfaces of the portfolio tools:
+    ``auth/client.py`` re-raises py-clob-client errors, so ``get_orderbook``
+    /``get_balance``/``get_orders`` failures carry ``status_code`` from the
+    wire. A real 429 previously armed NO backoff (``handle_429_error`` had
+    ZERO callers in src/, grep-proven) and immediate retries hammered the
+    API. The existing per-position fallbacks and error envelopes proceed
+    UNCHANGED, so the degraded-mode pins of the offline suites hold.
+    PolyApiException does not expose response headers, so the exponential
+    default is used; ``category`` matches the acquire() that preceded the
+    failing call. Direct Data-API (httpx) responses are handled by the
+    sibling ``_note_http_429`` helper instead - the outer excepts here
+    intentionally check ONLY the exception-carried status so a wired
+    fetch_all_pages pass-through (declared follow-up) can never double-arm.
+    """
+    if getattr(exc, "status_code", None) != 429:
+        return
+    await rate_limiter.handle_429_error(category, None)
+
+
 async def get_all_positions(
     polymarket_client,
     rate_limiter,
@@ -130,6 +156,7 @@ async def get_all_positions(
                 best_ask = float(orderbook.get('asks', [{}])[0].get('price', 0)) if orderbook.get('asks') else 0
                 current_price = (best_bid + best_ask) / 2 if (best_bid and best_ask) else avg_price
             except Exception as e:
+                await _note_clob_429(rate_limiter, e, EndpointCategory.MARKET_DATA)
                 logger.warning(f"Failed to fetch current price for {token_id}: {e}")
                 current_price = avg_price
 
@@ -378,6 +405,7 @@ async def get_position_details(
         )]
 
     except Exception as e:
+        await _note_clob_429(rate_limiter, e, EndpointCategory.MARKET_DATA)
         logger.error(f"Error fetching position details: {e}")
         return [types.TextContent(
             type="text",
@@ -425,6 +453,7 @@ async def get_portfolio_value(
             await rate_limiter.acquire(EndpointCategory.CLOB_GENERAL)
             orders = await polymarket_client.get_orders()
         except Exception as e:
+            await _note_clob_429(rate_limiter, e, EndpointCategory.CLOB_GENERAL)
             logger.warning(f"Failed to fetch orders: {e}")
             orders = []
 
@@ -448,6 +477,7 @@ async def get_portfolio_value(
                 best_ask = float(orderbook.get('asks', [{}])[0].get('price', 0)) if orderbook.get('asks') else 0
                 mid_price = (best_bid + best_ask) / 2 if (best_bid and best_ask) else float(pos.get('average_price', 0))
             except Exception as e:
+                await _note_clob_429(rate_limiter, e, EndpointCategory.MARKET_DATA)
                 logger.warning(f"Failed to fetch price for {token_id}: {e}")
                 mid_price = float(pos.get('average_price', 0))
 
@@ -517,6 +547,7 @@ async def get_portfolio_value(
         )]
 
     except Exception as e:
+        await _note_clob_429(rate_limiter, e, EndpointCategory.CLOB_GENERAL)
         logger.error(f"Error calculating portfolio value: {e}")
         return [types.TextContent(
             type="text",
@@ -656,6 +687,7 @@ async def get_pnl_summary(
                 best_ask = float(orderbook.get('asks', [{}])[0].get('price', 0)) if orderbook.get('asks') else 0
                 mid_price = (best_bid + best_ask) / 2 if (best_bid and best_ask) else avg_price
             except Exception as e:
+                await _note_clob_429(rate_limiter, e, EndpointCategory.MARKET_DATA)
                 logger.warning(f"Failed to fetch price for {token_id}: {e}")
                 mid_price = avg_price
 
@@ -1028,6 +1060,7 @@ async def analyze_portfolio_risk(
                         'liquidity': total_liquidity
                     })
             except Exception as e:
+                await _note_clob_429(rate_limiter, e, EndpointCategory.MARKET_DATA)
                 logger.warning(f"Failed to fetch orderbook for {token_id}: {e}")
                 mid_price = avg_price
                 total_liquidity = 0
@@ -1258,6 +1291,7 @@ async def suggest_portfolio_actions(
                 ask_liquidity = sum(float(a['price']) * float(a['size']) for a in asks[:5]) if asks else 0
                 total_liquidity = bid_liquidity + ask_liquidity
             except Exception as e:
+                await _note_clob_429(rate_limiter, e, EndpointCategory.MARKET_DATA)
                 logger.warning(f"Failed to fetch orderbook for {token_id}: {e}")
                 mid_price = avg_price
                 spread = 0
