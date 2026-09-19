@@ -1,0 +1,7 @@
+# Force LF line endings in working-tree checkouts on every platform.
+# Without this file, the Windows CI (actions/checkout on windows-latest)
+# converts text files to CRLF (Git for Windows global autocrlf=true), and
+# CRLF breaks byte-exact anchors in offline suites (evidence: CI run
+# 35412982363 test_template_byte_parity assert 0 == 1; CRLF offsets also
+# reconciled in T-0315 (#100): CHANGELOG byte 0x8f at 305 raw = 316 on CI).
+* text=auto eol=lf
