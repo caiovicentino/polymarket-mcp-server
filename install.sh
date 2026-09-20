@@ -258,7 +258,10 @@ EOF
         echo ""
         echo -e "${YELLOW}Enter your Polygon wallet private key:${NC}"
         echo "(without 0x prefix, 64 hex characters)"
-        read -r -s PRIVATE_KEY
+        read -r -s PRIVATE_KEY || {
+            print_error "Input stream ended before a private key was provided"
+            return 1
+        }
         echo
 
         if validate_private_key "$PRIVATE_KEY"; then
@@ -273,7 +276,10 @@ EOF
         echo ""
         echo -e "${YELLOW}Enter your Polygon wallet address:${NC}"
         echo "(0x followed by 40 hex characters)"
-        read -r WALLET_ADDRESS
+        read -r WALLET_ADDRESS || {
+            print_error "Input stream ended before a wallet address was provided"
+            return 1
+        }
 
         if validate_address "$WALLET_ADDRESS"; then
             break
