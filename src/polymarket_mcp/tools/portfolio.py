@@ -1571,8 +1571,9 @@ PORTFOLIO_TOOLS = [
                 },
                 "limit": {
                     "type": "number",
-                    "description": "Maximum trades to return (default: 100)",
-                    "default": 100
+                    "description": "Maximum trades to return (default: 100; server caps at 500)",
+                    "default": 100,
+                    "maximum": 500
                 },
                 "side": {
                     "type": "string",
@@ -1606,8 +1607,9 @@ PORTFOLIO_TOOLS = [
                 },
                 "limit": {
                     "type": "number",
-                    "description": "Maximum events to return (default: 100)",
-                    "default": 100
+                    "description": "Maximum events to return (default: 100; server caps at 500)",
+                    "default": 100,
+                    "maximum": 500
                 }
             }
         },

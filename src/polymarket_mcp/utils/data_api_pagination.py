@@ -3,9 +3,10 @@
 Wire contract (probed live 2026-09-18): ``data-api.polymarket.com``
 positions/trades/activity PAGINATE with ``limit`` + ``offset``. A call
 without ``limit`` returns the default page (100 rows -- probed: 7/8 sampled
-wallets returned exactly 100); a call WITH ``limit`` caps at 500 rows per
-call (proven: ``limit=1000``/``limit=2000`` -> 500). Callers that fetch a
-single page silently truncate everything beyond it: a wallet with 2,022
+wallets returned exactly 100); positions/activity cap at 500
+rows per call (re-probed 2026-09-20: ``limit=501`` -> 500 rows); /trades
+honors much larger limits (re-probed: ``limit=10000`` -> 10000 rows).
+Callers that fetch a single page silently truncate everything beyond it: a wallet with 2,022
 positions reports only the first 100 (or 500), so portfolio valuation and
 P&L are computed over a TRUNCATED book for active wallets.
 
