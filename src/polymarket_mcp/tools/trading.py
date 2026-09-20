@@ -19,24 +19,20 @@ from ..utils import (
     Position,
     SafetyLimits,
     get_rate_limiter,
+    rate_limit_note,
 )
 
 logger = logging.getLogger(__name__)
 
 async def _note_clob_429(rate_limiter: Any, exc: BaseException) -> None:
-    """Record a CLOB 429 on the rate limiter so the NEXT acquire() waits.
-
-    Wiring for the previously-dead 429 path: py_clob_client raises
-    PolyApiException carrying ``status_code`` from the wire response. A real
-    429 from the CLOB armed no backoff (``handle_429_error`` had ZERO callers
-    in src/, grep-proven) and immediate retries hammered the API. The error
-    envelope is returned UNCHANGED, so the offline envelope pins hold. The
-    Retry-After header is not exposed by PolyApiException (only the parsed
-    body), so the exponential default is used here.
+    """Thin delegate to the shared 429 note helper; the order-placement
+    wiring pins ``EndpointCategory.TRADING_BURST`` (arming a different
+    category would delay the wrong tool's backoff). The Retry-After clamp
+    lives in ``handle_429_error``.
     """
-    if getattr(exc, "status_code", None) != 429:
-        return
-    await rate_limiter.handle_429_error(EndpointCategory.TRADING_BURST, None)
+    await rate_limit_note.note_clob_429(
+        rate_limiter, exc, EndpointCategory.TRADING_BURST
+    )
 
 
 
@@ -138,21 +134,11 @@ async def _note_clob_429_cat(
     exc: BaseException,
     category: Any,
 ) -> None:
-    """Record a CLOB 429 on the rate limiter so the NEXT acquire() waits.
-
-    Companion of the order-submission wiring: py_clob_client raises
-    PolyApiException carrying ``status_code`` from the wire response. The
-    read/management surfaces (suggest_order_price, order status, open
-    orders, order history) and the cancel surfaces funnel through except
-    paths that previously armed NO backoff, so immediate retries hammered
-    the API. The error envelope is returned UNCHANGED, so the offline
-    envelope pins hold. PolyApiException does not expose response headers,
-    so the exponential default is used; ``category`` matches the
-    acquire() that preceded the failing call.
+    """Thin delegate to the shared 429 note helper; ``category`` passes
+    through verbatim to match the acquire() that preceded the failing
+    call. The Retry-After clamp lives in ``handle_429_error``.
     """
-    if getattr(exc, "status_code", None) != 429:
-        return
-    await rate_limiter.handle_429_error(category, None)
+    await rate_limit_note.note_clob_429(rate_limiter, exc, category)
 
 
 class TradingTools:
