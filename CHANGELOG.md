@@ -393,6 +393,22 @@ The first public release of Polymarket MCP Server - a complete AI-powered tradin
   shutdown task per signal (double dispatch scheduled two concurrent exit
   tasks), and the forced-exit helper wraps shutdown in try/finally so a
   raised exception cannot leave the process hanging (PR #192).
+- **Dashboard route inventory**: WEB_DASHBOARD and DASHBOARD_SUMMARY now
+  list the live `/api/markets/closing-soon` route (it was undocumented), and
+  the root route-inventory script covers all 14 registered routes (PR #194).
+- **CI documentation claims**: CONTRIBUTING no longer claims the live-API
+  jobs are informational when they still gate the run, the stale unit-step
+  claim is corrected, and WEB_DASHBOARD drops the last author-path
+  reference (PR #196).
+- **User-capped tool contracts**: `get_trade_history` and
+  `get_activity_log` declare `maximum: 500` on `limit` (matching the wire's
+  hard cap on /positions and /activity) and the pagination docstring no
+  longer claims /trades is capped at 500 - the endpoint honors limits up to
+  10000 (PR #199).
+- **Dashboard error surfacing**: the five data routes (trending, search,
+  closing-soon, market detail, analysis) propagate tool error envelopes as
+  HTTP 500 with a JSON `detail` body instead of raw 200 payloads, so panels
+  surface real errors (PR #200).
 
 ### Added
 
