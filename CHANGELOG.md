@@ -321,6 +321,29 @@ The first public release of Polymarket MCP Server - a complete AI-powered tradin
 - **FAQ code samples**: the import example no longer raises NameError under
   ``import *`` and the stale backtesting claim reflects the shipped release
   (PR #133).
+- **MCP resources/read fixed**: the AnyUrl == str comparison always failed,
+  so every documented resource URI answered "Unknown resource"; reads now
+  resolve for all 3 URIs, covered by an end-to-end stdio suite (PR #137).
+- **Dashboard configuration UX**: the 422 validation detail renders the
+  actual message instead of "[object Object]", and the six range sliders
+  are now number inputs that no longer clamp out-of-domain values (PR #138).
+- **Tool input validation**: get_orderbook.depth and
+  get_market_holders.limit reject 0 and negatives up front
+  (minimum: 1), preventing empty-slice reads against the exchange (PR #139).
+- **docker-compose defaults**: interpolation fallbacks for
+  MAX_TOTAL_EXPOSURE_USD and REQUIRE_CONFIRMATION_ABOVE_USD match the
+  server defaults (5000.0 / 500.0) instead of divergent values (PR #141).
+- **Rate limit backoff (gamma/CLOB reads)**: 429 responses received by the
+  market discovery and market analysis fetchers arm the rate limiter's
+  exponential backoff (PR #143).
+- **Docs accuracy**: SETUP_GUIDE drops the missing IMPLEMENTATION_SUMMARY
+  reference and the stale 45-tool count, AGENT_INTEGRATION_GUIDE fixes the
+  POLYGON_CHAIN_ID typo, and DOCKER.md removes the examples/ link (PR #145).
+- **Version claims**: four root docs updated from 0.1.0 to 0.2.0 and the
+  INSTALLATION_SUMMARY volatile line-count column removed (PR #147).
+- **Dashboard market envelopes**: /api/markets/trending and
+  /api/markets/search now return the {"markets": [...]} envelope the
+  dashboard consumes, so panels render real rows instead of empty (PR #150).
 
 ### Added
 
