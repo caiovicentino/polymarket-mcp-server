@@ -172,7 +172,11 @@ jobs:
 
     - name: Run demo mode tests
       run: |
-        pytest tests/ -v -m "not real_api" \
+        # [ci-unblock 2026-09-20]: demo step is OFFLINE - the old "-m not real_api" selection also ran the
+        # integration (109 live) + performance (9 live) tiers inside the matrix jobs; httpx.ConnectError made
+        # main RED 3x in ~35min (runs 35491657720/35491686140/35492978776) - selection is now the canonical
+        # offline one (CONTRIBUTING/release.yml); live tiers run in the dedicated informational jobs.
+        pytest tests/ -v -m "not integration and not slow and not real_api and not performance" \
           --tb=short \
           --maxfail=3
       env:
@@ -216,7 +220,7 @@ jobs:
       # as coverage grows.
       run: |
         pytest tests/ \
-          -m "not slow and not real_api" \
+          -m "not slow and not real_api and not integration and not performance" \
           --cov=src/polymarket_mcp \
           --cov-report=xml \
           --cov-report=html \
@@ -247,12 +251,16 @@ jobs:
     name: Integration Tests
     runs-on: ubuntu-latest
     needs: [lint, test]
+    # [ci-unblock 2026-09-20]: job-level continue-on-error (owner policy, PR #129): real-API flakiness
+    # (test_live_positions_offset_paging, run 35453965205) must not gate the merge - the previous
+    # step-level flag sat on "Set up Python" and was inert (a failing "Run integration tests" step
+    # still failed the job and REDed the Test Summary fail-list). The live tier still runs here, now informational.
+    continue-on-error: true
     timeout-minutes: 10
     steps:
     - uses: actions/checkout@v7
 
     - name: Set up Python
-      continue-on-error: true # [ci-unblock 2026-09-19, canal do dono] job informational: real-API nao deve fazer o merge refem da estabilidade da API externa (flake test_live_positions_offset_paging, run 35453965205); o gate de merge segue nos jobs unit/hermeticos
       uses: actions/setup-python@v7
       with:
         python-version: ${{ env.PYTHON_VERSION_DEFAULT }}
@@ -307,6 +315,9 @@ jobs:
     name: End-to-End Tests
     runs-on: ubuntu-latest
     needs: integration-test
+    # [ci-unblock 2026-09-20]: test_e2e.py e 100% integration-marked (pytestmark module-level :20; "not integration"
+    # coleta 0 testes = pytest exit 5) - nao ha selecao offline possivel aqui; mesmo tratamento informational (politica do PR #129).
+    continue-on-error: true
     timeout-minutes: 15
     steps:
     - uses: actions/checkout@v7
