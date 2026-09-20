@@ -72,6 +72,13 @@ RATE_LIMITS: Dict[EndpointCategory, RateLimitConfig] = {
 }
 
 
+# Ceiling for server-provided Retry-After hints (untrusted wire input):
+# a hostile/errant header must not freeze a category's callers for an
+# unbounded period, so the hint is clamped to the same ceiling the
+# exponential path already uses (single source of truth for the cap).
+_RETRY_AFTER_MAX_SECONDS = 60.0
+
+
 class TokenBucket:
     """
     Token bucket implementation for rate limiting.
@@ -223,21 +230,26 @@ class RateLimiter:
 
         Args:
             category: Endpoint category that received 429
-            retry_after: Retry-After header value in seconds (if provided)
+            retry_after: Retry-After header value in seconds (if provided).
+                UNTRUSTED input: clamped to ``_RETRY_AFTER_MAX_SECONDS`` so a
+                hostile/errant header cannot freeze the category longer than
+                the exponential path's own ceiling.
         """
         async with self._backoff_lock:
             now = time.monotonic()
             current_backoff = self._429_backoff.get(category, 0.0)
 
             if retry_after:
-                # Use server-provided retry-after
-                backoff_time = float(retry_after)
+                # Server-provided hint is untrusted input: clamp it to the
+                # same ceiling the exponential path uses (a 999999 Retry-After
+                # must not freeze the category for days -- L-0377).
+                backoff_time = min(float(retry_after), _RETRY_AFTER_MAX_SECONDS)
             else:
-                # Exponential backoff: start at 1s, double each time, max 60s
+                # Exponential backoff: start at 1s, double each time, max cap
                 if current_backoff > now:
                     # Already in backoff, double it
                     remaining = current_backoff - now
-                    backoff_time = min(remaining * 2, 60.0)
+                    backoff_time = min(remaining * 2, _RETRY_AFTER_MAX_SECONDS)
                 else:
                     # First 429 in a while, start with 1s
                     backoff_time = 1.0
