@@ -824,7 +824,9 @@ def get_tools() -> List[types.Tool]:
                     "market_ids": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "List of market IDs to compare (2-10 markets)"
+                        "description": "List of market IDs to compare (2-10 markets)",
+                        "minItems": 2,
+                        "maxItems": 10,
                     }
                 },
                 "required": ["market_ids"]
