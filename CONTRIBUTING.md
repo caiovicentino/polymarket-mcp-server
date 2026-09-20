@@ -149,9 +149,10 @@ pytest -m "not integration and not slow and not real_api and not performance" --
 pytest tests/ -m "not integration and not slow and not real_api and not performance"  # unit step
 pytest tests/ -m "not integration and not slow and not real_api and not performance"  # demo step (runs with POLYMARKET_DEMO_MODE=true)
 pytest tests/ -m "not slow and not real_api and not integration and not performance" --cov=polymarket_mcp --cov-fail-under=35  # coverage job
-pytest tests/ -m "integration"  # integration-test job (informational: job-level continue-on-error; mesmo tratamento para e2e-test/performance-test)
-# [ci-unblock 2026-09-20]: live-API CI jobs (integration-test, e2e-test, performance-test) are informational -
-# job-level continue-on-error keeps their failures non-gating; the merge gate stays on the offline jobs above.
+pytest tests/ -m "integration"  # integration-test job (informational: job-level continue-on-error; e2e-test also informational; performance-test has NO continue-on-error -- a failure makes the run red)
+# [ci-unblock 2026-09-20]: live-API CI jobs (integration-test, e2e-test) are informational -
+# job-level continue-on-error keeps their failures non-gating; performance-test has no flag, so
+# a failing benchmark makes the run red; the merge gate stays on the offline jobs above.
 
 # Skip slow tests only — note: this does NOT exclude real_api (or integration/performance) suites
 pytest -m "not slow"
@@ -162,8 +163,6 @@ Notes:
 - Bare `pytest` runs every tier, including suites that hit the live Polymarket API — don't
   use it as the default local command.
 - The offline command excludes all four tier markers, so it runs only the offline tier.
-- The CI unit step does not exclude `performance`, so its selection also runs live-API
-  benchmarks (source: `.github/workflows/tests.yml`).
 
 ### Test Markers
 
