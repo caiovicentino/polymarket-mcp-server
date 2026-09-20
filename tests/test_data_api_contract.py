@@ -366,6 +366,19 @@ def test_convert_positions_reads_real_fields():
     )
 
 
+def _skip_on_transport(exc, label):
+    """Network guard: infra failures SKIP (never fail the suite for infra)."""
+    pytest.skip(f"{label} unreachable ({type(exc).__name__}: {exc})")
+
+
+def _check_response(response, label):
+    """Fail-closed response check: 5xx is an API-side outage (documented
+    skip); any other non-200 is a live-contract violation (FAIL)."""
+    if response.status_code >= 500:
+        pytest.skip(f"{label}: live API outage (HTTP {response.status_code})")
+    assert response.status_code == 200, f"{label}: expected HTTP 200, got {response.status_code}"
+
+
 # ---------------------------------------------------------------------------
 # Live contract (integration; deselected by the offline suite run)
 # ---------------------------------------------------------------------------
@@ -381,15 +394,27 @@ async def test_live_positions_field_contract():
     import httpx
 
     async with httpx.AsyncClient(timeout=20.0) as client:
-        trades = (await client.get("https://data-api.polymarket.com/trades", params={"limit": 3})).json()
+        try:
+            resp = await client.get(
+                "https://data-api.polymarket.com/trades", params={"limit": 3}
+            )
+        except (httpx.HTTPError, OSError) as exc:
+            _skip_on_transport(exc, "data-api /trades")
+        _check_response(resp, "data-api /trades")
+        trades = resp.json()
         assert isinstance(trades, list) and trades
         for t in trades:
             for field in ("side", "size", "price", "timestamp", "asset", "conditionId", "proxyWallet"):
                 assert field in t, f"trade missing {field}"
         user = trades[0]["proxyWallet"]
-        positions = (
-            await client.get("https://data-api.polymarket.com/positions", params={"user": user})
-        ).json()
+        try:
+            resp = await client.get(
+                "https://data-api.polymarket.com/positions", params={"user": user}
+            )
+        except (httpx.HTTPError, OSError) as exc:
+            _skip_on_transport(exc, "data-api /positions")
+        _check_response(resp, "data-api /positions")
+        positions = resp.json()
         assert isinstance(positions, list)
         for p in positions:
             for field in ("avgPrice", "asset", "size", "curPrice", "currentValue", "conditionId", "title"):
@@ -405,14 +430,131 @@ async def test_live_activity_field_contract():
     import httpx
 
     async with httpx.AsyncClient(timeout=20.0) as client:
-        trades = (await client.get("https://data-api.polymarket.com/trades", params={"limit": 1})).json()
+        try:
+            resp = await client.get(
+                "https://data-api.polymarket.com/trades", params={"limit": 1}
+            )
+        except (httpx.HTTPError, OSError) as exc:
+            _skip_on_transport(exc, "data-api /trades")
+        _check_response(resp, "data-api /trades")
+        trades = resp.json()
         user = trades[0]["proxyWallet"]
-        activities = (
-            await client.get("https://data-api.polymarket.com/activity", params={"user": user, "limit": 3})
-        ).json()
+        try:
+            resp = await client.get(
+                "https://data-api.polymarket.com/activity", params={"user": user, "limit": 3}
+            )
+        except (httpx.HTTPError, OSError) as exc:
+            _skip_on_transport(exc, "data-api /activity")
+        _check_response(resp, "data-api /activity")
+        activities = resp.json()
         assert isinstance(activities, list)
         for a in activities:
             for field in ("type", "timestamp", "size", "usdcSize", "title", "conditionId"):
                 assert field in a, f"activity missing {field}"
             for absent in ("amount", "value", "market_question", "transaction_hash"):
                 assert absent not in a, f"activity unexpectedly has {absent}"
+
+
+# --- Transport-guard meta-tests (offline; proves the L-0026 skip-of-infra) --
+
+class _ProbeResponse:
+    """httpx.Response stand-in for the meta-tests: fixed status + JSON."""
+
+    def __init__(self, status_code, payload):
+        self.status_code = status_code
+        self._payload = payload
+
+    def raise_for_status(self):
+        """200-only stand-in: healthy responses never raise here."""
+
+    def json(self):
+        return self._payload
+
+
+async def _run_probe_outcome(coro):
+    """Run a live test body to completion and report its outcome name.
+
+    'Passed' when the body completes; otherwise the exception class name
+    ('Skipped'/'Skip' when the transport guard fires; the raw transport
+    class -- e.g. ConnectError -- pre-guard, which is the deterministic RED
+    this meta-suite pins). ``except BaseException`` is deliberate: the
+    probe reports the outcome, it does not swallow it.
+    """
+    try:
+        await coro
+    except BaseException as exc:
+        return type(exc).__name__
+    return "Passed"
+
+
+@pytest.mark.asyncio
+async def test_meta_transport_guard_skips_when_transport_always_booms(monkeypatch):
+    """Meta-1 (always-boom): ConnectError on the 1st call (/trades) -> the
+    live positions test SKIPS via the guard instead of erroring (pre-guard
+    the exception propagated and this test was RED -- L-0026 skip-of-infra)."""
+    import httpx
+
+    class _AlwaysBoomClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc_info):
+            return False
+
+        async def get(self, url, params=None):
+            raise httpx.ConnectError("synthetic transport outage")
+
+    monkeypatch.setattr(httpx, "AsyncClient", _AlwaysBoomClient)
+
+    name = await _run_probe_outcome(test_live_positions_field_contract())
+
+    assert name in ("Skipped", "Skip")
+
+
+@pytest.mark.asyncio
+async def test_meta_transport_guard_skips_on_second_call_boom(monkeypatch):
+    """Meta-2 (counter-boom, raise on call >= 2): the 1st call (/trades)
+    succeeds with the REAL-shaped fake trade (the field-contract asserts
+    pass) and the 2nd call (/positions) booms -> SKIP. Proves the guard
+    wraps each call site, not the whole module."""
+    import httpx
+
+    class _CounterBoomClient:
+        calls = 0
+
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc_info):
+            return False
+
+        async def get(self, url, params=None):
+            type(self).calls += 1
+            if type(self).calls >= 2:
+                raise httpx.ConnectError("synthetic transport outage")
+            return _ProbeResponse(
+                200,
+                [
+                    {
+                        "side": "BUY",
+                        "size": "1",
+                        "price": "0.5",
+                        "timestamp": 123,
+                        "asset": "a",
+                        "conditionId": "0xc",
+                        "proxyWallet": "0xp",
+                    }
+                ],
+            )
+
+    monkeypatch.setattr(httpx, "AsyncClient", _CounterBoomClient)
+
+    name = await _run_probe_outcome(test_live_positions_field_contract())
+
+    assert name in ("Skipped", "Skip")
