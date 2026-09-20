@@ -26,6 +26,15 @@ logger = logging.getLogger(__name__)
 
 VALID_ORDER_TYPES: List[str] = ["GTC", "GTD", "FOK", "FAK"]
 
+# Declarative bounds for limit orders, single-sourced here: the
+# create_limit_order schema and the create_batch_orders item schema both
+# reference these constants so the public contract cannot drift from itself
+# (T-0451). The runtime validator (SafetyLimits.validate_order) keeps
+# enforcing the same values per item.
+LIMIT_PRICE_MIN = 0.01
+LIMIT_PRICE_MAX = 0.99
+ORDER_SIZE_MIN = 1
+
 async def _note_clob_429(rate_limiter: Any, exc: BaseException) -> None:
     """Thin delegate to the shared 429 note helper; the order-placement
     wiring pins ``EndpointCategory.TRADING_BURST`` (arming a different
@@ -1425,13 +1434,13 @@ def get_tool_definitions() -> List[types.Tool]:
                     },
                     "price": {
                         "type": "number",
-                        "minimum": 0.01,
-                        "maximum": 0.99,
+                        "minimum": LIMIT_PRICE_MIN,
+                        "maximum": LIMIT_PRICE_MAX,
                         "description": "Limit price (0.01-0.99)"
                     },
                     "size": {
                         "type": "number",
-                        "minimum": 1,
+                        "minimum": ORDER_SIZE_MIN,
                         "description": "Order size in USD"
                     },
                     "order_type": {
@@ -1526,8 +1535,17 @@ def get_tool_definitions() -> List[types.Tool]:
                             "properties": {
                                 "market_id": {"type": "string"},
                                 "side": {"type": "string", "enum": ["BUY", "SELL"]},
-                                "price": {"type": "number"},
-                                "size": {"type": "number"},
+                                "price": {
+                                    "type": "number",
+                                    "minimum": LIMIT_PRICE_MIN,
+                                    "maximum": LIMIT_PRICE_MAX,
+                                    "description": "Limit price (0.01-0.99)"
+                                },
+                                "size": {
+                                    "type": "number",
+                                    "minimum": ORDER_SIZE_MIN,
+                                    "description": "Order size in USD"
+                                },
                                 "order_type": {
                                     "type": "string",
                                     "enum": VALID_ORDER_TYPES
