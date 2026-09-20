@@ -383,7 +383,15 @@ async def _fetch_top_markets(client):
 async def _two_sided_book(client, markets):
     """Walk the top-volume markets and return (token_id, bids, asks) for the
     first with a two-sided book; skip when every candidate is degenerate (the
-    ordering/semantics contract is only pinnable on a real two-sided book)."""
+    ordering/semantics contract is only pinnable on a real two-sided book).
+
+    A gamma-active/open market may have NO deployed CLOB book: proven live in
+    the T-0407 window (2026-09-20), the top-1 market by volume24hr answered
+    HTTP 404 for BOTH clobTokenIds on /book while the next candidate answered
+    200 with a two-sided book. A 404 for a gamma-listed token id is therefore
+    a legitimate degenerate wire state, NOT a live-contract break: the walk
+    SKIPS that candidate (continue). Every other non-200 still goes through
+    _check_response (5xx -> infra skip, other -> live-contract violation)."""
     for market in markets:
         raw = market.get("clobTokenIds")
         if not isinstance(raw, str):
@@ -403,6 +411,11 @@ async def _two_sided_book(client, markets):
             )
         except (httpx.HTTPError, OSError) as exc:
             _skip_on_transport(exc, "CLOB /book")
+        if response.status_code == 404:
+            # No deployed CLOB book for this gamma-listed token - legitimate
+            # degenerate state (see docstring); walk past instead of
+            # fail-closing the whole suite.
+            continue
         _check_response(response, "CLOB /book")
         book = response.json()
         bids = [float(entry["price"]) for entry in (book.get("bids") or [])]
@@ -469,3 +482,95 @@ async def test_live_clob_book_worst_first_ordering():
     assert asks == sorted(asks, reverse=True)
     assert bids[0] < bids[-1]  # best bid at the END of the raw /book bids
     assert asks[0] > asks[-1]  # best ask at the END of the raw /book asks
+
+
+class _FakeBookResponse:
+    """Minimal stand-in for an httpx.Response inside the _two_sided_book walk."""
+
+    def __init__(self, status_code, payload=None):
+        self.status_code = status_code
+        self._payload = payload if payload is not None else {}
+
+    def json(self):
+        return self._payload
+
+
+class _FakeBookClient:
+    """Routes each token id to a canned /book response; any token NOT in the
+    map answers 404 (the no-deployed-book state the walk must survive)."""
+
+    def __init__(self, books=None):
+        self.books = dict(books or {})
+        self.requested = []
+
+    async def get(self, url, params=None):
+        token = params["token_id"]
+        self.requested.append(token)
+        return _FakeBookResponse(*self.books.get(token, (404,)))
+
+
+def _walk_market(token_a, token_b):
+    return {"clobTokenIds": json.dumps([token_a, token_b])}
+
+
+async def test_walk_returns_first_two_sided_book():
+    client = _FakeBookClient({
+        "tokA": (200, {"bids": [{"price": "0.40"}, {"price": "0.52"}],
+                        "asks": [{"price": "0.60"}, {"price": "0.53"}]}),
+    })
+    token, bids, asks = await _two_sided_book(client, [_walk_market("tokA", "tokA2")])
+    assert token == "tokA"
+    assert bids == [0.40, 0.52]
+    assert asks == [0.60, 0.53]
+    assert client.requested == ["tokA"]
+
+
+async def test_walk_continues_past_book_404():
+    client = _FakeBookClient({
+        "tokC": (200, {"bids": [{"price": "0.01"}, {"price": "0.02"}],
+                        "asks": [{"price": "0.99"}, {"price": "0.98"}]}),
+    })
+    markets = [_walk_market("tokB", "tokB2"), _walk_market("tokC", "tokC2")]
+    token, bids, asks = await _two_sided_book(client, markets)
+    assert token == "tokC"
+    assert bids == [0.01, 0.02]
+    assert asks == [0.99, 0.98]
+    assert client.requested == ["tokB", "tokC"]
+
+
+async def test_walk_continues_past_one_sided_book():
+    client = _FakeBookClient({
+        "tokD": (200, {"bids": [{"price": "0.10"}, {"price": "0.11"}], "asks": []}),
+        "tokE": (200, {"bids": [{"price": "0.20"}, {"price": "0.21"}],
+                        "asks": [{"price": "0.80"}, {"price": "0.79"}]}),
+    })
+    markets = [_walk_market("tokD", "tokD2"), _walk_market("tokE", "tokE2")]
+    token, bids, asks = await _two_sided_book(client, markets)
+    assert token == "tokE"
+    assert client.requested == ["tokD", "tokE"]
+
+
+async def test_walk_continues_past_malformed_token_ids():
+    client = _FakeBookClient({
+        "tokH": (200, {"bids": [{"price": "0.30"}, {"price": "0.31"}],
+                        "asks": [{"price": "0.70"}, {"price": "0.69"}]}),
+    })
+    markets = [
+        {"clobTokenIds": "not-json"},
+        {"clobTokenIds": json.dumps(["only1"])},
+        {"clobTokenIds": 42},
+        _walk_market("tokH", "tokH2"),
+    ]
+    token, bids, asks = await _two_sided_book(client, markets)
+    assert token == "tokH"
+    assert client.requested == ["tokH"]
+
+
+async def test_walk_skips_when_no_candidate_is_two_sided():
+    client = _FakeBookClient({
+        "tokJ": (200, {"bids": [{"price": "0.10"}, {"price": "0.11"}], "asks": []}),
+    })
+    markets = [_walk_market("tokI", "tokI2"), _walk_market("tokJ", "tokJ2")]
+    with pytest.raises(pytest.skip.Exception):
+        await _two_sided_book(client, markets)
+    assert client.requested == ["tokI", "tokJ"]
