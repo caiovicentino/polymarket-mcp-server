@@ -52,7 +52,9 @@ self-contained (house rule: never import fakes from another test module).
 """
 from decimal import Decimal
 
+import httpx
 import pytest
+from py_clob_client.exceptions import PolyApiException
 
 from polymarket_mcp.auth.client import PolymarketClient
 from polymarket_mcp.tools.trading import TradingTools
@@ -341,6 +343,22 @@ async def test_create_limit_order_rejects_out_of_client_range():
 # --- LIVE probes (integration-marked: deselected by the offline acceptance) --
 
 
+def _skip_on_clob_outage(exc, label):
+    """Network guard for the py_clob_client surface: PolyApiException wraps
+    BOTH transport errors (py_clob_client catches httpx.RequestError and
+    re-raises with status_code=None - proven 1st hand in the 0.34.6 source,
+    py_clob_client/http_helpers/helpers.py) AND API non-200s (status_code=
+    int). Transport, 5xx and 429 are infra/outage: SKIP with reason. Any
+    other non-200 is a live-contract violation (FAIL)."""
+    status = getattr(exc, "status_code", None)
+    if status is None or status >= 500 or status == 429:
+        pytest.skip(
+            f"{label}: CLOB transport/API outage "
+            f"({type(exc).__name__} status={status})"
+        )
+    raise
+
+
 @pytest.mark.integration
 async def test_live_book_prices_are_tick_aligned():
     """REAL /book + /tick-size for the SAME token: every wire price is a
@@ -352,7 +370,10 @@ async def test_live_book_prices_are_tick_aligned():
         api_secret="s",
         passphrase="p",
     )
-    book = await pmc.get_orderbook(FED_TOKEN)
+    try:
+        book = await pmc.get_orderbook(FED_TOKEN)
+    except (PolyApiException, OSError) as exc:
+        _skip_on_clob_outage(exc, "live /book")
     tick_raw = book.get("tick_size")
     assert tick_raw is not None, "live /book payload must carry tick_size"
     tick = Decimal(str(tick_raw))
@@ -379,5 +400,66 @@ async def test_live_tick_size_endpoint():
         api_secret="s",
         passphrase="p",
     )
-    tick_size = pmc.get_client().get_tick_size(FED_TOKEN)
+    try:
+        tick_size = pmc.get_client().get_tick_size(FED_TOKEN)
+    except (PolyApiException, OSError) as exc:
+        _skip_on_clob_outage(exc, "live /tick-size")
     assert float(tick_size) in {0.001, 0.01, 0.1}
+
+
+# --- Transport-guard meta-tests (offline, deterministic) --------------------
+
+
+async def test_meta_clob_transport_skips_live_book_probe(monkeypatch):
+    """A PolyApiException WITHOUT status (py_clob_client catches httpx
+    RequestError and re-raises) makes the live probe SKIP, never FAIL."""
+    async def boom(self, token_id):
+        raise PolyApiException(error_msg="Request exception!")
+
+    monkeypatch.setattr(PolymarketClient, "get_orderbook", boom)
+    with pytest.raises(pytest.skip.Exception):
+        await test_live_book_prices_are_tick_aligned()
+
+
+async def test_meta_clob_5xx_skips_live_book_probe(monkeypatch):
+    """A 5xx PolyApiException is an API-side outage: SKIP with reason."""
+    async def boom(self, token_id):
+        raise PolyApiException(httpx.Response(502, text="bad gateway"))
+
+    monkeypatch.setattr(PolymarketClient, "get_orderbook", boom)
+    with pytest.raises(pytest.skip.Exception):
+        await test_live_book_prices_are_tick_aligned()
+
+
+async def test_meta_clob_4xx_is_live_contract_violation(monkeypatch):
+    """A 4xx PolyApiException is a live-contract violation: it must KEEP
+    FAILING (the guard must not swallow wire-state drift)."""
+    async def boom(self, token_id):
+        raise PolyApiException(httpx.Response(404, text="not found"))
+
+    monkeypatch.setattr(PolymarketClient, "get_orderbook", boom)
+    with pytest.raises(PolyApiException):
+        await test_live_book_prices_are_tick_aligned()
+
+
+async def test_meta_clob_oserror_skips_live_book_probe(monkeypatch):
+    """An OS-level socket error (DNS/refused) is transport: SKIP."""
+    async def boom(self, token_id):
+        raise OSError("connection refused")
+
+    monkeypatch.setattr(PolymarketClient, "get_orderbook", boom)
+    with pytest.raises(pytest.skip.Exception):
+        await test_live_book_prices_are_tick_aligned()
+
+
+async def test_meta_clob_tick_size_transport_skips(monkeypatch):
+    """The /tick-size live probe SKIPs on transport (PolyApiException with
+    no status) instead of failing the suite."""
+    from py_clob_client.client import ClobClient
+
+    def boom(self, token_id):
+        raise PolyApiException(error_msg="Request exception!")
+
+    monkeypatch.setattr(ClobClient, "get_tick_size", boom)
+    with pytest.raises(pytest.skip.Exception):
+        await test_live_tick_size_endpoint()
