@@ -173,9 +173,13 @@ class SafetyLimits:
             else:
                 existing_position = self._get_position(market_positions, order.token_id)
                 if existing_position:
-                    new_market_exposure = market_exposure - min(
-                        order_value_usd, existing_position.value_usd
-                    )
+                    closed = min(order_value_usd, existing_position.value_usd)
+                    new_market_exposure = market_exposure - closed
+                    if order_value_usd > closed:
+                        # Same rationale as the total-exposure branch: an over-sell
+                        # beyond what is held is a NEW short exposure against this
+                        # market's per-market cap.
+                        new_market_exposure += order_value_usd - closed
                 else:
                     new_market_exposure = market_exposure + order_value_usd
 
