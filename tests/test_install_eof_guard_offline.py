@@ -299,16 +299,23 @@ def _spawn(sb: Path, body: str, stdin_text: str, sourced: bool = True):
             f"export HOME={shlex.quote(str(sb / 'home'))}\n"
             f"export PATH={shlex.quote(_child_path())}\n"
             "export TERM=xterm\n"
-            f"bash {shlex.quote(str(sb / 'install.sh'))}\n"
+            # [ci-unblock-r3b] bash ABSOLUTO: a resolucao de `bash` pelo PATH filho falhou no
+            # runner windows (`bash: command not found`, run 35488821738) mesmo com o prefixo
+            # msys presente -- o argv[0] absoluto do _bash_exe() elimina a dependencia de PATH.
+            f"{shlex.quote(str(_bash_exe()))} {shlex.quote(str(sb / 'install.sh'))}\n"
         )
     try:
         return subprocess.run(
             [_bash_exe(), "-c", script],
             capture_output=True,
-            text=True,
+            # [ci-unblock-r3 2026-09-19, canal do dono] stdin em BYTES: com text=True o
+            # Windows traduz \n -> \r\n no stdin e o `read` do install.sh recebe CR --
+            # o prompt itera "Invalid private key format" e o EOF guard NUNCA dispara
+            # (run 3545... test_eof_at_wallet_address_read_fails_loud). Classe L-0316
+            # (win env merge). O output cru é decodificado em _output (errors=replace).
             cwd=str(sb),
             env=_run_env(sb / "home"),
-            input=stdin_text,
+            input=stdin_text.encode("utf-8"),
             timeout=_SPAWN_TIMEOUT,
         )
     except subprocess.TimeoutExpired:
@@ -323,7 +330,9 @@ def _output(proc) -> str:
     """stdout+stderr joined: bash `read -p` writes prompts to STDERR when
     stdin is not a TTY, and print_error writes to STDOUT -- the diagnostic
     observables may land on either stream."""
-    return (proc.stdout or "") + (proc.stderr or "")
+    def _d(b):
+        return b.decode("utf-8", "replace") if isinstance(b, bytes) else (b or "")
+    return _d(proc.stdout) + _d(proc.stderr)
 
 
 def _assert_no_env(sb: Path) -> None:
