@@ -23,11 +23,39 @@ Out-of-scope sites (user-capped semantics, intentionally single-page):
 ``get_trade_history`` (min(limit, 500)) and ``get_activity_log``
 (min(limit, 500)) -- the limit there is a USER cap, not a page size.
 """
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import httpx
 
 MAX_PAGES = 50
+
+
+async def _note_http_429(
+    rate_limiter: Any,
+    response: Any,
+    category: Any,
+) -> None:
+    """Record an HTTP 429 on the rate limiter so the NEXT acquire() waits.
+
+    Optional wiring: ``rate_limiter``/``category`` kwargs default to None so
+    the existing call sites (which acquire inside the caller's window) are
+    byte-identical until they opt in (declared follow-up). On a 429 the
+    helper arms the exponential backoff (or the server's ``Retry-After``)
+    and the raise path proceeds UNCHANGED, so existing error pins hold.
+    ``status_code`` is read via getattr with default None so stub responses
+    without the attribute are untouched.
+    """
+    if rate_limiter is None or category is None:
+        return
+    if getattr(response, "status_code", None) != 429:
+        return
+    headers = getattr(response, "headers", None)
+    retry_after: Optional[int] = None
+    if headers is not None:
+        raw = headers.get("retry-after")
+        if raw is not None and str(raw).strip().isdigit():
+            retry_after = int(raw)
+    await rate_limiter.handle_429_error(category, retry_after)
 
 
 async def fetch_all_pages(
@@ -37,6 +65,8 @@ async def fetch_all_pages(
     timeout: float = 10.0,
     default_page_size: int = 100,
     max_pages: int = MAX_PAGES,
+    rate_limiter: Any = None,
+    category: Any = None,
 ) -> List[Dict[str, Any]]:
     """Fetch every page of a Data-API list endpoint.
 
@@ -50,6 +80,7 @@ async def fetch_all_pages(
     raise (httpx.HTTPStatusError on non-2xx), unchanged.
     """
     response = await client.get(url, params=params, timeout=timeout)
+    await _note_http_429(rate_limiter, response, category)
     response.raise_for_status()
     rows: List[Dict[str, Any]] = response.json()
 
@@ -64,6 +95,7 @@ async def fetch_all_pages(
         page_params["limit"] = cap
         page_params["offset"] = len(fetched)
         resp = await client.get(url, params=page_params, timeout=timeout)
+        await _note_http_429(rate_limiter, resp, category)
         resp.raise_for_status()
         page: List[Dict[str, Any]] = resp.json()
         if not page:
