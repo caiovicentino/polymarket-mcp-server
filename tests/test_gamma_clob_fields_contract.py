@@ -443,10 +443,20 @@ async def test_live_gamma_volume_fields_1wk_1mo_present():
 @pytest.mark.integration
 async def test_live_clob_price_buy_sell_semantics():
     """Live pin of the REAL /price semantics (the V12b proof): side=BUY
-    returns the best BID (== max(bid prices) of /book) and side=SELL returns
-    the best ASK (== min(ask prices) of /book). Tolerance: exact - the probes
-    proved the match; the two calls race the same stateless order book, so a
-    failure here is a live-contract break, not an infra skip."""
+    returns a price from the BID side and side=SELL a price from the ASK
+    side of the /book. FATOS ESTAVEIS only (P-0197/L-0390): the /book
+    snapshot and the two /price calls hit a LIVE matching engine at
+    different instants -- CI evidence run 35486236626 (ubuntu 3.11):
+    sell_price 0.13 vs min(asks) 0.12, a 1-tick move inside ONE run, with
+    the same code passing the adjacent run. Exact equality is a time bomb;
+    the asserts below pin the SIDE mapping with a tolerance band (0.05 =
+    5 ticks of a 0.01-tick market) and the relational fact buy <= sell
+    (+tol). Declared limitation: on tight-spread books (< tol) the
+    inverted mapping is NOT discriminated live -- the primary inversion
+    pin lives offline (test_get_current_price_mapping_not_inverted,
+    xfail-strict); this test is the wire-sanity belt. A move LARGER than
+    the tolerance between the bracketed calls remains RED (pathological
+    volatility) -- the gate's flaky retry absorbs rare occurrences."""
     async with httpx.AsyncClient(timeout=30.0) as client:
         markets = await _fetch_top_markets(client)
         token_id, bids, asks = await _two_sided_book(client, markets)
@@ -464,8 +474,21 @@ async def test_live_clob_price_buy_sell_semantics():
         buy_price = float(buy_response.json()["price"])
         sell_price = float(sell_response.json()["price"])
 
-    assert buy_price == max(bids)
-    assert sell_price == min(asks)
+    buy_sell_tol = 0.05  # 5 ticks of a 0.01-tick market: absorbs normal
+    # freshness variance between the /book snapshot and the /price calls
+    # (CI evidence run 35486236626: a 1-tick move inside one run).
+    assert buy_price <= sell_price + buy_sell_tol, (
+        f"BUY price must come from the BID side (buy <= sell + tol): "
+        f"buy={buy_price} sell={sell_price}"
+    )
+    assert abs(buy_price - max(bids)) <= buy_sell_tol, (
+        f"buy price drifted beyond the tolerance band from the best bid: "
+        f"buy={buy_price} max(bids)={max(bids)}"
+    )
+    assert abs(sell_price - min(asks)) <= buy_sell_tol, (
+        f"sell price drifted beyond the tolerance band from the best ask: "
+        f"sell={sell_price} min(asks)={min(asks)}"
+    )
 
 
 @pytest.mark.integration
