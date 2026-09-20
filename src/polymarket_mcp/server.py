@@ -285,7 +285,7 @@ class _PreHandshakeStream:
         except Exception as exc:
             # The interceptor must never leave a client waiting: answer with a
             # JSON-RPC error instead of dropping the request (issue #39 R1).
-            logger.error(f"server/discover failed: {exc}")
+            logger.error(f"server/discover failed: {_safe_error_message(exc)}")
             await self._send_discover_error(
                 request_id=request_id,
                 code=DISCOVER_INTERNAL_ERROR_CODE,
@@ -318,7 +318,7 @@ async def _start_websocket(manager: WebSocketManager) -> None:
         await manager.connect()
         await manager.start_background_task()
     except Exception as e:
-        logger.error(f"WebSocket startup failed: {e}")
+        logger.error(f"WebSocket startup failed: {_safe_error_message(e)}")
 
 
 async def shutdown() -> None:
@@ -340,7 +340,7 @@ async def shutdown() -> None:
             await polymarket_client.cancel_all_orders()
             logger.info("All open orders canceled successfully")
         except Exception as e:
-            logger.error(f"Failed to cancel orders during shutdown: {e}")
+            logger.error(f"Failed to cancel orders during shutdown: {_safe_error_message(e)}")
     elif cancel_on_shutdown:
         logger.info("Skipping order cancellation (no API credentials)")
     else:
@@ -354,7 +354,7 @@ async def shutdown() -> None:
             await websocket_manager.stop_background_task()
             logger.info("WebSocket connections closed")
         except Exception as e:
-            logger.error(f"Failed to close WebSocket connections: {e}")
+            logger.error(f"Failed to close WebSocket connections: {_safe_error_message(e)}")
 
     logger.info("Graceful shutdown complete")
 
@@ -616,7 +616,7 @@ async def call_tool(name: str, arguments: Dict[str, Any]) -> list[types.TextCont
             raise ValueError(f"Unknown tool: {name}")
 
     except Exception as e:
-        logger.error(f"Tool call failed: {name} - {e}")
+        logger.error(f"Tool call failed: {name} - {_safe_error_message(e)}")
         error_result = {
             "success": False,
             "error": str(e),
@@ -679,7 +679,7 @@ async def initialize_server() -> None:
                 logger.debug(f"POLYMARKET_API_KEY={api_key[:8]}...")
                 logger.debug(f"POLYMARKET_PASSPHRASE={passphrase[:8]}...")
             except Exception as e:
-                logger.warning(f"Could not create API credentials: {e}")
+                logger.warning(f"Could not create API credentials: {_safe_error_message(e)}")
                 logger.info("Continuing in READ-ONLY mode")
                 logger.info("Available: Market Discovery (8 tools) + Market Analysis (10 tools)")
                 logger.info("Unavailable: Trading (12 tools) + Portfolio (8 tools)")
@@ -817,7 +817,7 @@ async def main() -> None:
     except KeyboardInterrupt:
         logger.info("Server stopped by user (KeyboardInterrupt)")
     except Exception as e:
-        logger.error(f"Server error: {e}")
+        logger.error(f"Server error: {_safe_error_message(e)}")
         raise
     finally:
         # Always attempt graceful shutdown
