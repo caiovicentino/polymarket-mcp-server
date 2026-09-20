@@ -215,9 +215,25 @@ async def test_event_markets_resolves_slug_via_query(monkeypatch):
     assert markets[0]["slug"] == XI_SLUG
 
 
+def _skip_on_transport(exc, label):
+    """Network guard: infra failures SKIP (never fail the suite for infra)."""
+    pytest.skip(f"{label} unreachable ({type(exc).__name__}: {exc})")
+
+
+def _check_response(response, label):
+    """Fail-closed response check: 5xx is an API-side outage (documented
+    skip); any other non-200 is a live-contract violation (FAIL)."""
+    if response.status_code >= 500:
+        pytest.skip(f"{label}: live API outage (HTTP {response.status_code})")
+    assert response.status_code == 200, f"{label}: expected HTTP 200, got {response.status_code}"
+
+
 async def _derive_listing(client):
-    resp = await client.get(f"{GAMMA}/markets", params={"limit": 5})
-    resp.raise_for_status()
+    try:
+        resp = await client.get(f"{GAMMA}/markets", params={"limit": 5})
+    except (httpx.HTTPError, OSError) as exc:
+        _skip_on_transport(exc, "gamma /markets")
+    _check_response(resp, "gamma /markets")
     return resp.json()
 
 
@@ -226,8 +242,11 @@ async def test_live_events_slug_query_returns_event_with_markets():
     async with httpx.AsyncClient(timeout=30.0) as client:
         listing = await _derive_listing(client)
         slug = listing[0]["slug"]
-        resp = await client.get(f"{GAMMA}/events", params={"slug": slug})
-        assert resp.status_code == 200
+        try:
+            resp = await client.get(f"{GAMMA}/events", params={"slug": slug})
+        except (httpx.HTTPError, OSError) as exc:
+            _skip_on_transport(exc, "gamma /events slug")
+        _check_response(resp, "gamma /events slug")
         body = resp.json()
         assert isinstance(body, list) and body, body
         event = body[0]
@@ -240,17 +259,23 @@ async def test_live_events_path_rejects_slug():
     async with httpx.AsyncClient(timeout=30.0) as client:
         listing = await _derive_listing(client)
         slug = listing[0]["slug"]
-        resp = await client.get(f"{GAMMA}/events/{slug}")
+        try:
+            resp = await client.get(f"{GAMMA}/events/{slug}")
+        except (httpx.HTTPError, OSError) as exc:
+            _skip_on_transport(exc, "gamma /events path")
         assert resp.status_code >= 400
 
 
 @pytest.mark.integration
 async def test_live_featured_param_is_ignored():
     async with httpx.AsyncClient(timeout=30.0) as client:
-        resp = await client.get(
-            f"{GAMMA}/markets", params={"featured": "true", "limit": 20}
-        )
-        assert resp.status_code == 200
+        try:
+            resp = await client.get(
+                f"{GAMMA}/markets", params={"featured": "true", "limit": 20}
+            )
+        except (httpx.HTTPError, OSError) as exc:
+            _skip_on_transport(exc, "gamma /markets featured")
+        _check_response(resp, "gamma /markets featured")
         body = resp.json()
         assert body, "listing must not be empty"
         not_featured = [m for m in body if not m.get("featured")]
@@ -262,9 +287,16 @@ async def test_live_featured_param_is_ignored():
 @pytest.mark.integration
 async def test_live_tag_param_differs_from_tag_id_filter():
     async with httpx.AsyncClient(timeout=30.0) as client:
-        tagged = await client.get(f"{GAMMA}/markets", params={"tag": "Crypto", "limit": 3})
-        by_id = await client.get(f"{GAMMA}/markets", params={"tag_id": "21", "limit": 3})
-        assert tagged.status_code == 200 and by_id.status_code == 200
+        try:
+            tagged = await client.get(f"{GAMMA}/markets", params={"tag": "Crypto", "limit": 3})
+        except (httpx.HTTPError, OSError) as exc:
+            _skip_on_transport(exc, "gamma /markets tag")
+        try:
+            by_id = await client.get(f"{GAMMA}/markets", params={"tag_id": "21", "limit": 3})
+        except (httpx.HTTPError, OSError) as exc:
+            _skip_on_transport(exc, "gamma /markets tag_id")
+        _check_response(tagged, "gamma /markets tag")
+        _check_response(by_id, "gamma /markets tag_id")
         first_tagged = tagged.json()[0]["id"] if tagged.json() else None
         first_by_id = by_id.json()[0]["id"] if by_id.json() else None
         assert first_tagged != first_by_id, (
@@ -275,11 +307,67 @@ async def test_live_tag_param_differs_from_tag_id_filter():
 @pytest.mark.integration
 async def test_live_tag_id_filters_and_bogus_returns_empty():
     async with httpx.AsyncClient(timeout=30.0) as client:
-        bogus = await client.get(
-            f"{GAMMA}/markets", params={"tag_id": "999999999", "limit": 3}
-        )
-        assert bogus.status_code == 200
+        try:
+            bogus = await client.get(
+                f"{GAMMA}/markets", params={"tag_id": "999999999", "limit": 3}
+            )
+        except (httpx.HTTPError, OSError) as exc:
+            _skip_on_transport(exc, "gamma /markets tag_id bogus")
+        try:
+            real = await client.get(f"{GAMMA}/markets", params={"tag_id": "21", "limit": 3})
+        except (httpx.HTTPError, OSError) as exc:
+            _skip_on_transport(exc, "gamma /markets tag_id real")
+        _check_response(bogus, "gamma /markets tag_id bogus")
+        _check_response(real, "gamma /markets tag_id real")
         assert bogus.json() == [], bogus.json()
-        real = await client.get(f"{GAMMA}/markets", params={"tag_id": "21", "limit": 3})
-        assert real.status_code == 200
         assert real.json(), real.json()
+
+
+@pytest.mark.asyncio
+async def test_transport_guard_skips_on_connect_error(monkeypatch):
+    """The network guard is a SKIP, not a FAIL (L-0026): with the transport
+    dead, the live test is skipped for infra reasons, never failed."""
+    async def boom(self, *args, **kwargs):
+        raise httpx.ConnectError("simulated transport failure")
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", boom)
+    name = None
+    try:
+        await test_live_events_slug_query_returns_event_with_markets()
+    except BaseException as exc:
+        name = type(exc).__name__
+    assert name in ("Skipped", "Skip"), (
+        f"expected the live test to SKIP on transport failure, got {name}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_transport_guard_skips_on_direct_call_site(monkeypatch):
+    """A transport failure at a DIRECT call site (not only the shared
+    helper) also skips: the guard wraps every live call site."""
+    calls = {"n": 0}
+
+    class _FakeResp:
+        status_code = 200
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return [{"id": "1", "slug": "fake-slug"}]
+
+    async def boom(self, *args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] >= 2:
+            raise httpx.ConnectError("simulated transport failure")
+        return _FakeResp()
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", boom)
+    name = None
+    try:
+        await test_live_events_slug_query_returns_event_with_markets()
+    except BaseException as exc:
+        name = type(exc).__name__
+    assert name in ("Skipped", "Skip"), (
+        f"expected the live test to SKIP on direct-site transport failure, got {name}"
+    )
