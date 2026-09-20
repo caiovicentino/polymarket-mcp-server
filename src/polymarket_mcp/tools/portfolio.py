@@ -1243,16 +1243,14 @@ async def suggest_portfolio_actions(
     try:
         from ..utils.rate_limiter import EndpointCategory
 
-        # Fetch all positions
+        # Fetch all positions (paginated -- V-PAG follow-up, P-0139(5))
         await rate_limiter.acquire(EndpointCategory.DATA_API)
         async with httpx.AsyncClient() as client:
-            response = await client.get(
+            positions = await fetch_all_pages(
+                client,
                 "https://data-api.polymarket.com/positions",
-                params={"user": config.POLYGON_ADDRESS.lower()},
-                timeout=10.0
+                {"user": config.POLYGON_ADDRESS.lower()},
             )
-            response.raise_for_status()
-            positions = response.json()
 
         if not positions:
             return [types.TextContent(
