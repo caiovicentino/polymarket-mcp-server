@@ -296,13 +296,20 @@ async def test_trending_tool_passes_limit_through(monkeypatch):
     result = await market_discovery.get_trending_markets(timeframe="24h", limit=250)
 
     assert calls[0]["endpoint"] == "/markets"
-    assert calls[0]["params"] == {"active": "true", "closed": "false"}
+    # FIXED (farm/T-0460): params gain order/ascending (server-side order).
+    assert calls[0]["params"] == {
+        "active": "true", "closed": "false", "order": "volume24hr",
+        "ascending": "false",
+    }
     assert calls[0]["limit"] == 250
     assert len(result) == 250
 
     result2 = await market_discovery.get_trending_markets(timeframe="24h", limit=10)
 
-    assert calls[1]["params"] == {"active": "true", "closed": "false"}
+    assert calls[1]["params"] == {
+        "active": "true", "closed": "false", "order": "volume24hr",
+        "ascending": "false",
+    }
     assert calls[1]["limit"] == 100  # byte-identical to the :454-456 pin
     assert len(result2) == 10
 
@@ -318,13 +325,18 @@ async def test_closing_soon_tool_passes_limit_through(monkeypatch):
 
     result = await market_discovery.get_closing_soon_markets(limit=250)
 
-    assert calls[0]["params"] == {"active": "true", "closed": "false"}
+    # FIXED (farm/T-0459): params gain the server-side closing window; the
+    # limit-passthrough assertions are unchanged.
+    params0 = calls[0]["params"]
+    assert params0["order"] == "endDate" and params0["ascending"] == "true"
+    assert "end_date_min" in params0 and "end_date_max" in params0
     assert calls[0]["limit"] == 250
     assert len(result) == 250
 
     result2 = await market_discovery.get_closing_soon_markets(limit=10)
 
-    assert calls[1]["params"] == {"active": "true", "closed": "false"}
+    params1 = calls[1]["params"]
+    assert params1["order"] == "endDate" and params1["ascending"] == "true"
     assert calls[1]["limit"] == 100  # byte-identical to the :653-655 pin
     assert len(result2) == 10
 

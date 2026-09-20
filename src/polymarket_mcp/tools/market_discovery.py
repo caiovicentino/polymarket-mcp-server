@@ -246,10 +246,31 @@ async def get_trending_markets(
         Top markets by volume in the specified timeframe
     """
     try:
-        # Fetch all active, non-closed markets
+        # Resolve the sort key BEFORE the fetch. The gamma /markets default
+        # order is id-ascending (probed 2026-09-20), so the first page is an
+        # arbitrary subsample and "trending" returned the top of that sample,
+        # not the true top by volume. The wire honors
+        # `order=<key>&ascending=false` server-side (probed descending:
+        # 7.15M/6.84M/2.95M for volume1wk), so the fetch asks for the real
+        # top-by-volume window. The wire carries volume1wk/volume1mo --
+        # volume7d/volume30d DO NOT EXIST (probed 2026-09-20,
+        # tests/test_gamma_list_contract.py; farm/T-0455 fixed the client
+        # sort, farm/T-0460 fixes the sample).
+        volume_key_map = {
+            "24h": "volume24hr",
+            "7d": "volume1wk",
+            "30d": "volume1mo",
+        }
+        volume_key = volume_key_map.get(timeframe, "volume24hr")
+        params = {
+            "active": "true",
+            "closed": "false",
+            "order": volume_key,
+            "ascending": "false",
+        }
         markets = await _fetch_gamma_markets(
             "/markets",
-            {"active": "true", "closed": "false"},
+            params,
             limit=limit if limit > _GAMMA_PAGE_SIZE else _GAMMA_PAGE_SIZE,
         )
 
@@ -270,20 +291,10 @@ async def get_trending_markets(
                     pass
             current_markets.append(m)
 
-        # Sort by volume based on timeframe. The gamma /markets wire carries
-        # volume1wk/volume1mo -- volume7d/volume30d DO NOT EXIST (probed
-        # 2026-09-20, tests/test_gamma_list_contract.py), so 7d/30d map to the
-        # real trailing-week/month fields; the old keys made the sort a no-op
-        # (farm/T-0455, V10-list site of REQUER-HUMANO item 138).
-        volume_key_map = {
-            "24h": "volume24hr",
-            "7d": "volume1wk",
-            "30d": "volume1mo"
-        }
-
-        volume_key = volume_key_map.get(timeframe, "volume24hr")
-
-        # Sort by volume (descending)
+        # Sort by volume (descending) -- identity when the wire honored the
+        # server-side order (farm/T-0460); retained as defense for fakes and
+        # wire regressions (the T-0455 client-side sort stays zero-semantic
+        # post-order).
         sorted_markets = sorted(
             current_markets,
             key=lambda m: float(m.get(volume_key, 0) or 0),
@@ -435,11 +446,26 @@ async def get_closing_soon_markets(
     """
     try:
         # Calculate cutoff time
-        cutoff_time = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=hours)
+        now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+        cutoff_time = now_naive + timedelta(hours=hours)
 
-        # Fetch active, non-closed markets
+        # Server-side closing window. The gamma /markets default order is
+        # id-ascending (probed 2026-09-20), so a plain fetch samples the
+        # first page by id and the soonest-closing markets are NOT in it --
+        # the parse fix alone would still return [] for realistic windows.
+        # The wire honors `end_date_min`/`end_date_max` (probed 2026-09-20)
+        # and `order=endDate&ascending=true` (soonest first), so the fetch
+        # asks for the markets closing within [now, now+hours] directly.
+        params = {
+            "active": "true",
+            "closed": "false",
+            "end_date_min": now_naive.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "end_date_max": cutoff_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "order": "endDate",
+            "ascending": "true",
+        }
         fetch_limit = limit if limit > _GAMMA_PAGE_SIZE else _GAMMA_PAGE_SIZE
-        markets = await _fetch_gamma_markets("/markets", {"active": "true", "closed": "false"}, limit=fetch_limit)
+        markets = await _fetch_gamma_markets("/markets", params, limit=fetch_limit)
 
         # Filter markets closing within timeframe
         closing_soon = []
@@ -449,7 +475,9 @@ async def get_closing_soon_markets(
                 # Parse ISO date or timestamp
                 try:
                     if isinstance(end_date, str):
-                        end_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+                        end_dt = datetime.fromisoformat(
+                            end_date.replace("Z", "+00:00")
+                        ).replace(tzinfo=None)
                     else:
                         end_dt = datetime.fromtimestamp(int(end_date))
 

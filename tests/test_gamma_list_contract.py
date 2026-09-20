@@ -107,10 +107,9 @@ async def test_trending_30d_sorts_by_real_volume_field(monkeypatch):
     assert [m["id"] for m in result] == ["b", "c", "a"]
 
 
-@pytest.mark.xfail(reason="get_closing_soon_markets parses the Z-suffixed "
-                          "endDate AWARE and compares against a NAIVE cutoff "
-                          "-> TypeError -> every real market skipped "
-                          "(REQUER-HUMANO item 141)", strict=True)
+# FIXED (farm/T-0460, REQUER-HUMANO item 152): the xfail above pinned the
+# aware-vs-naive TypeError skip as OBSERVED; the fix strips tzinfo before the
+# comparison, so the post-fix assertions below are the plain contract now.
 @pytest.mark.asyncio
 async def test_closing_soon_includes_z_suffixed_end_date(monkeypatch):
     """A REAL endDate ('...Z') within the window must be INCLUDED.
