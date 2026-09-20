@@ -270,11 +270,15 @@ async def get_trending_markets(
                     pass
             current_markets.append(m)
 
-        # Sort by volume based on timeframe
+        # Sort by volume based on timeframe. The gamma /markets wire carries
+        # volume1wk/volume1mo -- volume7d/volume30d DO NOT EXIST (probed
+        # 2026-09-20, tests/test_gamma_list_contract.py), so 7d/30d map to the
+        # real trailing-week/month fields; the old keys made the sort a no-op
+        # (farm/T-0455, V10-list site of REQUER-HUMANO item 138).
         volume_key_map = {
             "24h": "volume24hr",
-            "7d": "volume7d",
-            "30d": "volume30d"
+            "7d": "volume1wk",
+            "30d": "volume1mo"
         }
 
         volume_key = volume_key_map.get(timeframe, "volume24hr")
