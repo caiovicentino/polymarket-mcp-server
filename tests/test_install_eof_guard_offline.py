@@ -299,7 +299,10 @@ def _spawn(sb: Path, body: str, stdin_text: str, sourced: bool = True):
             f"export HOME={shlex.quote(str(sb / 'home'))}\n"
             f"export PATH={shlex.quote(_child_path())}\n"
             "export TERM=xterm\n"
-            f"bash {shlex.quote(str(sb / 'install.sh'))}\n"
+            # [ci-unblock-r3b] bash ABSOLUTO: a resolucao de `bash` pelo PATH filho falhou no
+            # runner windows (`bash: command not found`, run 35488821738) mesmo com o prefixo
+            # msys presente -- o argv[0] absoluto do _bash_exe() elimina a dependencia de PATH.
+            f"{shlex.quote(str(_bash_exe()))} {shlex.quote(str(sb / 'install.sh'))}\n"
         )
     try:
         return subprocess.run(
