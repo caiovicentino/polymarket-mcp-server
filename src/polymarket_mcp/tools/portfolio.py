@@ -248,6 +248,23 @@ async def get_all_positions(
         )]
 
 
+def _position_matches_market(row: Dict[str, Any], market_id: str) -> bool:
+    """True when the row belongs to the requested market.
+
+    The Data API /positions + /trades payloads carry the market as
+    ``conditionId`` (camelCase, probed 2026-09-20). The wire DROPS the
+    ``market`` filter for padded condition ids (sports/GAMES form), so the
+    client-side check is the honest defense. ``market`` is read as fallback
+    for test fixtures shaped after the tool's legacy parsing.
+    """
+    wanted = market_id.lower()
+    for key in ("conditionId", "market"):
+        value = row.get(key)
+        if value is not None and str(value).lower() == wanted:
+            return True
+    return False
+
+
 async def get_position_details(
     polymarket_client,
     rate_limiter,
@@ -285,6 +302,11 @@ async def get_position_details(
                 category=EndpointCategory.DATA_API,
             )
 
+        # Client-side market filter (T-0452): the wire DROPS the ``market``
+        # filter for padded condition ids, so the payload can carry rows
+        # from OTHER markets -- keep only genuinely matching rows.
+        positions = [p for p in positions if _position_matches_market(p, market_id)]
+
         if not positions:
             return [types.TextContent(
                 type="text",
@@ -313,6 +335,10 @@ async def get_position_details(
             await _note_http_429(rate_limiter, trade_response, EndpointCategory.DATA_API)
             trade_response.raise_for_status()
             recent_trades = trade_response.json()
+
+        # Client-side market filter (T-0452, same wire drop as above):
+        # keep only trades of the requested market.
+        recent_trades = [t for t in recent_trades if _position_matches_market(t, market_id)]
 
         # Calculate position metrics
         size = float(position.get('size', 0))
