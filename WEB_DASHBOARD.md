@@ -173,6 +173,7 @@ http://localhost:8080
 
 - `GET /api/markets/trending?limit=10` - Get trending markets
 - `GET /api/markets/search?q=query&limit=20` - Search markets
+- `GET /api/markets/closing-soon?limit=20&hours=24` - Get markets closing soon
 - `GET /api/markets/{market_id}` - Get market details
 - `GET /api/markets/{market_id}/analyze` - Analyze market opportunity
 
