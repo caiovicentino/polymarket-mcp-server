@@ -812,6 +812,24 @@ async def get_pnl_summary(
         )]
 
 
+def _trade_matches_market(row: Dict[str, Any], market_id: str) -> bool:
+    """True when the trade row belongs to the requested market.
+
+    The Data API /trades payload carries the market as ``conditionId``
+    (camelCase, probed 2026-09-20); ``market`` is read as fallback for test
+    fixtures shaped after the tool's legacy parsing. The wire DROPS the
+    ``market`` filter for padded condition ids (sports/GAMES form), so the
+    client-side check is the honest defense (farm/T-0456; sibling of
+    T-0452's position helper -- consolidation is a declared follow-up).
+    """
+    wanted = market_id.lower()
+    for key in ("conditionId", "market"):
+        value = row.get(key)
+        if value is not None and str(value).lower() == wanted:
+            return True
+    return False
+
+
 async def get_trade_history(
     polymarket_client,
     rate_limiter,
@@ -869,6 +887,13 @@ async def get_trade_history(
             await _note_http_429(rate_limiter, response, EndpointCategory.DATA_API)
             response.raise_for_status()
             trades = response.json()
+
+        # Client-side market defense: the wire DROPS the ``market`` filter
+        # for padded condition ids, returning unfiltered rows (probed
+        # 2026-09-20) -- filter here so another market's trades are never
+        # rendered under the requested header (farm/T-0456).
+        if market_id:
+            trades = [t for t in trades if _trade_matches_market(t, market_id)]
 
         # Filter by side
         if side != 'BOTH':

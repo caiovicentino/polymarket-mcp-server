@@ -164,6 +164,7 @@ def fake_deps(monkeypatch, routes):
 # ---------------------------------------------------------------------------
 def trade_payload(trade_id, side, price, size, timestamp):
     return {
+        "conditionId": "0xmarket123",  # real /trades key (wire truth 2026-09-20)
         "market_question": "Will the DAO proposal pass?",
         "outcome": "YES",
         "side": side,
