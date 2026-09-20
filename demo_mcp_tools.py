@@ -9,7 +9,6 @@ sys.path.insert(0, 'src')
 
 import asyncio
 import json
-from decimal import Decimal
 
 import httpx
 
