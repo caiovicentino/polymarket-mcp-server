@@ -125,7 +125,9 @@ async def get_all_positions(
                 positions_data = await fetch_all_pages(
                     client,
                     "https://data-api.polymarket.com/positions",
-                    params
+                    params,
+                    rate_limiter=rate_limiter,
+                    category=EndpointCategory.DATA_API,
                 )
 
                 # Cache the result
@@ -278,7 +280,9 @@ async def get_position_details(
             positions = await fetch_all_pages(
                 client,
                 "https://data-api.polymarket.com/positions",
-                params
+                params,
+                rate_limiter=rate_limiter,
+                category=EndpointCategory.DATA_API,
             )
 
         if not positions:
@@ -452,7 +456,9 @@ async def get_portfolio_value(
             positions = await fetch_all_pages(
                 client,
                 "https://data-api.polymarket.com/positions",
-                {"user": config.POLYGON_ADDRESS.lower()}
+                {"user": config.POLYGON_ADDRESS.lower()},
+                rate_limiter=rate_limiter,
+                category=EndpointCategory.DATA_API,
             )
 
         # Get open orders
@@ -607,7 +613,9 @@ async def get_pnl_summary(
             trades = await fetch_all_pages(
                 client,
                 "https://data-api.polymarket.com/trades",
-                params
+                params,
+                rate_limiter=rate_limiter,
+                category=EndpointCategory.DATA_API,
             )
 
         # Fetch current positions for unrealized P&L
@@ -616,7 +624,9 @@ async def get_pnl_summary(
             positions = await fetch_all_pages(
                 client,
                 "https://data-api.polymarket.com/positions",
-                {"user": config.POLYGON_ADDRESS.lower()}
+                {"user": config.POLYGON_ADDRESS.lower()},
+                rate_limiter=rate_limiter,
+                category=EndpointCategory.DATA_API,
             )
 
         # Calculate realized P&L from trades
@@ -1021,7 +1031,9 @@ async def analyze_portfolio_risk(
             positions = await fetch_all_pages(
                 client,
                 "https://data-api.polymarket.com/positions",
-                {"user": config.POLYGON_ADDRESS.lower()}
+                {"user": config.POLYGON_ADDRESS.lower()},
+                rate_limiter=rate_limiter,
+                category=EndpointCategory.DATA_API,
             )
 
         if not positions:
@@ -1259,6 +1271,8 @@ async def suggest_portfolio_actions(
                 client,
                 "https://data-api.polymarket.com/positions",
                 {"user": config.POLYGON_ADDRESS.lower()},
+                rate_limiter=rate_limiter,
+                category=EndpointCategory.DATA_API,
             )
 
         if not positions:

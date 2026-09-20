@@ -447,6 +447,8 @@ class PolymarketClient:
                     client,
                     "https://data-api.polymarket.com/positions",
                     {"user": self.address},
+                    rate_limiter=get_rate_limiter(),
+                    category=EndpointCategory.DATA_API,
                 )
                 return cast(List[Dict[str, Any]], positions)
 
