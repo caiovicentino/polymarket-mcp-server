@@ -195,6 +195,20 @@ The first public release of Polymarket MCP Server - a complete AI-powered tradin
 
 ## [Unreleased]
 
+### Security
+
+- **Web dashboard: DNS rebinding could rewrite the trading safety limits.**
+  The dashboard has no authentication and relied only on its loopback bind,
+  but it answered requests for any `Host`. A malicious page could rebind its
+  own domain to `127.0.0.1` and call `POST /api/config` as same-origin,
+  enabling autonomous trading and raising every limit in `.env`. The dashboard
+  now rejects requests whose `Host` is not loopback, the bound `WEB_HOST` or a
+  name listed in `WEB_ALLOWED_HOSTS` (400), and rejects state-changing requests
+  and WebSocket handshakes whose `Origin` is not one of those hosts (403).
+  **Upgrade note:** if you reach the dashboard through a LAN address, a
+  container hostname or a reverse proxy, add that name to `WEB_ALLOWED_HOSTS`
+  (comma-separated). Reported by Giulliano Amaral.
+
 ### Fixed
 
 - **Safety layer hardened**: `validate_order` now requires an explicit

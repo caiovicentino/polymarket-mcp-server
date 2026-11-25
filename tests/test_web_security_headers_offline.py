@@ -131,10 +131,15 @@ def test_security_headers_present_on_error_response():
 
 
 def test_middleware_registered_once():
-    """len(app.user_middleware) == 1: the module must never re-register the
-    middleware (a duplicate registration would stamp every header twice and
-    double response latency)."""
-    assert len(wa.app.user_middleware) == 1
+    """Each middleware is registered exactly once, with add_security_headers
+    outermost so rejections from TrustedRequestMiddleware also carry the headers
+    (a duplicate registration would stamp every header twice and double
+    response latency)."""
+    registered = [
+        getattr(middleware.kwargs.get("dispatch"), "__name__", middleware.cls.__name__)
+        for middleware in wa.app.user_middleware
+    ]
+    assert registered == ["add_security_headers", "TrustedRequestMiddleware"]
 
 
 def test_pin_content_anchor():

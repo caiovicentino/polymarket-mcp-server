@@ -11,6 +11,8 @@ from pathlib import Path
 
 import pytest
 
+os.environ.setdefault("WEB_ALLOWED_HOSTS", "testserver")
+
 # Test modules that place real orders with a funded wallet. Without credentials
 # they error out at fixture setup, which is what made CI red on every run.
 CREDENTIAL_ONLY_MODULES = {

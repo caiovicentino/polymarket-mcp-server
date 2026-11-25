@@ -9,6 +9,7 @@ Provides web UI for:
 - Subscription management
 """
 import asyncio
+import ipaddress
 import json
 import logging
 import os
@@ -16,6 +17,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, cast
+from urllib.parse import urlsplit
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
@@ -23,6 +25,8 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
+from starlette.datastructures import Headers
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from .. import __version__
 from ..auth import PolymarketClient, create_polymarket_client
@@ -145,6 +149,101 @@ def _derived_tools_available(has_credentials: bool) -> int:
             portfolio_integration.get_portfolio_tool_definitions()
         )
     return total
+
+
+LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+bound_host: Optional[str] = None
+
+
+def _normalize_host(value: str) -> str:
+    """Lowercase a host name and drop IPv6 brackets."""
+    return value.strip().lower().strip("[]")
+
+
+def _host_without_port(authority: str) -> str:
+    """Host part of a Host header value (name, name:port or [v6]:port)."""
+    authority = authority.strip()
+    if authority.startswith("["):
+        return _normalize_host(authority[1:].split("]", 1)[0])
+    if authority.count(":") == 1:
+        authority = authority.split(":", 1)[0]
+    return _normalize_host(authority)
+
+
+def _is_wildcard_bind(host: str) -> bool:
+    """True for an empty host or an unspecified address, which name no single host."""
+    if not host:
+        return True
+    try:
+        return ipaddress.ip_address(host).is_unspecified
+    except ValueError:
+        return False
+
+
+def _allowed_hosts() -> frozenset[str]:
+    """Names the dashboard answers to: loopback, the bound host and WEB_ALLOWED_HOSTS."""
+    configured = [
+        bound_host or "",
+        os.getenv("WEB_HOST", ""),
+        *os.getenv("WEB_ALLOWED_HOSTS", "").split(","),
+    ]
+    extra = (_normalize_host(host) for host in configured)
+    return LOOPBACK_HOSTS | frozenset(host for host in extra if not _is_wildcard_bind(host))
+
+
+def _is_allowed_host(host_header: Optional[str]) -> bool:
+    """True when the Host header names the dashboard itself (blocks DNS rebinding)."""
+    return _host_without_port(host_header or "") in _allowed_hosts()
+
+
+def _is_allowed_origin(origin: Optional[str]) -> bool:
+    """True when Origin is absent (non-browser client) or names an allowed host."""
+    if origin is None:
+        return True
+    try:
+        hostname = urlsplit(origin).hostname
+    except ValueError:
+        return False
+    return hostname is not None and _normalize_host(hostname) in _allowed_hosts()
+
+
+class TrustedRequestMiddleware:
+    """Reject foreign Host headers and cross-origin writes or WebSocket handshakes."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] not in ("http", "websocket"):
+            await self.app(scope, receive, send)
+            return
+
+        headers = Headers(scope=scope)
+        is_websocket = scope["type"] == "websocket"
+        is_write = is_websocket or scope["method"] not in SAFE_METHODS
+        rejection: Optional[JSONResponse] = None
+
+        if not _is_allowed_host(headers.get("host")):
+            rejection = JSONResponse(
+                {
+                    "detail": "Host not allowed. Add it to WEB_ALLOWED_HOSTS to serve "
+                    "the dashboard under this name."
+                },
+                status_code=400,
+            )
+        elif is_write and not _is_allowed_origin(headers.get("origin")):
+            rejection = JSONResponse({"detail": "Cross-origin request rejected"}, status_code=403)
+
+        if rejection is None:
+            await self.app(scope, receive, send)
+        elif is_websocket:
+            await send({"type": "websocket.close", "code": 1008})
+        else:
+            await rejection(scope, receive, send)
+
+
+app.add_middleware(TrustedRequestMiddleware)
 
 
 @app.middleware("http")
@@ -636,6 +735,9 @@ def start(host: str | None = None, port: int | None = None):
     """
     host = cast(str, host or os.getenv("WEB_HOST", "127.0.0.1"))
     port = port or int(os.getenv("WEB_PORT", "8080"))
+
+    global bound_host
+    bound_host = host
 
     if host not in ("127.0.0.1", "localhost", "::1"):
         logger.warning(
