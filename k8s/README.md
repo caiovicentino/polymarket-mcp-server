@@ -255,7 +255,7 @@ kubectl get secret polymarket-mcp-secrets -o yaml
 ```bash
 # Update image
 kubectl set image deployment/polymarket-mcp \
-  polymarket-mcp=your-registry/polymarket-mcp:v0.2.0
+  polymarket-mcp=your-registry/polymarket-mcp:v0.3.0
 
 # Or edit deployment
 kubectl edit deployment polymarket-mcp
