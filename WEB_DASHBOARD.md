@@ -153,7 +153,7 @@ if __name__ == "__main__":
     start(host="localhost", port=3000)
 ```
 
-If you reach the dashboard under any other name (a LAN address behind `WEB_HOST=0.0.0.0`, a container hostname, a reverse proxy), list it in `WEB_ALLOWED_HOSTS` (comma-separated, without port), for example `WEB_ALLOWED_HOSTS=dashboard.internal,192.168.1.50`. Requests for any other `Host` get a 400.
+If you reach the dashboard under any other name (a LAN address behind `WEB_HOST=0.0.0.0`, a container hostname, a reverse proxy), list it in `WEB_ALLOWED_HOSTS` (comma-separated, without port), for example `WEB_ALLOWED_HOSTS=dashboard.internal,192.168.1.50`. Requests for any other `Host` get a 400. State-changing requests and WebSocket handshakes must also come from the same port as the request's `Host` header, so a reverse proxy has to forward the original `Host` header.
 
 ### Accessing the Dashboard
 
@@ -285,7 +285,7 @@ Message types:
 
 - **CORS**: Currently allows all origins for development
 - **Authentication**: None (local development only)
-- **Host and Origin validation**: requests are served only when the `Host` header is loopback (`127.0.0.1`, `localhost`, `::1`), the bound `WEB_HOST`, or a name listed in `WEB_ALLOWED_HOSTS`; state-changing requests and WebSocket handshakes must also come from one of those origins. This blocks DNS rebinding and cross-site requests against the unauthenticated API
+- **Host and Origin validation**: requests are served only when the `Host` header is loopback (`127.0.0.1`, `localhost`, `::1`), the bound `WEB_HOST`, or a name listed in `WEB_ALLOWED_HOSTS`; state-changing requests and WebSocket handshakes must also come from one of those origins, on the same port as the request. This blocks DNS rebinding and cross-site requests against the unauthenticated API
 - **Credentials**: Never sent to client-side
 - **Rate Limiting**: Not implemented
 - **Input Validation**: Pydantic models on backend

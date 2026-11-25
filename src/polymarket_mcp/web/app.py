@@ -153,6 +153,7 @@ def _derived_tools_available(has_credentials: bool) -> int:
 
 LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+DEFAULT_PORTS = {"http": 80, "https": 443}
 bound_host: Optional[str] = None
 
 
@@ -197,15 +198,29 @@ def _is_allowed_host(host_header: Optional[str]) -> bool:
     return _host_without_port(host_header or "") in _allowed_hosts()
 
 
-def _is_allowed_origin(origin: Optional[str]) -> bool:
-    """True when Origin is absent (non-browser client) or names an allowed host."""
+def _port_of(authority: str, default_port: Optional[int]) -> Optional[int]:
+    """Port named by a Host header value, or the default one when it names none."""
+    try:
+        port = urlsplit(f"//{authority.strip()}").port
+    except ValueError:
+        return None
+    return default_port if port is None else port
+
+
+def _is_allowed_origin(origin: Optional[str], host_header: Optional[str]) -> bool:
+    """True when Origin is absent (non-browser client) or is an allowed host on the request's port."""
     if origin is None:
         return True
     try:
-        hostname = urlsplit(origin).hostname
+        parts = urlsplit(origin)
+        hostname, origin_port = parts.hostname, parts.port
     except ValueError:
         return False
-    return hostname is not None and _normalize_host(hostname) in _allowed_hosts()
+    if hostname is None or _normalize_host(hostname) not in _allowed_hosts():
+        return False
+    default_port = DEFAULT_PORTS.get(parts.scheme)
+    port = default_port if origin_port is None else origin_port
+    return port is not None and port == _port_of(host_header or "", default_port)
 
 
 class TrustedRequestMiddleware:
@@ -232,7 +247,7 @@ class TrustedRequestMiddleware:
                 },
                 status_code=400,
             )
-        elif is_write and not _is_allowed_origin(headers.get("origin")):
+        elif is_write and not _is_allowed_origin(headers.get("origin"), headers.get("host")):
             rejection = JSONResponse({"detail": "Cross-origin request rejected"}, status_code=403)
 
         if rejection is None:
