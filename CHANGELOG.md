@@ -195,6 +195,8 @@ The first public release of Polymarket MCP Server - a complete AI-powered tradin
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-25
+
 ### Security
 
 - **Web dashboard: DNS rebinding could rewrite the trading safety limits.**

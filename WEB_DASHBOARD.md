@@ -564,7 +564,7 @@ Contributions welcome! Please:
 
 ---
 
-**Dashboard Version**: 0.2.0
+**Dashboard Version**: 0.3.0
 **Last Updated**: January 2025
 **Built with**: FastAPI, Vanilla JS, Chart.js
 **Data source**: live Polymarket API (read-only) when connected

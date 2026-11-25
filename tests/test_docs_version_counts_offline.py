@@ -1,4 +1,4 @@
-"""Offline suite: root docs carry the CURRENT version (0.2.0) and no volatile counts.
+"""Offline suite: root docs carry the CURRENT package version and no volatile counts.
 
 Bug (pre-fix, proven by curator probes on main b240bb9 -- sim/c66-preflight
 @556d38d): four root docs advertised the STALE version 0.1.0 while the package
@@ -44,6 +44,8 @@ House rules applied:
 
 import re
 from pathlib import Path
+
+from polymarket_mcp import __version__
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -106,26 +108,26 @@ def _install_table(text: str) -> str:
 
 
 def test_no_stale_version_010_in_four_docs() -> None:
-    """L-0056 pair per doc: stale 0.1.0 ABSENT and current 0.2.0 PRESENT."""
+    """L-0056 pair per doc: stale 0.1.0 ABSENT and the current version PRESENT."""
     for doc in _VERSIONED_DOCS:
         text = doc.read_text(encoding="utf-8")
         assert "0.1.0" not in text, f"stale version 0.1.0 still in {doc.name}"
-        assert "0.2.0" in text, f"current version 0.2.0 missing in {doc.name}"
+        assert __version__ in text, f"current version {__version__} missing in {doc.name}"
 
 
 def test_docker_summary_tag_instructions_current() -> None:
-    """Release instructions tag v0.2.0 (L-0056 pair: v0.1.0 gone, v0.2.0 in)."""
+    """Release instructions tag the current version (L-0056 pair: v0.1.0 gone)."""
     text = _docker_text()
-    assert "git tag v0.2.0" in text
-    assert "git push origin v0.2.0" in text
+    assert f"git tag v{__version__}" in text
+    assert f"git push origin v{__version__}" in text
     assert "git tag v0.1.0" not in text
     assert "git push origin v0.1.0" not in text
 
 
 def test_project_complete_version_current() -> None:
-    """Version bumped to v0.2.0 with the qualitative suffix preserved."""
+    """Current version shown with the qualitative suffix preserved."""
     text = _project_text()
-    assert "v0.2.0 (com melhorias massivas)" in text
+    assert f"v{__version__} (com melhorias massivas)" in text
     assert "v0.1.0" not in text
 
 

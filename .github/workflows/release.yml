@@ -165,20 +165,7 @@ jobs:
         ## Installation
 
         \`\`\`bash
-        pip install polymarket-mcp
-        \`\`\`
-
-        Or use the MCP installer:
-
-        \`\`\`bash
-        # Install in Claude Desktop
-        uvx mcp install polymarket-mcp
-        \`\`\`
-
-        ## Docker
-
-        \`\`\`bash
-        docker pull polymarket-mcp:${GITHUB_REF#refs/tags/v}
+        pip install "git+https://github.com/${{ github.repository }}.git@${GITHUB_REF#refs/tags/}"
         \`\`\`
 
         ## What's New

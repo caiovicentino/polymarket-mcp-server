@@ -10,4 +10,4 @@ Provides tools and resources for:
 
 # Single source of truth for the version: pyproject reads it from here via
 # hatch, and the server and dashboard import it. Bump only this line.
-__version__ = "0.2.0"
+__version__ = "0.3.0"
