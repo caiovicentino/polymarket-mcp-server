@@ -142,6 +142,54 @@ def test_same_origin_write_reaches_the_route(loopback_client, headers):
     assert response.status_code == 422
 
 
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "http://127.0.0.1:3000",
+        "http://localhost:9000",
+        "http://127.0.0.1",
+        "https://127.0.0.1",
+        "http://127.0.0.1:notaport",
+        "ftp://127.0.0.1",
+    ],
+)
+def test_write_from_another_port_is_rejected(loopback_client, isolated_dashboard, origin):
+    response = loopback_client.post(
+        "/api/config", json=MALICIOUS_PAYLOAD, headers={"Origin": origin}
+    )
+
+    assert response.status_code == 403
+    assert isolated_dashboard.read_text(encoding="utf-8") == ENV_BEFORE
+
+
+@pytest.mark.parametrize("origin", ["http://localhost:8080", "http://[::1]:8080"])
+def test_loopback_alias_on_the_same_port_reaches_the_route(loopback_client, origin):
+    response = loopback_client.post("/api/config", json={}, headers={"Origin": origin})
+
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    ("origin", "status_code"),
+    [
+        ("https://dashboard.internal", 422),
+        ("https://dashboard.internal:443", 422),
+        ("http://dashboard.internal", 422),
+        ("https://dashboard.internal:8443", 403),
+    ],
+)
+def test_default_port_is_implied_when_host_names_none(
+    loopback_client, monkeypatch, origin, status_code
+):
+    monkeypatch.setenv("WEB_ALLOWED_HOSTS", "dashboard.internal")
+
+    response = loopback_client.post(
+        "/api/config", json={}, headers={"Host": "dashboard.internal", "Origin": origin}
+    )
+
+    assert response.status_code == status_code
+
+
 def test_extra_host_is_opt_in(loopback_client, monkeypatch):
     headers = {"Host": "dashboard.internal:8080"}
 
@@ -181,6 +229,7 @@ def test_start_records_the_bound_host(monkeypatch):
     [
         {"Host": ATTACKER_HOST, "Origin": ATTACKER_ORIGIN},
         {"Host": LOOPBACK_HOST, "Origin": "https://attacker.example"},
+        {"Host": LOOPBACK_HOST, "Origin": "http://127.0.0.1:3000"},
     ],
 )
 def test_websocket_rejects_foreign_host_and_origin(loopback_client, headers):

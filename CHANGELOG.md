@@ -208,6 +208,13 @@ The first public release of Polymarket MCP Server - a complete AI-powered tradin
   **Upgrade note:** if you reach the dashboard through a LAN address, a
   container hostname or a reverse proxy, add that name to `WEB_ALLOWED_HOSTS`
   (comma-separated). Reported by Giulliano Amaral.
+- **Web dashboard: the `Origin` check now also compares the port.** A page
+  served by another local service (same host, different port) could still send
+  state-changing requests to the dashboard, because only the host name of
+  `Origin` was checked. Writes and WebSocket handshakes are now rejected (403)
+  unless the `Origin` port matches the port of the request's `Host` header.
+  **Upgrade note:** a reverse proxy in front of the dashboard must forward the
+  original `Host` header. Suggested by Giulliano Amaral.
 
 ### Fixed
 
